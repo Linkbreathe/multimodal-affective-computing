@@ -69,3 +69,21 @@ def test_load_vad_labels(label_loader):
     assert "valence_score" in manifest.columns
     assert "arousal_score" in manifest.columns
     assert "dominance_score" in manifest.columns
+
+
+from src.data.label_builder import build_label_mapping
+
+def test_build_label_mapping():
+    mapping = build_label_mapping(
+        data_dir="data/egoemotion_raw",
+        task_times_path="data/egoemotion_raw/task_times.npy",
+    )
+    assert len(mapping) > 0
+    sample_key = list(mapping.keys())[0]
+    assert "_" in sample_key
+    sample = mapping[sample_key]
+    assert "emotion_label" in sample
+    assert "soft_label" in sample
+    assert "vad" in sample
+    assert sample["soft_label"].shape == (9,)
+    assert sample["vad"].shape == (3,)
