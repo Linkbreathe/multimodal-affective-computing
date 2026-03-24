@@ -69,8 +69,16 @@ class PatchTSTEncoder(BaseEncoder):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         patches, B, C, num_patches = self._create_patches(x)
         h = self.patch_proj(patches)  # [B*C, num_patches, d_model]
+
+        # Add positional embedding
         pos = self.pos_embed[:, :num_patches, :]
         h = h + pos
+
+        # Add channel embedding so transformer can distinguish gaze_x/y, pupil_L/R
+        # channel_ids: [B*C] where each group of C has ids [0, 1, ..., C-1]
+        channel_ids = torch.arange(C, device=x.device).repeat(B)  # [B*C]
+        h = h + self.channel_embed(channel_ids).unsqueeze(1)  # broadcast [B*C, 1, d_model]
+
         h = self.transformer(h)
         h = self.norm(h)
         h = h.view(B, C, num_patches, -1)

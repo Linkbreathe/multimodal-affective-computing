@@ -12,7 +12,7 @@ def test_base_encoder_is_abstract():
 def test_registry_from_config():
     config = {
         "video": {"encoder": "VideoMAEV2", "embed_dim": 768, "enabled": True},
-        "ppg": {"encoder": "Papagei", "embed_dim": 768, "enabled": True},
+        "ppg": {"encoder": "Papagei", "embed_dim": 512, "enabled": True},
         "eye_tracking": {"encoder": "PatchTST", "embed_dim": 128, "enabled": False},
     }
     registry = ModalityRegistry(config)
@@ -25,11 +25,11 @@ def test_registry_from_config():
 def test_registry_embed_dims():
     config = {
         "video": {"encoder": "VideoMAEV2", "embed_dim": 768, "enabled": True},
-        "ppg": {"encoder": "Papagei", "embed_dim": 768, "enabled": True},
+        "ppg": {"encoder": "Papagei", "embed_dim": 512, "enabled": True},
     }
     registry = ModalityRegistry(config)
     assert registry.get_embed_dim("video") == 768
-    assert registry.get_embed_dim("ppg") == 768
+    assert registry.get_embed_dim("ppg") == 512
 
 
 def test_registry_get_all_embed_dims():
@@ -92,7 +92,7 @@ from src.encoders.papagei import PapageiEncoder
 
 def test_papagei_loads():
     encoder = PapageiEncoder()
-    assert encoder.embed_dim == 768
+    assert encoder.embed_dim == 512
 
 
 def test_papagei_forward_shape():
@@ -101,8 +101,7 @@ def test_papagei_forward_shape():
     x = torch.randn(2, 1250, 1)  # 10s of PPG at 125Hz
     with torch.no_grad():
         out = encoder(x)
-    assert out.shape[0] == 2
-    assert out.shape[-1] == 768
+    assert out.shape == (2, 512)
 
 
 from src.encoders.extract import EmbeddingExtractor
