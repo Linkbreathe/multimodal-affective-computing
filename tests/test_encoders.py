@@ -103,3 +103,34 @@ def test_papagei_forward_shape():
         out = encoder(x)
     assert out.shape[0] == 2
     assert out.shape[-1] == 768
+
+
+from src.encoders.extract import EmbeddingExtractor
+
+
+def test_embedding_cache_structure(tmp_path):
+    extractor = EmbeddingExtractor(
+        data_dir="data/egoemotion_raw",
+        output_dir=str(tmp_path / "embeddings"),
+        task_times_path="data/egoemotion_raw/task_times.npy",
+    )
+    path = extractor.get_cache_path("video_mae_v2", "005", 0)
+    assert "video_mae_v2" in str(path)
+    assert "005" in str(path)
+    assert "segment_0000" in str(path)
+
+
+def test_embedding_save_load(tmp_path):
+    extractor = EmbeddingExtractor(
+        data_dir="data/egoemotion_raw",
+        output_dir=str(tmp_path / "embeddings"),
+        task_times_path="data/egoemotion_raw/task_times.npy",
+    )
+    emb = torch.randn(5, 768)
+    meta = {"task_name": "test", "subject_id": "005"}
+    extractor.save_embedding("test_enc", "005", 0, emb, meta, config_hash="abc123")
+    assert extractor.is_cached("test_enc", "005", 0)
+
+    loaded = extractor.load_embedding("test_enc", "005", 0)
+    assert torch.allclose(loaded["embedding"], emb)
+    assert loaded["config_hash"] == "abc123"

@@ -1,0 +1,159 @@
+"""CLI for extracting and caching encoder embeddings."""
+from __future__ import annotations
+
+import argparse
+import logging
+
+import numpy as np
+import torch
+import cv2
+
+from src.encoders.extract import EmbeddingExtractor
+from src.utils.config import load_config
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+log = logging.getLogger(__name__)
+
+# ImageNet normalization
+IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
+IMAGENET_STD = np.array([0.229, 0.224, 0.225])
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--encoder", choices=["video_mae_v2", "patchtst_eye", "papagei_ppg", "all"])
+    parser.add_argument("--device", default="cuda")
+    args = parser.parse_args()
+
+    cfg = load_config(args.config)
+    extractor = EmbeddingExtractor(
+        data_dir=cfg["data_dir"],
+        output_dir=cfg["embeddings_dir"],
+        task_times_path=f"{cfg['data_dir']}/task_times.npy",
+    )
+
+    device = args.device if torch.cuda.is_available() else "cpu"
+    encoders_to_run = (
+        ["video_mae_v2", "patchtst_eye", "papagei_ppg"]
+        if args.encoder == "all"
+        else [args.encoder]
+    )
+
+    for enc_name in encoders_to_run:
+        log.info(f"Extracting: {enc_name}")
+        if enc_name == "video_mae_v2":
+            _extract_video(extractor, device)
+        elif enc_name == "patchtst_eye":
+            _extract_eye_tracking(extractor, cfg, device)
+        elif enc_name == "papagei_ppg":
+            _extract_ppg(extractor, device)
+
+
+def _extract_video(extractor: EmbeddingExtractor, device: str) -> None:
+    from src.encoders.video_mae import VideoMAEV2Encoder
+
+    encoder = VideoMAEV2Encoder().to(device)
+
+    def encode_fn(subject_id: str, segment: dict) -> torch.Tensor:
+        video_path = f"{extractor.segment_extractor.data_dir}/{subject_id}/pov.mp4"
+        start_sec = segment["start_idx"] / 90.0
+        end_sec = segment["end_idx"] / 90.0
+        cap = cv2.VideoCapture(str(video_path))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        start_frame = int(start_sec * fps)
+        end_frame = int(end_sec * fps)
+        frames = []
+        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+        for _ in range(end_frame - start_frame):
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame = cv2.resize(frame, (224, 224))
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frames.append(frame)
+        cap.release()
+
+        if len(frames) < 16:
+            while len(frames) < 16:
+                frames.append(frames[-1] if frames else np.zeros((224, 224, 3), dtype=np.uint8))
+
+        frames_arr = np.stack(frames)
+        clips = []
+        for i in range(0, len(frames_arr) - 15, 16):
+            clip = frames_arr[i : i + 16].astype(np.float32) / 255.0
+            clip = (clip - IMAGENET_MEAN) / IMAGENET_STD
+            clip = torch.tensor(clip, dtype=torch.float32).permute(3, 0, 1, 2)
+            clips.append(clip)
+
+        if not clips:
+            clips.append(torch.zeros(3, 16, 224, 224))
+
+        clip_batch = torch.stack(clips).to(device)
+        embeddings = []
+        with torch.no_grad():
+            for clip in clip_batch:
+                emb = encoder(clip.unsqueeze(0))
+                embeddings.append(emb)
+        return torch.cat(embeddings, dim=0)
+
+    extractor.extract_all("video_mae_v2", encode_fn, device)
+
+
+def _extract_eye_tracking(
+    extractor: EmbeddingExtractor, cfg: dict, device: str
+) -> None:
+    from src.encoders.patchtst import PatchTSTEncoder
+    import os
+
+    encoder = PatchTSTEncoder(
+        num_channels=4, patch_len=45, stride=22,
+        d_model=128, n_heads=4, n_layers=3, seq_len=900,
+    ).to(device)
+
+    pretrained_path = "checkpoints/patchtst_pretrained.pt"
+    if os.path.exists(pretrained_path):
+        encoder.load_state_dict(torch.load(pretrained_path, weights_only=True))
+        log.info(f"Loaded pre-trained PatchTST from {pretrained_path}")
+    encoder.freeze()
+
+    def encode_fn(subject_id: str, segment: dict) -> torch.Tensor:
+        eye_data = extractor.segment_extractor.load_eye_tracking_segment(
+            subject_id, segment["start_idx"], segment["end_idx"]
+        )
+        x = torch.tensor(eye_data, dtype=torch.float32)
+        seq_len = 900
+        chunks = []
+        for i in range(0, len(x) - seq_len + 1, seq_len // 2):
+            chunks.append(x[i : i + seq_len])
+        if not chunks:
+            padded = torch.zeros(seq_len, 4)
+            padded[: len(x)] = x
+            chunks.append(padded)
+
+        batch = torch.stack(chunks).to(device)
+        with torch.no_grad():
+            embeddings = encoder(batch)
+        return embeddings.reshape(-1, 128)
+
+    extractor.extract_all("patchtst_eye", encode_fn, device)
+
+
+def _extract_ppg(extractor: EmbeddingExtractor, device: str) -> None:
+    from src.encoders.papagei import PapageiEncoder
+
+    encoder = PapageiEncoder().to(device)
+
+    def encode_fn(subject_id: str, segment: dict) -> torch.Tensor:
+        ppg = extractor.segment_extractor.load_ppg_segment(
+            subject_id, segment["start_idx"], segment["end_idx"]
+        )
+        x = torch.tensor(ppg, dtype=torch.float32).unsqueeze(0).to(device)
+        with torch.no_grad():
+            return encoder(x)
+
+    extractor.extract_all("papagei_ppg", encode_fn, device)
+
+
+if __name__ == "__main__":
+    main()
