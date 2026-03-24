@@ -42,3 +42,30 @@ def test_get_segment_data_ppg(extractor):
     ppg = extractor.load_ppg_segment("005", seg["start_idx"], seg["end_idx"])
     assert ppg.ndim == 2
     assert ppg.shape[1] == 1
+
+
+from src.data.segments import LabelLoader
+import pandas as pd
+
+@pytest.fixture
+def label_loader():
+    return LabelLoader(data_dir="data/egoemotion_raw")
+
+def test_load_hard_labels(label_loader):
+    manifest = label_loader.load_ce_manifest()
+    assert len(manifest) > 0
+    assert "subject" in manifest.columns
+    assert "emotion" in manifest.columns
+    assert "label" in manifest.columns
+
+def test_load_soft_labels(label_loader):
+    manifest = label_loader.load_kl_manifest()
+    emotions = ["Amused", "Content", "Excited", "Awe", "Neutral", "Fear", "Sad", "Disgust", "Anger"]
+    for e in emotions:
+        assert e in manifest.columns
+
+def test_load_vad_labels(label_loader):
+    manifest = label_loader.load_vad_manifest()
+    assert "valence_score" in manifest.columns
+    assert "arousal_score" in manifest.columns
+    assert "dominance_score" in manifest.columns
