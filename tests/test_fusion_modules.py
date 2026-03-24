@@ -79,3 +79,44 @@ def test_late_fusion_weighted():
     embeddings = [torch.randn(4, 256) for _ in range(3)]
     out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
     assert out.shape == (4, 256)
+
+
+# --- Perceiver IO Fusion Tests ---
+
+from src.fusion.perceiver_io import PerceiverIOFusion
+
+def test_perceiver_io_pooled():
+    fusion = PerceiverIOFusion(d_common=256, n_latents=32, n_layers=2, n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+def test_perceiver_io_sequential():
+    fusion = PerceiverIOFusion(d_common=256, n_latents=32, n_layers=2, n_heads=4)
+    embeddings = [torch.randn(4, 10, 256), torch.randn(4, 20, 256), torch.randn(4, 1, 256)]
+    masks = [torch.ones(4, 10, dtype=torch.bool), torch.ones(4, 20, dtype=torch.bool), torch.ones(4, 1, dtype=torch.bool)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"], masks=masks)
+    assert out.shape == (4, 256)
+
+
+# --- Q-Former Fusion Tests ---
+
+try:
+    from src.fusion.qformer import QFormerFusion
+except ImportError:
+    QFormerFusion = None
+
+@pytest.mark.skipif(QFormerFusion is None, reason="src.fusion.qformer not yet implemented")
+def test_qformer_pooled():
+    fusion = QFormerFusion(d_common=256, n_queries=16, n_layers=2, n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+@pytest.mark.skipif(QFormerFusion is None, reason="src.fusion.qformer not yet implemented")
+def test_qformer_sequential():
+    fusion = QFormerFusion(d_common=256, n_queries=16, n_layers=2, n_heads=4)
+    embeddings = [torch.randn(4, 10, 256), torch.randn(4, 20, 256)]
+    masks = [torch.ones(4, 10, dtype=torch.bool), torch.ones(4, 20, dtype=torch.bool)]
+    out = fusion(embeddings, modality_ids=["video", "eye"], masks=masks)
+    assert out.shape == (4, 256)
