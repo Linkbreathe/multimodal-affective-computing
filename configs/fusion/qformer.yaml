@@ -1,0 +1,12 @@
+fusion_type: qformer
+fusion:
+  d_common: 256
+  qformer:
+    n_queries: 16
+    d_query: 256
+    n_layers: 2
+    n_heads: 4
+    dropout: 0.1
+training:
+  lr: 1e-4
+  max_epochs: 100
