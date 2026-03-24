@@ -2,6 +2,7 @@ import pytest
 import torch
 from src.fusion.base import BaseFusionModule
 from src.fusion.projector import ModalityProjector
+from src.fusion.early import EarlyFusion
 
 def test_base_fusion_is_abstract():
     with pytest.raises(TypeError):
@@ -29,3 +30,52 @@ def test_projector_sequential():
     outputs = proj(inputs)
     assert outputs["video"].shape == (4, 10, 256)
     assert outputs["eye"].shape == (4, 20, 256)
+
+def test_early_fusion_shape():
+    fusion = EarlyFusion(d_common=256, num_modalities=3, dropout=0.1)
+    embeddings = [torch.randn(4, 256) for _ in range(3)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+def test_early_fusion_variable_modalities():
+    fusion = EarlyFusion(d_common=256, num_modalities=2, dropout=0.1)
+    embeddings = [torch.randn(4, 256) for _ in range(2)]
+    out = fusion(embeddings, modality_ids=["video", "ppg"])
+    assert out.shape == (4, 256)
+
+
+# --- Mid Fusion Tests ---
+
+try:
+    from src.fusion.mid import MidFusion
+except ImportError:
+    MidFusion = None
+
+@pytest.mark.skipif(MidFusion is None, reason="src.fusion.mid not yet implemented")
+def test_mid_fusion_shape():
+    fusion = MidFusion(d_common=256, modality_ids=["video", "eye", "ppg"], dropout=0.1)
+    embeddings = [torch.randn(4, 256) for _ in range(3)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+
+# --- Late Fusion Tests ---
+
+try:
+    from src.fusion.late import LateFusion
+except ImportError:
+    LateFusion = None
+
+@pytest.mark.skipif(LateFusion is None, reason="src.fusion.late not yet implemented")
+def test_late_fusion_avg():
+    fusion = LateFusion(d_common=256, num_modalities=3, mode="average")
+    embeddings = [torch.randn(4, 256) for _ in range(3)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+@pytest.mark.skipif(LateFusion is None, reason="src.fusion.late not yet implemented")
+def test_late_fusion_weighted():
+    fusion = LateFusion(d_common=256, num_modalities=3, mode="weighted")
+    embeddings = [torch.randn(4, 256) for _ in range(3)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
