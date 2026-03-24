@@ -85,3 +85,21 @@ def test_patchtst_mean_pool():
     out = encoder(x)
     pooled = out.mean(dim=1)
     assert pooled.shape == (2, 128)
+
+
+from src.encoders.papagei import PapageiEncoder
+
+
+def test_papagei_loads():
+    encoder = PapageiEncoder()
+    assert encoder.embed_dim == 768
+
+
+def test_papagei_forward_shape():
+    encoder = PapageiEncoder()
+    encoder.freeze()
+    x = torch.randn(2, 1250, 1)  # 10s of PPG at 125Hz
+    with torch.no_grad():
+        out = encoder(x)
+    assert out.shape[0] == 2
+    assert out.shape[-1] == 768
