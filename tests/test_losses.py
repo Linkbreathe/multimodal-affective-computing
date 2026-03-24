@@ -61,3 +61,14 @@ def test_multitask_loss():
     assert "ce" in breakdown
     assert "kl" in breakdown
     assert "vad" in breakdown
+
+
+from src.tasks.heads import MultiTaskHead
+
+def test_multitask_head_shapes():
+    head = MultiTaskHead(d_fused=256, num_emotions=9, num_vad=3)
+    x = torch.randn(4, 256)
+    outputs = head(x)
+    assert outputs["emotion_logits"].shape == (4, 9)
+    assert outputs["soft_logits"].shape == (4, 9)
+    assert outputs["vad_pred"].shape == (4, 3)
