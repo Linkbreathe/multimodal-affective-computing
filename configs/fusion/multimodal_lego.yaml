@@ -1,0 +1,10 @@
+fusion_type: multimodal_lego
+fusion:
+  d_common: 256
+  lego:
+    topology: "pairwise"
+    n_heads: 4
+    dropout: 0.1
+training:
+  lr: 1e-4
+  max_epochs: 100
