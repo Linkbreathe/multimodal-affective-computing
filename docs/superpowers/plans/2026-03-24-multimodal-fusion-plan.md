@@ -422,18 +422,28 @@ class LabelLoader:
 
     def __init__(self, data_dir: str) -> None:
         self.data_dir = Path(data_dir)
+        # Cache loaded DataFrames to avoid repeated CSV reads
+        self._ce_cache: pd.DataFrame | None = None
+        self._kl_cache: pd.DataFrame | None = None
+        self._vad_cache: pd.DataFrame | None = None
 
     def load_ce_manifest(self) -> pd.DataFrame:
-        path = self.data_dir / "ce_hardlabel_manifests" / "dataset_manifest.csv"
-        return pd.read_csv(path)
+        if self._ce_cache is None:
+            path = self.data_dir / "ce_hardlabel_manifests" / "dataset_manifest.csv"
+            self._ce_cache = pd.read_csv(path)
+        return self._ce_cache
 
     def load_kl_manifest(self) -> pd.DataFrame:
-        path = self.data_dir / "kl_softlabel_manifests" / "dataset_manifest.csv"
-        return pd.read_csv(path)
+        if self._kl_cache is None:
+            path = self.data_dir / "kl_softlabel_manifests" / "dataset_manifest.csv"
+            self._kl_cache = pd.read_csv(path)
+        return self._kl_cache
 
     def load_vad_manifest(self) -> pd.DataFrame:
-        path = self.data_dir / "vad_binary_quadrant_manifests" / "dataset_manifest.csv"
-        return pd.read_csv(path)
+        if self._vad_cache is None:
+            path = self.data_dir / "vad_binary_quadrant_manifests" / "dataset_manifest.csv"
+            self._vad_cache = pd.read_csv(path)
+        return self._vad_cache
 
     def get_segment_labels(
         self, subject_id: str, task_name: str
@@ -1297,9 +1307,9 @@ class PatchTSTPreTrainer:
         self.mask_ratio = mask_ratio
         self.device = device
         # Learnable mask token (replaces masked patch embeddings)
-        self.mask_token = nn.Parameter(
-            torch.randn(1, 1, encoder.embed_dim) * 0.02
-        ).to(device)
+        # Note: mask_token is a plain tensor with requires_grad=True (not nn.Module)
+        self.mask_token = torch.randn(1, 1, encoder.embed_dim, device=device) * 0.02
+        self.mask_token.requires_grad_(True)
         # Prediction head for masked patches
         self.pred_head = nn.Linear(
             encoder.embed_dim, encoder.patch_len
@@ -1672,6 +1682,7 @@ class EmbeddingExtractor:
         encoder_name: str,
         encode_fn: callable,
         device: str = "cuda",
+        config_hash: str = "",
     ) -> None:
         """Extract embeddings for all subjects and segments.
 
@@ -1679,7 +1690,14 @@ class EmbeddingExtractor:
             encoder_name: Name for cache directory (e.g., 'video_mae_v2')
             encode_fn: Function(subject_id, segment) -> torch.Tensor
             device: Torch device
+            config_hash: Hash of encoder config for cache invalidation
         """
+        # Validate existing cache
+        if self.validate_cache(encoder_name, config_hash):
+            log.info(f"Cache valid for {encoder_name} (hash={config_hash})")
+        else:
+            log.info(f"Cache invalid/missing for {encoder_name}, re-extracting")
+
         subjects = self.segment_extractor.get_subject_ids()
         for subj in tqdm(subjects, desc=f"Extracting {encoder_name}"):
             segments = self.segment_extractor.get_segments(subj)
@@ -1692,6 +1710,7 @@ class EmbeddingExtractor:
                         encoder_name, subj, idx,
                         embedding.cpu(),
                         metadata=seg,
+                        config_hash=config_hash,
                     )
                 except Exception as e:
                     log.warning(f"Failed {encoder_name}/{subj}/seg_{idx}: {e}")
@@ -2052,6 +2071,32 @@ def test_dataset_getitem(mock_embeddings):
     assert "embeddings" in sample
     assert "subject_id" in sample
     assert len(sample["embeddings"]) == 3  # 3 modalities
+
+def test_dataset_with_labels(mock_embeddings):
+    """Test that labels are correctly looked up by zero-padded key."""
+    labels = {
+        "005_0000": {
+            "emotion_label": torch.tensor(2, dtype=torch.long),
+            "soft_label": torch.softmax(torch.randn(9), dim=0),
+            "vad": torch.randn(3),
+        },
+        "005_0001": {
+            "emotion_label": torch.tensor(5, dtype=torch.long),
+            "soft_label": torch.softmax(torch.randn(9), dim=0),
+            "vad": torch.randn(3),
+        },
+    }
+    ds = EmbeddingDataset(
+        embeddings_dir=str(mock_embeddings),
+        modalities=["video_mae_v2", "patchtst_eye", "papagei_ppg"],
+        subject_ids=["005"],
+        labels=labels,
+    )
+    sample = ds[0]
+    assert "labels" in sample
+    assert sample["labels"]["emotion_label"].item() == 2
+    assert sample["labels"]["soft_label"].shape == (9,)
+    assert sample["labels"]["vad"].shape == (3,)
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -2134,7 +2179,7 @@ class EmbeddingDataset(Dataset):
         }
 
         # Add labels if available
-        key = f"{subject_id}_{seg_idx}"
+        key = f"{subject_id}_{seg_idx:04d}"
         if key in self.labels:
             sample["labels"] = self.labels[key]
 
