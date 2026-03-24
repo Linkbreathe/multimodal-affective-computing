@@ -1,0 +1,44 @@
+seed: 42
+data_dir: "data/egoemotion_raw"
+embeddings_dir: "data/embeddings"
+ref_data_dir: "/mnt/c/Users/Public/Data/egoEMOTION/egoEMOTION"
+
+modalities:
+  video:
+    encoder: VideoMAEV2
+    embed_dim: 768
+    enabled: true
+  eye_tracking:
+    encoder: PatchTST
+    embed_dim: 128
+    enabled: true
+  ppg:
+    encoder: Papagei
+    embed_dim: 768
+    enabled: true
+
+fusion:
+  d_common: 256
+  dropout: 0.1
+
+training:
+  batch_size: 64
+  lr: 1e-4
+  max_epochs: 100
+  patience: 10
+  num_workers: 4
+
+loss_weights:
+  ce: 1.0
+  kl: 1.0
+  vad: 1.0
+
+eval:
+  primary_metric: "weighted_f1"
+  loso: true
+
+logging:
+  tensorboard_dir: "runs"
+  log_dir: "logs"
+  report_dir: "reports"
+  checkpoint_dir: "checkpoints"
