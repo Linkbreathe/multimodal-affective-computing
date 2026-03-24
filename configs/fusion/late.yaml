@@ -1,0 +1,8 @@
+fusion_type: late
+fusion:
+  d_common: 256
+  dropout: 0.1
+  mode: "weighted"
+training:
+  lr: 1e-4
+  max_epochs: 100
