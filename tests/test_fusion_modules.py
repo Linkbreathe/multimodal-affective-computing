@@ -120,3 +120,54 @@ def test_qformer_sequential():
     masks = [torch.ones(4, 10, dtype=torch.bool), torch.ones(4, 20, dtype=torch.bool)]
     out = fusion(embeddings, modality_ids=["video", "eye"], masks=masks)
     assert out.shape == (4, 256)
+
+
+# --- HEALNet Fusion Tests ---
+
+try:
+    from src.fusion.healnet import HEALNetFusion
+except ImportError:
+    HEALNetFusion = None
+
+@pytest.mark.skipif(HEALNetFusion is None, reason="src.fusion.healnet not yet implemented")
+def test_healnet_pooled():
+    fusion = HEALNetFusion(d_common=256, memory_size=16, n_layers=2, n_heads=4, num_modalities=3)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+@pytest.mark.skipif(HEALNetFusion is None, reason="src.fusion.healnet not yet implemented")
+def test_healnet_missing_modality():
+    fusion = HEALNetFusion(d_common=256, memory_size=16, n_layers=2, n_heads=4, num_modalities=3)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "ppg"])
+    assert out.shape == (4, 256)
+
+
+# --- Multimodal Lego Fusion Tests ---
+
+try:
+    from src.fusion.multimodal_lego import MultimodalLegoFusion
+except ImportError:
+    MultimodalLegoFusion = None
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_topology_a():
+    fusion = MultimodalLegoFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="pairwise", n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_topology_b():
+    fusion = MultimodalLegoFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="hierarchical", n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_topology_c():
+    fusion = MultimodalLegoFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="gated", n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
