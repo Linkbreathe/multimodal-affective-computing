@@ -38,6 +38,8 @@ EMOTIONS = [
     "Fear", "Sad", "Disgust", "Anger",
 ]
 
+from scripts.run_experiment import normalize_loaded_embedding
+
 
 # ---------------------------------------------------------------------------
 # Model building: reuse the same ProjectedFusion from run_experiment.py
@@ -60,6 +62,23 @@ class ProjectedFusion(torch.nn.Module):
             proj_dict[mod_id] = emb
         projected = self.projector(proj_dict)
         proj_list = [projected[m] for m in modality_ids]
+
+        # If the fusion module does not support sequence inputs, pool any
+        # 3D (B, T, D) projected tensors to 2D (B, D) with mask-aware mean.
+        if not getattr(self.fusion, "supports_sequence_input", False):
+            pooled = []
+            mask_list = masks if masks else [None] * len(proj_list)
+            for proj, mask in zip(proj_list, mask_list):
+                if proj.dim() == 3:
+                    if mask is not None:
+                        mask_f = mask.unsqueeze(-1).float()
+                        proj = (proj * mask_f).sum(dim=1) / mask_f.sum(dim=1).clamp(min=1)
+                    else:
+                        proj = proj.mean(dim=1)
+                pooled.append(proj)
+            proj_list = pooled
+            masks = None
+
         return self.fusion(proj_list, modality_ids, masks)
 
 
@@ -120,6 +139,7 @@ def load_10s_data_by_subject(
     config_mod_names: list[str],
     manifest: pd.DataFrame,
     data_dir: Path,
+    pool_clips: bool = False,
 ) -> dict[str, list[dict]]:
     """Load 10s-segmented embeddings organized by subject for LOSO.
 
@@ -153,9 +173,11 @@ def load_10s_data_by_subject(
                     emb_path / enc / subj / f"segment_{seg_idx:04d}.pt",
                     weights_only=False,
                 )
-                emb = data["embedding"]
-                if emb.dim() == 2:
-                    emb = emb.squeeze(0) if emb.shape[0] == 1 else emb.mean(dim=0)
+                # Step 1: normalize (strips batch-dim artifact)
+                emb = normalize_loaded_embedding(data["embedding"], enc)
+                # Step 2: pool video clips (video-only, after normalize)
+                if pool_clips and enc == "video_mae_v2" and emb.dim() == 2:
+                    emb = emb.mean(dim=0)  # [T, 768] -> [768]
                 emb_list.append(emb)
 
             # Soft label from KL manifest (fall back to one-hot if missing)
@@ -197,6 +219,8 @@ def main() -> None:
     parser.add_argument("--embeddings_dir", default="data/embeddings_10s")
     parser.add_argument("--name", default=None, help="Experiment name")
     parser.add_argument("--device", default=None, help="Device (cuda/cpu)")
+    parser.add_argument("--pool-clips", action="store_true",
+                        help="Mean-pool video clip sequences to single [768] vectors")
     args = parser.parse_args()
 
     cfg = merge_configs(load_config(args.config), load_config(args.fusion_config))
@@ -231,6 +255,7 @@ def main() -> None:
     # Load data
     data_by_subject = load_10s_data_by_subject(
         args.embeddings_dir, encoder_dirs, enabled, manifest, data_dir,
+        pool_clips=args.pool_clips,
     )
     total_samples = sum(len(v) for v in data_by_subject.values())
     logger.info(f"Loaded: {total_samples} samples across {len(data_by_subject)} subjects")
