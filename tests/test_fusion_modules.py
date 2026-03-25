@@ -144,30 +144,171 @@ def test_healnet_missing_modality():
     assert out.shape == (4, 256)
 
 
-# --- Multimodal Lego Fusion Tests ---
+# --- Custom Topology Fusion Tests (renamed from old MultimodalLegoFusion) ---
+
+try:
+    from src.fusion.multimodal_lego import CustomTopologyFusion
+except ImportError:
+    CustomTopologyFusion = None
+
+@pytest.mark.skipif(CustomTopologyFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_custom_topology_pairwise():
+    fusion = CustomTopologyFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="pairwise", n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+@pytest.mark.skipif(CustomTopologyFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_custom_topology_hierarchical():
+    fusion = CustomTopologyFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="hierarchical", n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+@pytest.mark.skipif(CustomTopologyFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_custom_topology_gated():
+    fusion = CustomTopologyFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="gated", n_heads=4)
+    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
+    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
+    assert out.shape == (4, 256)
+
+
+# --- Multimodal Lego Fusion Tests (paper-faithful implementation) ---
 
 try:
     from src.fusion.multimodal_lego import MultimodalLegoFusion
 except ImportError:
     MultimodalLegoFusion = None
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
-def test_lego_topology_a():
-    fusion = MultimodalLegoFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="pairwise", n_heads=4)
-    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
-    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
-    assert out.shape == (4, 256)
+LEGO_MODS = ["video", "eye", "ppg"]
+LEGO_D = 256
+LEGO_LC = 32   # latent channels (smaller for tests)
+LEGO_LD = 64   # latent dim
+
 
 @pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
-def test_lego_topology_b():
-    fusion = MultimodalLegoFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="hierarchical", n_heads=4)
-    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
-    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
-    assert out.shape == (4, 256)
+def test_lego_merge_sum():
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-sum",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
 
 @pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
-def test_lego_topology_c():
-    fusion = MultimodalLegoFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="gated", n_heads=4)
-    embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
-    out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
-    assert out.shape == (4, 256)
+def test_lego_merge_product():
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-product",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_merge_mean():
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-mean",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_merge_harmonic_2mod():
+    mods_2 = ["video", "ppg"]
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=mods_2, mode="merge-harmonic",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+        alpha=0.5,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in mods_2]
+    out = fusion(embeddings, modality_ids=mods_2)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_merge_harmonic_3mod():
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-harmonic",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_fuse_stack():
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="fuse-stack",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_fuse_weave():
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="fuse-weave",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_sequential_input():
+    """Test with sequential (3D) embeddings from encoders."""
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-sum",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    # Different sequence lengths per modality
+    embeddings = [
+        torch.randn(4, 10, LEGO_D),
+        torch.randn(4, 5, LEGO_D),
+        torch.randn(4, 1, LEGO_D),
+    ]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_no_frequency_domain():
+    """Test with frequency_domain=False (spatial-only mode)."""
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-sum",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+        frequency_domain=False,
+    )
+    embeddings = [torch.randn(4, LEGO_D) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    assert out.shape == (4, LEGO_LD)
+
+
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+def test_lego_gradient_flow():
+    """Verify gradients propagate through the fusion module."""
+    fusion = MultimodalLegoFusion(
+        d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-sum",
+        latent_channels=LEGO_LC, latent_dim=LEGO_LD, depth=2, heads=4, dim_head=32,
+    )
+    embeddings = [torch.randn(4, LEGO_D, requires_grad=True) for _ in LEGO_MODS]
+    out = fusion(embeddings, modality_ids=LEGO_MODS)
+    loss = out.sum()
+    loss.backward()
+    # Check gradients flow to inputs
+    for emb in embeddings:
+        assert emb.grad is not None
+    # Check gradients flow to learnable latents
+    for block in fusion.blocks.values():
+        assert block.latent.grad is not None

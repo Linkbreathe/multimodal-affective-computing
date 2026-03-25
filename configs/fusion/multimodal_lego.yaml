@@ -1,10 +1,32 @@
 fusion_type: multimodal_lego
+
+# Paper-faithful MM-Lego fusion (LegoBlock + merge/fuse modes)
 fusion:
   d_common: 256
   lego:
-    topology: "pairwise"
-    n_heads: 4
-    dropout: 0.1
+    # mode: merge-sum | merge-product | merge-mean | merge-harmonic
+    #       fuse-stack | fuse-weave
+    mode: "merge-sum"
+    latent_channels: 64
+    latent_dim: 64
+    depth: 2
+    heads: 8
+    dim_head: 64
+    attn_dropout: 0.0
+    ff_dropout: 0.0
+    frequency_domain: true
+    fourier_dim: 1
+    track_imaginary: true
+    normalise: true
+    alpha: 0.5   # only used for merge-harmonic
+
+  # Custom topology baselines (use CustomTopologyFusion class)
+  # Uncomment to use instead of paper lego:
+  # custom_topology:
+  #   topology: "pairwise"   # pairwise | hierarchical | gated
+  #   n_heads: 4
+  #   dropout: 0.1
+
 training:
   lr: 1e-4
   max_epochs: 100
