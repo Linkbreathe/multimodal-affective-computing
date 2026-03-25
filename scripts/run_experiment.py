@@ -1,43 +1,331 @@
-"""CLI for running fusion experiments."""
+"""CLI for running fusion experiments end-to-end.
+
+Usage:
+    conda run -n visphy python scripts/run_experiment.py --fusion_config configs/fusion/early.yaml
+    conda run -n visphy python scripts/run_experiment.py --fusion_config configs/fusion/perceiver_io.yaml --name my_experiment
+"""
 from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from datetime import datetime
+from pathlib import Path
 
+# Ensure project root is on path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+import numpy as np
 import torch
 
+from src.data.label_builder import build_label_mapping
+from src.data.segments import SegmentExtractor
+from src.encoders.registry import ModalityRegistry
+from src.fusion.projector import ModalityProjector
+from src.tasks.heads import MultiTaskHead
+from src.trainer.fusion_trainer import FusionTrainer
 from src.utils.config import load_config, merge_configs, config_hash
 from src.utils.logging_setup import setup_logging
-from src.utils.reporting import generate_report
 from src.utils.registry import ResultsRegistry
+from src.utils.reporting import generate_report
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("fusion")
+
+
+def build_fusion_model(cfg: dict, registry: ModalityRegistry):
+    """Build a fusion model + projector from config."""
+    fusion_type = cfg.get("fusion_type", "early")
+    d_common = cfg["fusion"]["d_common"]
+    dropout = cfg["fusion"].get("dropout", 0.1)
+    enabled = registry.get_enabled_modalities()
+    embed_dims = registry.get_all_embed_dims()
+
+    # Build projector
+    projector = ModalityProjector(embed_dims=embed_dims, d_common=d_common)
+
+    # Build fusion module
+    if fusion_type == "early":
+        from src.fusion.early import EarlyFusion
+        fusion = EarlyFusion(d_common=d_common, num_modalities=len(enabled), dropout=dropout)
+
+    elif fusion_type == "mid":
+        from src.fusion.mid import MidFusion
+        fusion = MidFusion(d_common=d_common, modality_ids=enabled, dropout=dropout)
+
+    elif fusion_type == "late":
+        from src.fusion.late import LateFusion
+        mode = cfg["fusion"].get("mode", "weighted")
+        fusion = LateFusion(d_common=d_common, num_modalities=len(enabled), mode=mode, dropout=dropout)
+
+    elif fusion_type == "perceiver_io":
+        from src.fusion.perceiver_io import PerceiverIOFusion
+        pcfg = cfg["fusion"].get("perceiver", {})
+        fusion = PerceiverIOFusion(
+            d_common=d_common,
+            n_latents=pcfg.get("n_latents", 32),
+            d_latent=pcfg.get("d_latent", d_common),
+            n_layers=pcfg.get("n_layers", 2),
+            n_heads=pcfg.get("n_heads", 4),
+            dropout=pcfg.get("dropout", dropout),
+        )
+
+    elif fusion_type == "qformer":
+        from src.fusion.qformer import QFormerFusion
+        qcfg = cfg["fusion"].get("qformer", {})
+        fusion = QFormerFusion(
+            d_common=d_common,
+            n_queries=qcfg.get("n_queries", 16),
+            d_query=qcfg.get("d_query", d_common),
+            n_layers=qcfg.get("n_layers", 6),
+            n_heads=qcfg.get("n_heads", 4),
+            cross_attn_freq=qcfg.get("cross_attn_freq", 2),
+            dropout=qcfg.get("dropout", dropout),
+        )
+
+    elif fusion_type == "healnet":
+        from src.fusion.healnet import HEALNetFusion
+        hcfg = cfg["fusion"].get("healnet", {})
+        fusion = HEALNetFusion(
+            d_common=d_common,
+            memory_size=hcfg.get("memory_size", 16),
+            n_layers=hcfg.get("n_layers", 2),
+            n_heads=hcfg.get("n_heads", 4),
+            num_modalities=len(enabled),
+            dropout=hcfg.get("dropout", dropout),
+        )
+
+    elif fusion_type == "multimodal_lego":
+        from src.fusion.multimodal_lego import MultimodalLegoFusion
+        lcfg = cfg["fusion"].get("lego", {})
+        fusion = MultimodalLegoFusion(
+            d_common=d_common,
+            num_modalities=len(enabled),
+            mode=lcfg.get("mode", "fuse-stack"),
+            n_latents=lcfg.get("n_latents", 32),
+            depth=lcfg.get("depth", 2),
+            n_heads=lcfg.get("n_heads", 4),
+            dropout=lcfg.get("dropout", dropout),
+            use_frequency_domain=lcfg.get("use_frequency_domain", True),
+        )
+
+    else:
+        raise ValueError(f"Unknown fusion type: {fusion_type}")
+
+    return projector, fusion
+
+
+class ProjectedFusion(torch.nn.Module):
+    """Wraps projector + fusion into a single module for the trainer."""
+
+    def __init__(self, projector: ModalityProjector, fusion, modality_names: list[str]):
+        super().__init__()
+        self.projector = projector
+        self.fusion = fusion
+        self.modality_names = modality_names
+        # Match BaseFusionModule interface
+        self.d_common = fusion.d_common
+        self.d_out = fusion.d_out
+
+    def forward(self, embeddings, modality_ids, masks=None):
+        # Project each modality to d_common
+        proj_dict = {}
+        for emb, mod_id in zip(embeddings, modality_ids):
+            proj_dict[mod_id] = emb
+        projected = self.projector(proj_dict)
+        proj_list = [projected[m] for m in modality_ids]
+        return self.fusion(proj_list, modality_ids, masks)
+
+
+def load_data_by_subject(
+    embeddings_dir: str,
+    modalities: list[str],
+    subject_ids: list[str],
+    labels: dict,
+) -> dict[str, list[dict]]:
+    """Load cached embeddings organized by subject for LOSO."""
+    embeddings_path = Path(embeddings_dir)
+    data_by_subject: dict[str, list[dict]] = {}
+
+    for subj in subject_ids:
+        samples = []
+        # Find all segments for this subject (use first modality to enumerate)
+        first_mod = modalities[0]
+        mod_dir = embeddings_path / first_mod / subj
+        if not mod_dir.exists():
+            continue
+
+        seg_files = sorted(mod_dir.glob("segment_*.pt"))
+        for f in seg_files:
+            seg_idx = int(f.stem.split("_")[1])
+
+            # Check all modalities exist
+            all_exist = all(
+                (embeddings_path / m / subj / f.name).exists()
+                for m in modalities
+            )
+            if not all_exist:
+                continue
+
+            # Load embeddings
+            emb_list = []
+            for mod in modalities:
+                path = embeddings_path / mod / subj / f"segment_{seg_idx:04d}.pt"
+                data = torch.load(path, weights_only=False)
+                emb = data["embedding"]
+                # Mean-pool to single vector for baseline fusion
+                if emb.dim() == 2:
+                    emb = emb.mean(dim=0)
+                emb_list.append(emb)
+
+            # Get labels
+            key = f"{subj}_{seg_idx:04d}"
+            if key not in labels:
+                continue
+
+            samples.append({
+                "embeddings": emb_list,
+                "modality_ids": modalities,
+                "labels": labels[key],
+            })
+
+        if samples:
+            data_by_subject[subj] = samples
+
+    return data_by_subject
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument(
-        "--fusion_config", required=True, help="Path to fusion method config"
-    )
+    parser.add_argument("--fusion_config", required=True, help="Path to fusion method config")
     parser.add_argument("--name", default=None, help="Experiment name")
+    parser.add_argument("--device", default=None, help="Device (cuda/cpu)")
     args = parser.parse_args()
 
+    # Load and merge configs
     base_cfg = load_config(args.config)
     fusion_cfg = load_config(args.fusion_config)
     cfg = merge_configs(base_cfg, fusion_cfg)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    name = args.name or f"{fusion_cfg.get('fusion_type', 'experiment')}_{timestamp}"
+    name = args.name or f"{cfg.get('fusion_type', 'experiment')}_{timestamp}"
+    device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
 
+    # Setup logging
     logger = setup_logging(cfg["logging"]["log_dir"], name)
     logger.info(f"Starting experiment: {name}")
     logger.info(f"Config hash: {config_hash(cfg)}")
+    logger.info(f"Device: {device}")
+    logger.info(f"Fusion type: {cfg.get('fusion_type', 'unknown')}")
 
-    # TODO: Build fusion model, dataset, and run LOSO
-    # This will be completed when fusion models are implemented in Phase 3
-    logger.info("Experiment runner ready. Fusion models to be added in Phase 3.")
+    # Setup modality registry
+    registry = ModalityRegistry(cfg["modalities"])
+    enabled = registry.get_enabled_modalities()
+    logger.info(f"Enabled modalities: {enabled}")
+
+    # Build models
+    projector, fusion = build_fusion_model(cfg, registry)
+    projected_fusion = ProjectedFusion(projector, fusion, enabled)
+    task_head = MultiTaskHead(d_fused=fusion.d_out, num_emotions=9, num_vad=3)
+
+    logger.info(f"Fusion params: {sum(p.numel() for p in projected_fusion.parameters()):,}")
+    logger.info(f"Head params: {sum(p.numel() for p in task_head.parameters()):,}")
+
+    # Build label mapping
+    logger.info("Building label mapping...")
+    labels = build_label_mapping(
+        data_dir=cfg["data_dir"],
+        task_times_path=f"{cfg['data_dir']}/task_times.npy",
+    )
+    logger.info(f"Labels: {len(labels)} segments")
+
+    # Get subject list
+    extractor = SegmentExtractor(
+        data_dir=cfg["data_dir"],
+        task_times_path=f"{cfg['data_dir']}/task_times.npy",
+    )
+    subject_ids = extractor.get_subject_ids()
+    logger.info(f"Subjects: {len(subject_ids)}")
+
+    # Map encoder names to embedding dir names
+    encoder_dir_map = {
+        "video": "video_mae_v2",
+        "eye_tracking": "patchtst_eye",
+        "ppg": "papagei_ppg",
+    }
+    embedding_modalities = [encoder_dir_map[m] for m in enabled]
+
+    # Load data by subject
+    logger.info("Loading cached embeddings...")
+    data_by_subject = load_data_by_subject(
+        embeddings_dir=cfg["embeddings_dir"],
+        modalities=embedding_modalities,
+        subject_ids=subject_ids,
+        labels=labels,
+    )
+    logger.info(f"Loaded data for {len(data_by_subject)} subjects, "
+                f"{sum(len(v) for v in data_by_subject.values())} total samples")
+
+    if not data_by_subject:
+        logger.error("No data loaded! Run scripts/extract_embeddings.py first.")
+        return
+
+    # Create trainer
+    trainer = FusionTrainer(
+        fusion_model=projected_fusion,
+        task_head=task_head,
+        config={
+            "training": cfg["training"],
+            "loss_weights": cfg["loss_weights"],
+            "seed": cfg["seed"],
+        },
+        device=device,
+    )
+
+    # Run LOSO
+    logger.info("Starting LOSO cross-validation...")
+    fold_results = trainer.run_loso(
+        all_data=data_by_subject,
+        subject_ids=list(data_by_subject.keys()),
+    )
+
+    if not fold_results:
+        logger.error("No fold results! Check data and labels.")
+        return
+
+    # Aggregate results
+    f1_scores = [r["weighted_f1"] for r in fold_results]
+    ccc_scores = [r["ccc"] for r in fold_results]
+    logger.info(f"\n{'='*50}")
+    logger.info(f"LOSO Results ({len(fold_results)} folds):")
+    logger.info(f"  Weighted F1: {np.mean(f1_scores):.4f} +/- {np.std(f1_scores):.4f}")
+    logger.info(f"  CCC:         {np.mean(ccc_scores):.4f} +/- {np.std(ccc_scores):.4f}")
+    logger.info(f"{'='*50}")
+
+    # Save report
+    report_path = generate_report(
+        experiment_name=name,
+        config=cfg,
+        fold_results=fold_results,
+        report_dir=cfg["logging"]["report_dir"],
+    )
+    logger.info(f"Report saved: {report_path}")
+
+    # Update registry
+    registry_db = ResultsRegistry()
+    registry_db.add(
+        experiment_name=name,
+        fusion_type=cfg.get("fusion_type", "unknown"),
+        metrics={
+            "weighted_f1": float(np.mean(f1_scores)),
+            "weighted_f1_std": float(np.std(f1_scores)),
+            "ccc": float(np.mean(ccc_scores)),
+            "ccc_std": float(np.std(ccc_scores)),
+        },
+        config_hash=config_hash(cfg),
+    )
+    logger.info("Results registered.")
 
 
 if __name__ == "__main__":
