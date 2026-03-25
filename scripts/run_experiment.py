@@ -139,18 +139,26 @@ class ProjectedFusion(torch.nn.Module):
 
 def load_data_by_subject(
     embeddings_dir: str,
-    modalities: list[str],
+    embedding_dir_names: list[str],
+    config_modality_names: list[str],
     subject_ids: list[str],
     labels: dict,
 ) -> dict[str, list[dict]]:
-    """Load cached embeddings organized by subject for LOSO."""
+    """Load cached embeddings organized by subject for LOSO.
+
+    Args:
+        embeddings_dir: Root dir for cached embeddings
+        embedding_dir_names: Dir names in cache (e.g., ['patchtst_eye', 'papagei_ppg'])
+        config_modality_names: Config modality names (e.g., ['eye_tracking', 'ppg'])
+        subject_ids: List of subject IDs to load
+        labels: Label mapping from build_label_mapping
+    """
     embeddings_path = Path(embeddings_dir)
     data_by_subject: dict[str, list[dict]] = {}
 
     for subj in subject_ids:
         samples = []
-        # Find all segments for this subject (use first modality to enumerate)
-        first_mod = modalities[0]
+        first_mod = embedding_dir_names[0]
         mod_dir = embeddings_path / first_mod / subj
         if not mod_dir.exists():
             continue
@@ -159,33 +167,29 @@ def load_data_by_subject(
         for f in seg_files:
             seg_idx = int(f.stem.split("_")[1])
 
-            # Check all modalities exist
             all_exist = all(
                 (embeddings_path / m / subj / f.name).exists()
-                for m in modalities
+                for m in embedding_dir_names
             )
             if not all_exist:
                 continue
 
-            # Load embeddings
             emb_list = []
-            for mod in modalities:
-                path = embeddings_path / mod / subj / f"segment_{seg_idx:04d}.pt"
+            for emb_dir in embedding_dir_names:
+                path = embeddings_path / emb_dir / subj / f"segment_{seg_idx:04d}.pt"
                 data = torch.load(path, weights_only=False)
                 emb = data["embedding"]
-                # Mean-pool to single vector for baseline fusion
                 if emb.dim() == 2:
                     emb = emb.mean(dim=0)
                 emb_list.append(emb)
 
-            # Get labels
             key = f"{subj}_{seg_idx:04d}"
             if key not in labels:
                 continue
 
             samples.append({
                 "embeddings": emb_list,
-                "modality_ids": modalities,
+                "modality_ids": config_modality_names,  # Use config names for projector
                 "labels": labels[key],
             })
 
@@ -248,19 +252,20 @@ def main() -> None:
     subject_ids = extractor.get_subject_ids()
     logger.info(f"Subjects: {len(subject_ids)}")
 
-    # Map encoder names to embedding dir names
+    # Map config modality names to embedding dir names
     encoder_dir_map = {
         "video": "video_mae_v2",
         "eye_tracking": "patchtst_eye",
         "ppg": "papagei_ppg",
     }
-    embedding_modalities = [encoder_dir_map[m] for m in enabled]
+    embedding_dir_names = [encoder_dir_map[m] for m in enabled]
 
     # Load data by subject
     logger.info("Loading cached embeddings...")
     data_by_subject = load_data_by_subject(
         embeddings_dir=cfg["embeddings_dir"],
-        modalities=embedding_modalities,
+        embedding_dir_names=embedding_dir_names,
+        config_modality_names=enabled,
         subject_ids=subject_ids,
         labels=labels,
     )
