@@ -4,8 +4,11 @@ The egoEMOTION paper chunks each task into non-overlapping 10-second windows
 (at 90Hz = 900 samples per chunk), dropping remainders. The manifest defines
 exactly which segments are kept (2,678 across 40 subjects).
 
-Segment index N means samples [session_A_start + N*900 : session_A_start + (N+1)*900]
-in the 90Hz-aligned recording.
+IMPORTANT: The resampled data files (gaze_90fps.npy, pupils_90fps.npy,
+ppg_ear_125hz.npy) are SHIFTED to start from session_A, NOT from recording
+start. Their length = session_B_end - session_A_start (in native Hz).
+Segment index N means samples [N*900 : (N+1)*900] in the SHIFTED 90Hz files.
+For video (pov.mp4), the file IS absolute, so we need session_A_start offset.
 
 Usage:
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder papagei_ppg
@@ -112,15 +115,17 @@ def extract_ppg(
             continue
         ppg = np.load(ppg_path)
 
-        # Compute absolute 90Hz position, then convert to 125Hz
-        session_a_start_90 = tt[subj]["session_A"][0]
-        abs_start_90 = session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ
-        abs_end_90 = abs_start_90 + CHUNK_SAMPLES_90HZ
-        start_125 = int(abs_start_90 * 125 / 90)
-        end_125 = int(abs_end_90 * 125 / 90)
+        # Compute SHIFTED position (files start from session_A, not recording start)
+        # Segment index N = samples [N*900 : (N+1)*900] in 90Hz shifted space
+        start_90 = seg_idx * CHUNK_SAMPLES_90HZ
+        end_90 = start_90 + CHUNK_SAMPLES_90HZ
+        # Convert shifted 90Hz position to shifted 125Hz position
+        start_125 = int(start_90 * 125 / 90)
+        end_125 = start_125 + CHUNK_SAMPLES_125HZ  # exact 1250 samples
 
         if end_125 > len(ppg):
             skipped += 1
+            log.debug(f"PPG {subj}/seg_{seg_idx}: end_125={end_125} > len={len(ppg)}, skipping")
             continue
 
         chunk = ppg[start_125:end_125]
@@ -191,18 +196,18 @@ def extract_eye(
         gaze = np.load(gaze_path)    # [N, 2]
         pupils = np.load(pupil_path)  # [N, 2]
 
-        # Compute absolute 90Hz position (gaze/pupils are native 90Hz)
-        session_a_start_90 = tt[subj]["session_A"][0]
-        abs_start = session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ
-        abs_end = abs_start + CHUNK_SAMPLES_90HZ
+        # Compute SHIFTED position (files start from session_A)
+        start_90 = seg_idx * CHUNK_SAMPLES_90HZ
+        end_90 = start_90 + CHUNK_SAMPLES_90HZ
 
         min_len = min(len(gaze), len(pupils))
-        if abs_end > min_len:
+        if end_90 > min_len:
             skipped += 1
+            log.debug(f"Eye {subj}/seg_{seg_idx}: end_90={end_90} > len={min_len}, skipping")
             continue
 
-        gaze_chunk = gaze[abs_start:abs_end]      # [900, 2]
-        pupil_chunk = pupils[abs_start:abs_end]    # [900, 2]
+        gaze_chunk = gaze[start_90:end_90]      # [900, 2]
+        pupil_chunk = pupils[start_90:end_90]    # [900, 2]
         combined = np.concatenate([gaze_chunk, pupil_chunk], axis=1)  # [900, 4]
 
         x = torch.tensor(combined, dtype=torch.float32).unsqueeze(0).to(device)  # [1, 900, 4]
@@ -258,7 +263,8 @@ def extract_video(
                 extracted += 1
                 continue
 
-            # Convert 90Hz index to seconds, then to video frames
+            # Video file (pov.mp4) is in ABSOLUTE time, so add session_A offset
+            # (unlike gaze/ppg files which are shifted to start from session_A)
             abs_start_90 = session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ
             start_sec = abs_start_90 / 90.0
             end_sec = start_sec + 10.0
