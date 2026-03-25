@@ -56,9 +56,29 @@ class MultiTaskLoss(nn.Module):
         outputs: dict[str, torch.Tensor],
         targets: dict[str, torch.Tensor],
     ) -> tuple[torch.Tensor, dict[str, float]]:
-        ce = self.ce_loss(outputs["emotion_logits"], targets["emotion_label"])
-        kl = self.kl_loss(outputs["soft_logits"], targets["soft_label"])
-        vad = self.ccc_loss(outputs["vad_pred"], targets["vad"])
-        total = self.lambda_ce * ce + self.lambda_kl * kl + self.lambda_vad * vad
-        breakdown = {"ce": ce.item(), "kl": kl.item(), "vad": vad.item()}
+        device = outputs["emotion_logits"].device
+        total = torch.tensor(0.0, device=device)
+        breakdown: dict[str, float] = {}
+
+        if self.lambda_ce > 0:
+            ce = self.ce_loss(outputs["emotion_logits"], targets["emotion_label"])
+            total = total + self.lambda_ce * ce
+            breakdown["ce"] = ce.item()
+        else:
+            breakdown["ce"] = 0.0
+
+        if self.lambda_kl > 0:
+            kl = self.kl_loss(outputs["soft_logits"], targets["soft_label"])
+            total = total + self.lambda_kl * kl
+            breakdown["kl"] = kl.item()
+        else:
+            breakdown["kl"] = 0.0
+
+        if self.lambda_vad > 0:
+            vad = self.ccc_loss(outputs["vad_pred"], targets["vad"])
+            total = total + self.lambda_vad * vad
+            breakdown["vad"] = vad.item()
+        else:
+            breakdown["vad"] = 0.0
+
         return total, breakdown

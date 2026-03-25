@@ -72,3 +72,33 @@ def test_multitask_head_shapes():
     assert outputs["emotion_logits"].shape == (4, 9)
     assert outputs["soft_logits"].shape == (4, 9)
     assert outputs["vad_pred"].shape == (4, 3)
+
+
+def test_multitask_loss_zero_lambda_nan_safe():
+    """0-weight auxiliary losses must not produce NaN in total loss."""
+    mt_loss = MultiTaskLoss(
+        ce_weight=torch.ones(9),
+        lambda_ce=1.0,
+        lambda_kl=0.0,
+        lambda_vad=0.0,
+    )
+    outputs = {
+        "emotion_logits": torch.randn(4, 9),
+        "soft_logits": torch.randn(4, 9),
+        "vad_pred": torch.randn(4, 3),
+    }
+    # Soft labels with exact zeros → kl_div would produce NaN
+    soft_label = torch.zeros(4, 9)
+    soft_label[:, 0] = 1.0  # one-hot, rest are 0
+    targets = {
+        "emotion_label": torch.tensor([0, 1, 2, 3]),
+        "soft_label": soft_label,
+        "vad": torch.zeros(4, 3),  # all-zero VAD
+    }
+    loss, breakdown = mt_loss(outputs, targets)
+
+    assert loss.shape == (), f"Expected scalar, got {loss.shape}"
+    assert torch.isfinite(loss), f"Loss is {loss.item()}, expected finite"
+    assert loss.item() > 0, "CE loss should be positive"
+    assert breakdown["kl"] == 0.0, "Skipped KL should be 0.0"
+    assert breakdown["vad"] == 0.0, "Skipped VAD should be 0.0"
