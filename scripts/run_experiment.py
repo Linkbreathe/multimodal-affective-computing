@@ -100,13 +100,20 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         lcfg = cfg["fusion"].get("lego", {})
         fusion = MultimodalLegoFusion(
             d_common=d_common,
-            num_modalities=len(enabled),
-            mode=lcfg.get("mode", "fuse-stack"),
-            n_latents=lcfg.get("n_latents", 32),
+            modality_ids=enabled,
+            mode=lcfg.get("mode", "merge-sum"),
+            latent_channels=lcfg.get("latent_channels", 64),
+            latent_dim=lcfg.get("latent_dim", 64),
             depth=lcfg.get("depth", 2),
-            n_heads=lcfg.get("n_heads", 4),
-            dropout=lcfg.get("dropout", dropout),
-            use_frequency_domain=lcfg.get("use_frequency_domain", True),
+            heads=lcfg.get("heads", 8),
+            dim_head=lcfg.get("dim_head", 64),
+            attn_dropout=lcfg.get("attn_dropout", 0.0),
+            ff_dropout=lcfg.get("ff_dropout", 0.0),
+            frequency_domain=lcfg.get("frequency_domain", True),
+            fourier_dim=lcfg.get("fourier_dim", 1),
+            track_imaginary=lcfg.get("track_imaginary", True),
+            normalise=lcfg.get("normalise", True),
+            alpha=lcfg.get("alpha", 0.5),
         )
 
     else:
