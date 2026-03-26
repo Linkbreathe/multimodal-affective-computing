@@ -61,12 +61,17 @@ class ModalityCrossAttention(nn.Module):
             nn.Dropout(dropout),
         )
 
-    def forward(self, latent: torch.Tensor, modality: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        latent: torch.Tensor,
+        modality: torch.Tensor,
+        key_padding_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         # Cross-attention: latent attends to modality
         residual = latent
         q = self.norm_q(latent)
         kv = self.norm_kv(modality)
-        attended, _ = self.cross_attn(q, kv, kv)
+        attended, _ = self.cross_attn(q, kv, kv, key_padding_mask=key_padding_mask)
         latent = residual + attended
 
         # Cross-FFN
@@ -87,6 +92,8 @@ class ModalityCrossAttention(nn.Module):
 
 
 class HEALNetFusion(BaseFusionModule):
+    supports_sequence_input = True
+
     """Iterative early fusion with per-modality cross-attention on shared latent.
 
     For each layer, for each modality:
@@ -143,8 +150,11 @@ class HEALNetFusion(BaseFusionModule):
         for modality_blocks in self.layers:
             for i, block in enumerate(modality_blocks):
                 if i < len(processed):
-                    # Modality present — update memory
-                    memory = block(memory, processed[i])
+                    # Per-modality mask: True=IGNORE (PyTorch convention)
+                    kpm = None
+                    if masks is not None and masks[i] is not None:
+                        kpm = ~masks[i]
+                    memory = block(memory, processed[i], key_padding_mask=kpm)
                 # else: modality missing — skip (memory unchanged)
 
         memory = self.output_norm(memory)

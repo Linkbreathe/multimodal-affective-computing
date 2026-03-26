@@ -36,6 +36,7 @@ class PreNorm(nn.Module):
         x = self.norm(x)
         if self.norm_context is not None and "context" in kwargs:
             kwargs["context"] = self.norm_context(kwargs["context"])
+        # context_mask passes through unchanged (no normalization needed)
         return self.fn(x, **kwargs)
 
 
@@ -70,7 +71,10 @@ class LegoAttention(nn.Module):
         )
 
     def forward(
-        self, x: torch.Tensor, context: torch.Tensor | None = None
+        self,
+        x: torch.Tensor,
+        context: torch.Tensor | None = None,
+        context_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         h = self.heads
         q = self.to_q(x)
@@ -82,6 +86,13 @@ class LegoAttention(nn.Module):
         )
 
         sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+
+        # Mask padded context positions before softmax
+        if context_mask is not None:
+            # context_mask: (B, T_kv) bool, True=valid
+            mask_expanded = repeat(~context_mask, "b j -> (b h) 1 j", h=h)
+            sim = sim.masked_fill(mask_expanded, float("-inf"))
+
         # Temperature-scaled softmax (T=0.5) as in original code
         attn = F.softmax(sim / 0.5, dim=-1)
         attn = self.dropout(attn)
@@ -193,6 +204,7 @@ class LegoBlock(nn.Module):
         x: torch.Tensor,
         latent_override: torch.Tensor | None = None,
         return_complex: bool = False,
+        context_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """Run the LegoBlock.
 
@@ -201,6 +213,8 @@ class LegoBlock(nn.Module):
             latent_override: if provided, use this instead of self.latent
                              (for fuse-stack mode where latent is passed between blocks)
             return_complex: if True, return complex-valued latent (for merge mode)
+            context_mask: (B, T) bool, True=valid token. Masks padded positions
+                          in cross-attention so they are not attended to.
 
         Returns:
             latent: [B, latent_channels, latent_dim]
@@ -232,7 +246,7 @@ class LegoBlock(nn.Module):
                 x_real = x
 
             # Cross-attention: latent queries modality embedding (real components)
-            latent = self.cross_attns[i](l_real, context=x_real) + l_real
+            latent = self.cross_attns[i](l_real, context=x_real, context_mask=context_mask) + l_real
             latent = self.cross_ffs[i](latent) + latent
 
             # Skip IFFT on last iteration (paper keeps head in Fourier domain)
@@ -262,6 +276,8 @@ class LegoBlock(nn.Module):
 # ---------------------------------------------------------------------------
 
 class MultimodalLegoFusion(BaseFusionModule):
+    supports_sequence_input = True
+
     """MM-Lego fusion: LegoBlock per modality + merge/fuse in Fourier domain.
 
     Modes:
@@ -350,11 +366,11 @@ class MultimodalLegoFusion(BaseFusionModule):
         B = embeddings[0].shape[0]
 
         if self.mode.startswith("merge"):
-            return self._forward_merge(embeddings, modality_ids, B)
+            return self._forward_merge(embeddings, modality_ids, B, masks)
         elif self.mode == "fuse-stack":
-            return self._forward_fuse_stack(embeddings, modality_ids, B)
+            return self._forward_fuse_stack(embeddings, modality_ids, B, masks)
         elif self.mode == "fuse-weave":
-            return self._forward_fuse_weave(embeddings, modality_ids, B)
+            return self._forward_fuse_weave(embeddings, modality_ids, B, masks)
         else:
             raise ValueError(
                 f"Unknown mode '{self.mode}'. "
@@ -367,15 +383,17 @@ class MultimodalLegoFusion(BaseFusionModule):
         embeddings: list[torch.Tensor],
         modality_ids: list[str],
         B: int,
+        masks: list[torch.Tensor] | None = None,
     ) -> torch.Tensor:
         """LegoMerge: each block runs independently, merge latents in Fourier domain."""
         merge_method = self.mode.split("-", 1)[1]  # sum, product, mean, harmonic
 
         # Collect latents from each modality block (complex-valued for merge)
         latents = []
-        for emb, mod_id in zip(embeddings, modality_ids):
+        for i, (emb, mod_id) in enumerate(zip(embeddings, modality_ids)):
             block = self.blocks[mod_id]
-            latent = block(emb, return_complex=True)
+            cm = masks[i] if masks is not None else None
+            latent = block(emb, return_complex=True, context_mask=cm)
             latents.append(latent)
 
         # Merge in Fourier domain
@@ -416,17 +434,17 @@ class MultimodalLegoFusion(BaseFusionModule):
         embeddings: list[torch.Tensor],
         modality_ids: list[str],
         B: int,
+        masks: list[torch.Tensor] | None = None,
     ) -> torch.Tensor:
         """LegoFuse stack: pass latent sequentially through each modality block."""
         latent = None
         for i, (emb, mod_id) in enumerate(zip(embeddings, modality_ids)):
             block = self.blocks[mod_id]
+            cm = masks[i] if masks is not None else None
             if i == 0:
-                # First block uses its own learnable latent
-                latent = block(emb, return_complex=False)
+                latent = block(emb, return_complex=False, context_mask=cm)
             else:
-                # Subsequent blocks receive the latent from previous block
-                latent = block(emb, latent_override=latent, return_complex=False)
+                latent = block(emb, latent_override=latent, return_complex=False, context_mask=cm)
 
         return self._output_head(latent)
 
@@ -435,6 +453,7 @@ class MultimodalLegoFusion(BaseFusionModule):
         embeddings: list[torch.Tensor],
         modality_ids: list[str],
         B: int,
+        masks: list[torch.Tensor] | None = None,
     ) -> torch.Tensor:
         """LegoFuse weave: alternating single-depth passes from each block.
 
@@ -455,8 +474,9 @@ class MultimodalLegoFusion(BaseFusionModule):
         depth = first_block.depth
 
         for d in range(depth):
-            for emb, mod_id in zip(embs, modality_ids):
+            for i, (emb, mod_id) in enumerate(zip(embs, modality_ids)):
                 block = self.blocks[mod_id]
+                cm = masks[i] if masks is not None else None
                 # Single-depth pass: use layer d's cross-attn and ff
                 cross_attn = block.cross_attns[d]
                 cross_ff = block.cross_ffs[d]
@@ -474,7 +494,7 @@ class MultimodalLegoFusion(BaseFusionModule):
                     x_real = emb
 
                 # Cross-attention + FF (single depth step)
-                latent = cross_attn(l_real, context=x_real) + l_real
+                latent = cross_attn(l_real, context=x_real, context_mask=cm) + l_real
                 latent = cross_ff(latent) + latent
 
         return self._output_head(latent)

@@ -133,3 +133,20 @@ def test_embedding_save_load(tmp_path):
     loaded = extractor.load_embedding("test_enc", "005", 0)
     assert torch.allclose(loaded["embedding"], emb)
     assert loaded["config_hash"] == "abc123"
+
+
+def test_validate_cache_detects_single_hash_mismatch(tmp_path):
+    extractor = EmbeddingExtractor(
+        data_dir="data/egoemotion_raw",
+        output_dir=str(tmp_path / "embeddings"),
+        task_times_path="data/egoemotion_raw/task_times.npy",
+    )
+    emb = torch.randn(5, 768)
+    meta = {"task_name": "test", "subject_id": "005"}
+
+    extractor.save_embedding("test_enc", "005", 0, emb, meta, config_hash="good")
+    extractor.save_embedding("test_enc", "005", 1, emb, meta, config_hash="good")
+    assert extractor.validate_cache("test_enc", "good")
+
+    extractor.save_embedding("test_enc", "005", 1, emb, meta, config_hash="bad")
+    assert not extractor.validate_cache("test_enc", "good")

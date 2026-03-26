@@ -172,9 +172,13 @@ def extract_eye(
         d_model=128, n_heads=4, n_layers=3, seq_len=900,
     ).to(device)
     pretrained = "checkpoints/patchtst_pretrained.pt"
-    if os.path.exists(pretrained):
-        encoder.load_state_dict(torch.load(pretrained, weights_only=True))
-        log.info(f"Loaded pre-trained PatchTST from {pretrained}")
+    if not os.path.exists(pretrained):
+        raise FileNotFoundError(
+            f"Pre-trained PatchTST checkpoint not found at {pretrained}. "
+            "Run 'python scripts/pretrain_patchtst.py' first."
+        )
+    encoder.load_state_dict(torch.load(pretrained, weights_only=True))
+    log.info(f"Loaded pre-trained PatchTST from {pretrained}")
     encoder.freeze()
 
     extracted, skipped = 0, 0
@@ -212,8 +216,7 @@ def extract_eye(
 
         x = torch.tensor(combined, dtype=torch.float32).unsqueeze(0).to(device)  # [1, 900, 4]
         with torch.no_grad():
-            emb = encoder(x)       # [1, num_patches, 128]
-            emb = emb.mean(dim=1)  # [1, 128]
+            emb = encoder(x)  # [1, num_patches, 128] — keep full token sequence
 
         save_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save({
@@ -308,7 +311,7 @@ def extract_video(
                 for clip in clips:
                     emb = encoder(clip.unsqueeze(0).to(device))  # [1, 768]
                     embeddings.append(emb)
-            emb = torch.cat(embeddings, dim=0).mean(dim=0, keepdim=True)  # [1, 768]
+            emb = torch.cat(embeddings, dim=0)  # [num_clips, 768] — keep all clip tokens
 
             save_path.parent.mkdir(parents=True, exist_ok=True)
             torch.save({

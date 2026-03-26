@@ -62,15 +62,27 @@ class EmbeddingExtractor:
         return torch.load(path, weights_only=False)
 
     def validate_cache(self, encoder_name: str, expected_hash: str) -> bool:
-        """Check if cached embeddings match the expected config hash."""
+        """Check if cached embeddings match the expected config hash.
+
+        Checks ALL cached files to catch mixed old/new caches.
+        Returns True only if every file has a matching hash.
+        """
         encoder_dir = self.output_dir / encoder_name
         if not encoder_dir.exists():
             return False
-        for pt_file in encoder_dir.rglob("*.pt"):
+        pt_files = list(encoder_dir.rglob("*.pt"))
+        if not pt_files:
+            return False
+        for pt_file in pt_files:
             data = torch.load(pt_file, weights_only=False)
             stored_hash = data.get("config_hash", "")
-            return stored_hash == expected_hash
-        return False
+            if stored_hash != expected_hash:
+                log.info(
+                    f"Cache hash mismatch in {pt_file.name}: "
+                    f"stored={stored_hash!r}, expected={expected_hash!r}"
+                )
+                return False
+        return True
 
     def extract_all(
         self,
@@ -80,16 +92,19 @@ class EmbeddingExtractor:
         config_hash: str = "",
     ) -> None:
         """Extract embeddings for all subjects and segments."""
-        if self.validate_cache(encoder_name, config_hash):
-            log.info(f"Cache valid for {encoder_name} (hash={config_hash})")
+        cache_valid = self.validate_cache(encoder_name, config_hash)
+        if cache_valid:
+            log.info(f"Cache valid for {encoder_name} (hash={config_hash}), skipping existing files")
         else:
-            log.info(f"Cache invalid/missing for {encoder_name}, extracting")
+            log.info(f"Cache invalid/missing for {encoder_name}, will re-extract all segments")
 
         subjects = self.segment_extractor.get_subject_ids()
         for subj in tqdm(subjects, desc=f"Extracting {encoder_name}"):
             segments = self.segment_extractor.get_segments(subj)
             for idx, seg in enumerate(segments):
-                if self.is_cached(encoder_name, subj, idx):
+                # Only skip if cache is valid AND file exists.
+                # When cache is invalid (hash mismatch), re-extract even if file exists.
+                if cache_valid and self.is_cached(encoder_name, subj, idx):
                     continue
                 try:
                     embedding = encode_fn(subj, seg)

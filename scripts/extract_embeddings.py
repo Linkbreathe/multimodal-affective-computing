@@ -14,7 +14,7 @@ import torch
 import cv2
 
 from src.encoders.extract import EmbeddingExtractor
-from src.utils.config import load_config
+from src.utils.config import load_config, config_hash
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -102,7 +102,8 @@ def _extract_video(extractor: EmbeddingExtractor, device: str) -> None:
                 embeddings.append(emb)
         return torch.cat(embeddings, dim=0)
 
-    extractor.extract_all("video_mae_v2", encode_fn, device)
+    enc_hash = config_hash({"encoder": "VideoMAEV2", "embed_dim": 768})
+    extractor.extract_all("video_mae_v2", encode_fn, device, config_hash=enc_hash)
 
 
 def _extract_eye_tracking(
@@ -117,9 +118,13 @@ def _extract_eye_tracking(
     ).to(device)
 
     pretrained_path = "checkpoints/patchtst_pretrained.pt"
-    if os.path.exists(pretrained_path):
-        encoder.load_state_dict(torch.load(pretrained_path, weights_only=True))
-        log.info(f"Loaded pre-trained PatchTST from {pretrained_path}")
+    if not os.path.exists(pretrained_path):
+        raise FileNotFoundError(
+            f"Pre-trained PatchTST checkpoint not found at {pretrained_path}. "
+            "Run 'python scripts/pretrain_patchtst.py' first."
+        )
+    encoder.load_state_dict(torch.load(pretrained_path, weights_only=True))
+    log.info(f"Loaded pre-trained PatchTST from {pretrained_path}")
     encoder.freeze()
 
     def encode_fn(subject_id: str, segment: dict) -> torch.Tensor:
@@ -141,7 +146,11 @@ def _extract_eye_tracking(
             embeddings = encoder(batch)
         return embeddings.reshape(-1, 128)
 
-    extractor.extract_all("patchtst_eye", encode_fn, device)
+    enc_hash = config_hash({
+        "encoder": "PatchTST", "num_channels": 4, "patch_len": 45,
+        "stride": 22, "d_model": 128, "n_heads": 4, "n_layers": 3, "seq_len": 900,
+    })
+    extractor.extract_all("patchtst_eye", encode_fn, device, config_hash=enc_hash)
 
 
 def _extract_ppg(extractor: EmbeddingExtractor, device: str) -> None:
@@ -157,7 +166,8 @@ def _extract_ppg(extractor: EmbeddingExtractor, device: str) -> None:
         with torch.no_grad():
             return encoder(x)
 
-    extractor.extract_all("papagei_ppg", encode_fn, device)
+    enc_hash = config_hash({"encoder": "Papagei", "embed_dim": 512})
+    extractor.extract_all("papagei_ppg", encode_fn, device, config_hash=enc_hash)
 
 
 if __name__ == "__main__":

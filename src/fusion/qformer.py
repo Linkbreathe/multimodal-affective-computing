@@ -70,7 +70,10 @@ class QFormerLayer(nn.Module):
             self.cross_ffn_norm = nn.LayerNorm(d_query)
 
     def forward(
-        self, queries: torch.Tensor, kv: torch.Tensor | None = None,
+        self,
+        queries: torch.Tensor,
+        kv: torch.Tensor | None = None,
+        key_padding_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         # Self-attention (post-norm: LayerNorm(x + sublayer(x)))
         attn_out, _ = self.self_attn(queries, queries, queries)
@@ -82,7 +85,9 @@ class QFormerLayer(nn.Module):
 
         # Cross-attention + cross-FFN (if this layer has it)
         if self.has_cross_attention and kv is not None:
-            cross_out, _ = self.cross_attn(queries, kv, kv)
+            cross_out, _ = self.cross_attn(
+                queries, kv, kv, key_padding_mask=key_padding_mask,
+            )
             queries = self.cross_attn_norm(queries + self.cross_attn_dropout(cross_out))
 
             cross_ffn_out = self.cross_ffn(queries)
@@ -92,6 +97,8 @@ class QFormerLayer(nn.Module):
 
 
 class QFormerFusion(BaseFusionModule):
+    supports_sequence_input = True
+
     """Q-Former: learnable queries extract task-relevant info via cross-attention.
 
     Architecture:
@@ -136,20 +143,33 @@ class QFormerFusion(BaseFusionModule):
         masks: list[torch.Tensor] | None = None,
     ) -> torch.Tensor:
         B = embeddings[0].shape[0]
+        device = embeddings[0].device
 
         # Prepare KV from all modalities
         processed = []
+        mask_parts = []
+        any_mask = masks is not None and any(m is not None for m in masks)
+
         for i, emb in enumerate(embeddings):
             if emb.dim() == 2:
                 emb = emb.unsqueeze(1)
+            T_i = emb.shape[1]
             emb = emb + self.modality_embed.weight[i]
             processed.append(emb)
 
+            if any_mask:
+                if masks[i] is not None:
+                    mask_parts.append(masks[i])
+                else:
+                    mask_parts.append(torch.ones(B, T_i, dtype=torch.bool, device=device))
+
         kv = torch.cat(processed, dim=1)
+        # key_padding_mask: True = IGNORE (PyTorch convention)
+        key_padding_mask = ~torch.cat(mask_parts, dim=1) if any_mask else None
         queries = self.queries.expand(B, -1, -1)
 
         for layer in self.layers:
-            queries = layer(queries, kv)
+            queries = layer(queries, kv, key_padding_mask=key_padding_mask)
 
         # Output: normalize, pool, project
         queries = self.output_norm(queries)

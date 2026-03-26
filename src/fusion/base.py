@@ -8,6 +8,10 @@ import torch.nn as nn
 
 
 class BaseFusionModule(ABC, nn.Module):
+    # Override to True in fusion modules that consume multi-token sequences.
+    # When False, ProjectedFusion will mean-pool any 3D inputs before forwarding.
+    supports_sequence_input: bool = False
+
     def __init__(self, d_common: int, d_out: int | None = None) -> None:
         super().__init__()
         self.d_common = d_common

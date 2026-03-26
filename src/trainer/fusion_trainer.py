@@ -86,8 +86,8 @@ class FusionTrainer:
             task_head.train()
             epoch_loss = 0.0
             for batch in train_loader:
-                embeddings, modality_ids, labels = self._unpack_batch(batch)
-                fused = fusion_model(embeddings, modality_ids)
+                embeddings, modality_ids, labels, masks = self._unpack_batch(batch)
+                fused = fusion_model(embeddings, modality_ids, masks)
                 outputs = task_head(fused)
                 loss, breakdown = loss_fn(outputs, labels)
 
@@ -150,8 +150,8 @@ class FusionTrainer:
         total_loss = 0.0
 
         for batch in loader:
-            embeddings, modality_ids, labels = self._unpack_batch(batch)
-            fused = fusion_model(embeddings, modality_ids)
+            embeddings, modality_ids, labels, masks = self._unpack_batch(batch)
+            fused = fusion_model(embeddings, modality_ids, masks)
             outputs = task_head(fused)
             loss, _ = loss_fn(outputs, labels)
             total_loss += loss.item()
@@ -194,12 +194,17 @@ class FusionTrainer:
 
     def _unpack_batch(
         self, batch: dict
-    ) -> tuple[list[torch.Tensor], list[str], dict[str, torch.Tensor]]:
+    ) -> tuple[list[torch.Tensor], list[str], dict[str, torch.Tensor], list[torch.Tensor | None]]:
         embeddings = [
             batch["embeddings"][m].to(self.device) for m in batch["modality_ids"]
         ]
+        masks_dict = batch.get("masks", {})
+        masks = [
+            masks_dict[m].to(self.device) if masks_dict.get(m) is not None else None
+            for m in batch["modality_ids"]
+        ]
         labels = {k: v.to(self.device) for k, v in batch["labels"].items()}
-        return embeddings, batch["modality_ids"], labels
+        return embeddings, batch["modality_ids"], labels, masks
 
     def _make_loader(
         self, data: list[dict], batch_size: int, shuffle: bool
@@ -218,11 +223,30 @@ class FusionTrainer:
         def collate(batch):
             modality_ids = batch[0]["modality_ids"]
             embeddings = {}
+            masks = {}
             for m in modality_ids:
                 tensors = [
                     b["embeddings"][b["modality_ids"].index(m)] for b in batch
                 ]
-                embeddings[m] = torch.stack(tensors)
+                if tensors[0].dim() <= 1:
+                    # 0D or 1D (pooled vectors): simple stack → (B,) or (B, D)
+                    embeddings[m] = torch.stack(tensors)
+                    masks[m] = None
+                elif all(t.shape[0] == tensors[0].shape[0] for t in tensors):
+                    # 2D with uniform sequence length: simple stack → (B, T, D)
+                    embeddings[m] = torch.stack(tensors)
+                    masks[m] = None
+                else:
+                    # 2D with variable sequence length: pad + mask
+                    max_t = max(t.shape[0] for t in tensors)
+                    d = tensors[0].shape[-1]
+                    padded = torch.zeros(len(tensors), max_t, d)
+                    mask = torch.zeros(len(tensors), max_t, dtype=torch.bool)
+                    for i, t in enumerate(tensors):
+                        padded[i, : t.shape[0]] = t
+                        mask[i, : t.shape[0]] = True
+                    embeddings[m] = padded
+                    masks[m] = mask
             labels = {}
             for k in batch[0]["labels"]:
                 vals = [b["labels"][k] for b in batch]
@@ -235,6 +259,7 @@ class FusionTrainer:
                 "embeddings": embeddings,
                 "modality_ids": modality_ids,
                 "labels": labels,
+                "masks": masks,
             }
 
         return DataLoader(

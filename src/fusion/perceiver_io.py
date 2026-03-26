@@ -67,6 +67,8 @@ class CrossAttentionBlock(nn.Module):
 
 
 class PerceiverIOFusion(BaseFusionModule):
+    supports_sequence_input = True
+
     """Perceiver IO: latent array cross-attends to all modality inputs.
 
     Architecture per layer:
@@ -112,23 +114,30 @@ class PerceiverIOFusion(BaseFusionModule):
         masks: list[torch.Tensor] | None = None,
     ) -> torch.Tensor:
         B = embeddings[0].shape[0]
+        device = embeddings[0].device
 
         # Prepare input: add modality embeddings, concatenate
         processed = []
-        all_masks = []
+        mask_parts = []
+        any_mask = masks is not None and any(m is not None for m in masks)
+
         for i, emb in enumerate(embeddings):
             if emb.dim() == 2:
                 emb = emb.unsqueeze(1)
+            T_i = emb.shape[1]
             emb = emb + self.modality_embed.weight[i].unsqueeze(0).unsqueeze(0)
             processed.append(emb)
-            if masks is not None:
-                m = masks[i]
-                if m.dim() == 1:
-                    m = m.unsqueeze(1)
-                all_masks.append(m)
+
+            if any_mask:
+                if masks[i] is not None:
+                    mask_parts.append(masks[i])
+                else:
+                    # All tokens valid for this modality
+                    mask_parts.append(torch.ones(B, T_i, dtype=torch.bool, device=device))
 
         kv = torch.cat(processed, dim=1)
-        key_padding_mask = ~torch.cat(all_masks, dim=1) if all_masks else None
+        # key_padding_mask: True = IGNORE (PyTorch convention)
+        key_padding_mask = ~torch.cat(mask_parts, dim=1) if any_mask else None
 
         # Expand latents for batch
         latents = self.latents.expand(B, -1, -1)

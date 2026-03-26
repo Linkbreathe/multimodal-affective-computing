@@ -32,6 +32,31 @@ from src.utils.reporting import generate_report
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fusion")
 
+SEQUENCE_ENCODER_DIRS = {"video_mae_v2", "patchtst_eye"}
+
+
+def normalize_loaded_embedding(
+    embedding: torch.Tensor,
+    encoder_dir_name: str,
+) -> torch.Tensor:
+    """Normalize cached embeddings without collapsing singleton sequences.
+
+    Sequence encoders may legitimately emit a single token with shape [1, D].
+    Keep that 2D shape intact so batching can still pad/stack sequence inputs.
+    Pooled encoders such as PPG should continue to load as [D].
+    """
+    if embedding.dim() >= 3 and embedding.shape[0] == 1:
+        return embedding.squeeze(0)
+
+    if (
+        encoder_dir_name not in SEQUENCE_ENCODER_DIRS
+        and embedding.dim() == 2
+        and embedding.shape[0] == 1
+    ):
+        return embedding.squeeze(0)
+
+    return embedding
+
 
 def build_fusion_model(cfg: dict, registry: ModalityRegistry):
     """Build a fusion model + projector from config."""
@@ -141,6 +166,24 @@ class ProjectedFusion(torch.nn.Module):
             proj_dict[mod_id] = emb
         projected = self.projector(proj_dict)
         proj_list = [projected[m] for m in modality_ids]
+
+        # If the fusion module does not support sequence inputs, pool any
+        # 3D (B, T, D) projected tensors to 2D (B, D) with mask-aware mean.
+        if not getattr(self.fusion, "supports_sequence_input", False):
+            pooled = []
+            mask_list = masks if masks else [None] * len(proj_list)
+            for proj, mask in zip(proj_list, mask_list):
+                if proj.dim() == 3:
+                    if mask is not None:
+                        # mask: (B, T) bool — True = valid token
+                        mask_f = mask.unsqueeze(-1).float()  # (B, T, 1)
+                        proj = (proj * mask_f).sum(dim=1) / mask_f.sum(dim=1).clamp(min=1)
+                    else:
+                        proj = proj.mean(dim=1)
+                pooled.append(proj)
+            proj_list = pooled
+            masks = None
+
         return self.fusion(proj_list, modality_ids, masks)
 
 
@@ -185,10 +228,7 @@ def load_data_by_subject(
             for emb_dir in embedding_dir_names:
                 path = embeddings_path / emb_dir / subj / f"segment_{seg_idx:04d}.pt"
                 data = torch.load(path, weights_only=False)
-                emb = data["embedding"]
-                if emb.dim() == 2:
-                    emb = emb.mean(dim=0)
-                emb_list.append(emb)
+                emb_list.append(normalize_loaded_embedding(data["embedding"], emb_dir))
 
             key = f"{subj}_{seg_idx:04d}"
             if key not in labels:
