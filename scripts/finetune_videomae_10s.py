@@ -1,7 +1,11 @@
 """Fine-tune VideoMAEv2-Base on EgoEmotion 9-class emotion classification.
 
-Reads frames directly from pov.mp4 (no pre-cut clips). After training,
-extracts [768] embeddings from the fine-tuned model for all segments.
+Reads frames directly from pov.mp4 (no pre-cut clips).  Uses consecutive
+16-frame clips — the same temporal strategy as the frozen extraction pipeline.
+After training, extracts [num_clips, 768] embeddings from the fine-tuned model.
+
+Training augmentation: RandomResizedCrop + horizontal flip + color jitter.
+Validation / extraction: center crop (official HuggingFace pipeline).
 
 Usage:
     conda run -n visphy python scripts/finetune_videomae_10s.py --device cuda
@@ -27,6 +31,13 @@ from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
+from src.data.video_transforms import (
+    CLIP_LEN,
+    make_consecutive_clips,
+    normalize_clip,
+    preprocess_frame,
+    read_frames,
+)
 from src.utils.metrics import compute_class_weights
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -40,30 +51,96 @@ EMOTION_TO_LABEL = {e: i for i, e in enumerate(EMOTIONS)}
 NUM_CLASSES = 9
 EMBED_DIM = 768
 CHUNK_SAMPLES_90HZ = 900
-IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 
 # ---------------------------------------------------------------------------
-# Dataset: reads frames from pov.mp4
+# Spatial augmentation (applied consistently across all frames in a clip)
+# ---------------------------------------------------------------------------
+
+def _random_resized_crop(
+    frames_bgr: list[np.ndarray],
+    crop_size: int = 224,
+    scale: tuple[float, float] = (0.5, 1.0),
+    ratio: tuple[float, float] = (0.75, 1.333),
+) -> list[np.ndarray]:
+    """RandomResizedCrop with identical parameters for every frame."""
+    h, w = frames_bgr[0].shape[:2]
+    area = h * w
+
+    for _ in range(10):
+        target_area = area * np.random.uniform(*scale)
+        aspect = np.exp(np.random.uniform(np.log(ratio[0]), np.log(ratio[1])))
+        new_w = int(round(np.sqrt(target_area * aspect)))
+        new_h = int(round(np.sqrt(target_area / aspect)))
+        if 0 < new_w <= w and 0 < new_h <= h:
+            x = np.random.randint(0, w - new_w + 1)
+            y = np.random.randint(0, h - new_h + 1)
+            return [
+                cv2.resize(f[y : y + new_h, x : x + new_w], (crop_size, crop_size))
+                for f in frames_bgr
+            ]
+
+    # Fallback: center crop the largest square
+    short = min(h, w)
+    y, x = (h - short) // 2, (w - short) // 2
+    return [
+        cv2.resize(f[y : y + short, x : x + short], (crop_size, crop_size))
+        for f in frames_bgr
+    ]
+
+
+def _random_horizontal_flip(
+    frames: list[np.ndarray], p: float = 0.5,
+) -> list[np.ndarray]:
+    if np.random.random() < p:
+        return [np.ascontiguousarray(f[:, ::-1]) for f in frames]
+    return frames
+
+
+def _color_jitter(
+    frames: list[np.ndarray],
+    brightness: float = 0.3,
+    contrast: float = 0.3,
+    saturation: float = 0.3,
+) -> list[np.ndarray]:
+    """Consistent color jitter across all frames (operates on BGR uint8)."""
+    b_factor = 1.0 + np.random.uniform(-brightness, brightness)
+    c_factor = 1.0 + np.random.uniform(-contrast, contrast)
+    s_factor = 1.0 + np.random.uniform(-saturation, saturation)
+
+    result = []
+    for f in frames:
+        out = np.clip(f.astype(np.float32) * b_factor, 0, 255)              # brightness
+        out = np.clip((out - out.mean()) * c_factor + out.mean(), 0, 255)    # contrast
+        out = out.astype(np.uint8)
+        hsv = cv2.cvtColor(out, cv2.COLOR_BGR2HSV).astype(np.float32)
+        hsv[:, :, 1] = np.clip(hsv[:, :, 1] * s_factor, 0, 255)            # saturation
+        result.append(cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR))
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Dataset
 # ---------------------------------------------------------------------------
 
 class VideoSegmentDataset(Dataset):
-    """Loads 16-frame clips from pov.mp4 for each 10s segment."""
+    """One consecutive 16-frame clip per 10s segment.
+
+    Training:   random clip + RandomResizedCrop + flip + colour jitter.
+    Validation: center clip + center crop (matches frozen extraction).
+    """
 
     def __init__(
         self,
         split_csv: Path,
         data_dir: Path,
         task_times: dict,
-        num_frames: int = 16,
-        sampling_rate: int = 6,
+        clip_len: int = CLIP_LEN,
         is_train: bool = True,
     ):
         self.data_dir = data_dir
         self.task_times = task_times
-        self.num_frames = num_frames
-        self.sampling_rate = sampling_rate
+        self.clip_len = clip_len
         self.is_train = is_train
 
         df = pd.read_csv(split_csv)
@@ -74,7 +151,6 @@ class VideoSegmentDataset(Dataset):
             label = EMOTION_TO_LABEL[row["emotion"]]
             self.samples.append((subj, seg_idx, label))
 
-        # Pre-open video captures per subject (closed in __del__)
         self._caps: dict[str, tuple[cv2.VideoCapture, float, int]] = {}
 
     def _get_cap(self, subj: str):
@@ -89,58 +165,61 @@ class VideoSegmentDataset(Dataset):
     def __len__(self):
         return len(self.samples)
 
-    def __getitem__(self, idx):
-        subj, seg_idx, label = self.samples[idx]
+    def _read_raw_frames(self, subj: str, seg_idx: int) -> list[np.ndarray]:
+        """Read raw BGR frames for a 10s segment (timestamp-based seeking)."""
         cap, fps, session_a_start_90 = self._get_cap(subj)
+        start_sec = (session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ) / 90.0
+        expected = int(10.0 * fps)
 
-        # Compute absolute frame range for this 10s segment
-        abs_start_90 = session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ
-        start_sec = abs_start_90 / 90.0
-        end_sec = start_sec + 10.0
-        start_frame = int(start_sec * fps)
-        end_frame = int(end_sec * fps)
-        total_frames = end_frame - start_frame
-
-        # Sample 16 frames with temporal stride
-        span = self.num_frames * self.sampling_rate  # 96 frames
-        max_start = max(0, total_frames - span)
-        if self.is_train and max_start > 0:
-            offset = np.random.randint(0, max_start)
-        else:
-            offset = max_start // 2  # center
-
-        indices = [offset + i * self.sampling_rate for i in range(self.num_frames)]
-        # Clamp to available range
-        indices = [min(i, total_frames - 1) for i in indices]
-
-        # Read frames
+        cap.set(cv2.CAP_PROP_POS_MSEC, start_sec * 1000.0)
         frames = []
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        frame_buf = {}
-        needed = set(indices)
-        for fi in range(max(indices) + 1):
+        for _ in range(expected):
             ret, frame = cap.read()
             if not ret:
                 break
-            if fi in needed:
-                frame = cv2.resize(frame, (224, 224))
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frame_buf[fi] = frame
+            frames.append(frame)
+        return frames
 
-        for i in indices:
-            if i in frame_buf:
-                frames.append(frame_buf[i])
-            elif frames:
-                frames.append(frames[-1])  # repeat last
-            else:
-                frames.append(np.zeros((224, 224, 3), dtype=np.uint8))
+    def __getitem__(self, idx):
+        subj, seg_idx, label = self.samples[idx]
+        raw_frames = self._read_raw_frames(subj, seg_idx)
 
-        # Normalize
-        clip = np.stack(frames).astype(np.float32) / 255.0
-        clip = (clip - IMAGENET_MEAN) / IMAGENET_STD
-        clip = torch.tensor(clip, dtype=torch.float32).permute(3, 0, 1, 2)  # [3, 16, 224, 224]
+        n_clips = len(raw_frames) // self.clip_len
+        if n_clips == 0:
+            while len(raw_frames) < self.clip_len:
+                raw_frames.append(
+                    raw_frames[-1] if raw_frames
+                    else np.zeros((224, 224, 3), dtype=np.uint8)
+                )
+            n_clips = 1
+
+        if self.is_train:
+            clip_idx = np.random.randint(0, n_clips)
+        else:
+            clip_idx = n_clips // 2
+
+        start = clip_idx * self.clip_len
+        clip_bgr = raw_frames[start : start + self.clip_len]
+
+        if self.is_train:
+            clip = self._train_preprocess(clip_bgr)
+        else:
+            clip = self._val_preprocess(clip_bgr)
 
         return clip, label
+
+    def _train_preprocess(self, frames_bgr: list[np.ndarray]) -> torch.Tensor:
+        frames_bgr = _color_jitter(frames_bgr)
+        frames_bgr = _random_resized_crop(frames_bgr)
+        frames_bgr = _random_horizontal_flip(frames_bgr)
+        frames_rgb = np.stack(
+            [cv2.cvtColor(f, cv2.COLOR_BGR2RGB) for f in frames_bgr],
+        )
+        return normalize_clip(frames_rgb)
+
+    def _val_preprocess(self, frames_bgr: list[np.ndarray]) -> torch.Tensor:
+        frames_rgb = np.stack([preprocess_frame(f) for f in frames_bgr])
+        return normalize_clip(frames_rgb)
 
     def __del__(self):
         for cap, _, _ in self._caps.values():
@@ -152,7 +231,7 @@ class VideoSegmentDataset(Dataset):
 # ---------------------------------------------------------------------------
 
 def load_videomae_for_finetune(num_classes: int = 9, device: str = "cpu"):
-    """Load VideoMAEv2-Base with classification head, bypassing meta tensor bug."""
+    """Load VideoMAEv2-Base with a fresh classification head."""
     from transformers import AutoConfig
     from transformers.dynamic_module_utils import get_class_from_dynamic_module
     from safetensors.torch import load_file
@@ -170,7 +249,6 @@ def load_videomae_for_finetune(num_classes: int = 9, device: str = "cpu"):
     )
     model = model_class(config)
 
-    # Load pretrained backbone (strict=False: head is randomly initialized)
     weights_path = hf_hub_download("OpenGVLab/VideoMAEv2-Base", "model.safetensors")
     sd = load_file(weights_path)
     missing, unexpected = model.load_state_dict(sd, strict=False)
@@ -180,17 +258,14 @@ def load_videomae_for_finetune(num_classes: int = 9, device: str = "cpu"):
 
 
 # ---------------------------------------------------------------------------
-# Layer decay parameter groups
+# Layer-wise LR decay
 # ---------------------------------------------------------------------------
 
 def _get_layer_id(name: str, depth: int = 12) -> int:
-    """Map parameter name to layer index for layer decay."""
     if "patch_embed" in name or "pos_embed" in name or "cls_token" in name:
         return 0
     if "blocks." in name:
-        block_id = int(name.split("blocks.")[1].split(".")[0])
-        return block_id + 1
-    # head, fc_norm, etc.
+        return int(name.split("blocks.")[1].split(".")[0]) + 1
     return depth + 1
 
 
@@ -201,57 +276,39 @@ def build_param_groups(
     layer_decay: float,
     depth: int = 12,
 ) -> list[dict]:
-    """Build parameter groups with layer-wise learning rate decay."""
-    num_layers = depth + 2  # patch_embed(0) + blocks(1..12) + head(13)
+    """Parameter groups with layer-wise LR decay and proper decay/no-decay split."""
+    num_layers = depth + 2
     lr_scales = {i: layer_decay ** (num_layers - 1 - i) for i in range(num_layers)}
 
-    groups: dict[int, dict] = {}
+    param_map: dict[tuple[int, bool], list] = {}
     for name, param in model.named_parameters():
         if not param.requires_grad:
             continue
         layer_id = _get_layer_id(name, depth)
-        if layer_id not in groups:
-            groups[layer_id] = {
-                "params": [],
-                "lr": lr * lr_scales[layer_id],
-                "weight_decay": weight_decay if "bias" not in name and "norm" not in name else 0.0,
-            }
-        groups[layer_id]["params"].append(param)
+        has_decay = "bias" not in name and "norm" not in name
+        param_map.setdefault((layer_id, has_decay), []).append(param)
 
-    # Split no-decay params properly
-    final_groups = []
-    for layer_id in sorted(groups.keys()):
-        g = groups[layer_id]
-        # All params in this layer group share the same lr
-        decay_params = []
-        no_decay_params = []
-        for name, param in model.named_parameters():
-            if not param.requires_grad:
-                continue
-            if _get_layer_id(name, depth) != layer_id:
-                continue
-            if "bias" in name or "norm" in name:
-                no_decay_params.append(param)
-            else:
-                decay_params.append(param)
-        layer_lr = lr * lr_scales[layer_id]
-        if decay_params:
-            final_groups.append({"params": decay_params, "lr": layer_lr, "weight_decay": weight_decay})
-        if no_decay_params:
-            final_groups.append({"params": no_decay_params, "lr": layer_lr, "weight_decay": 0.0})
+    groups = []
+    for (layer_id, has_decay), params in sorted(param_map.items()):
+        groups.append({
+            "params": params,
+            "lr": lr * lr_scales[layer_id],
+            "weight_decay": weight_decay if has_decay else 0.0,
+        })
 
-    total_params = sum(len(g["params"]) for g in final_groups)
-    log.info(f"Layer decay: {len(final_groups)} param groups, {total_params} params, "
-             f"lr range [{lr * lr_scales[0]:.6f}, {lr * lr_scales[num_layers-1]:.6f}]")
-    return final_groups
+    total_params = sum(len(g["params"]) for g in groups)
+    log.info(
+        f"Layer decay: {len(groups)} groups, {total_params} params, "
+        f"lr range [{lr * lr_scales[0]:.6f}, {lr * lr_scales[num_layers - 1]:.6f}]"
+    )
+    return groups
 
 
 # ---------------------------------------------------------------------------
-# Warmup + cosine schedule
+# Schedule
 # ---------------------------------------------------------------------------
 
 def cosine_with_warmup(optimizer, warmup_epochs, total_epochs, steps_per_epoch):
-    """Linear warmup then cosine decay to 0."""
     warmup_steps = warmup_epochs * steps_per_epoch
     total_steps = total_epochs * steps_per_epoch
 
@@ -265,7 +322,7 @@ def cosine_with_warmup(optimizer, warmup_epochs, total_epochs, steps_per_epoch):
 
 
 # ---------------------------------------------------------------------------
-# Training
+# Training / evaluation
 # ---------------------------------------------------------------------------
 
 def train_one_epoch(
@@ -278,9 +335,13 @@ def train_one_epoch(
 
     for step, (clips, labels) in enumerate(tqdm(loader, desc="Train", leave=False)):
         clips = clips.to(device)
-        labels = torch.tensor(labels, dtype=torch.long, device=device) if not isinstance(labels, torch.Tensor) else labels.to(device)
+        labels = (
+            torch.tensor(labels, dtype=torch.long, device=device)
+            if not isinstance(labels, torch.Tensor)
+            else labels.to(device)
+        )
 
-        with torch.cuda.amp.autocast(enabled=device != "cpu", dtype=torch.bfloat16):
+        with torch.amp.autocast("cuda", enabled=device != "cpu", dtype=torch.bfloat16):
             logits = model(clips)
         loss = loss_fn(logits.float(), labels) / grad_accum_steps
         loss.backward()
@@ -304,7 +365,7 @@ def evaluate(model, loader, device):
 
     for clips, labels in tqdm(loader, desc="Eval", leave=False):
         clips = clips.to(device)
-        with torch.cuda.amp.autocast(enabled=device != "cpu", dtype=torch.bfloat16):
+        with torch.amp.autocast("cuda", enabled=device != "cpu", dtype=torch.bfloat16):
             logits = model(clips)
         preds = logits.float().argmax(dim=-1).cpu().numpy()
         all_preds.extend(preds)
@@ -321,74 +382,58 @@ def evaluate(model, loader, device):
 
 
 # ---------------------------------------------------------------------------
-# Embedding extraction
+# Post-training embedding extraction
 # ---------------------------------------------------------------------------
 
 @torch.no_grad()
-def extract_embeddings(
-    model, manifest, task_times, data_dir, output_dir, device,
-):
-    """Extract [768] embeddings from fine-tuned model for all segments."""
+def extract_embeddings(model, manifest_df, task_times, data_dir, output_dir, device):
+    """Extract [num_clips, 768] embeddings using consecutive 16-frame clips.
+
+    Uses the same center-crop pipeline as frozen extraction so that frozen
+    and fine-tuned embeddings are directly comparable.
+    """
     model.eval()
     output_dir = Path(output_dir)
     extracted = 0
 
-    for subj_id, subj_rows in tqdm(manifest.groupby("subject"), desc="Extracting"):
-        subj = str(subj_id).zfill(3)
+    for subj_id, subj_rows in tqdm(manifest_df.groupby("subject_id"), desc="Extracting"):
+        subj = str(int(subj_id)).zfill(3)
         video_path = str(data_dir / subj / "pov.mp4")
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             log.warning(f"Cannot open {video_path}")
             continue
-        fps = cap.get(cv2.CAP_PROP_FPS)
         session_a_start_90 = int(task_times[subj]["session_A"][0])
 
         for _, row in subj_rows.iterrows():
-            seg_idx = int(row["segment_path"].split("/")[-1].replace(".p", ""))
+            seg_idx = int(row["segments"])
 
-            abs_start_90 = session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ
-            start_sec = abs_start_90 / 90.0
-            start_frame = int(start_sec * fps)
-            total_frames = int(10.0 * fps)
+            start_sec = (session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ) / 90.0
+            frames_arr = read_frames(cap, start_sec, 10.0)
 
-            # Center-sample 16 frames with stride 6
-            span = 16 * 6
-            offset = max(0, (total_frames - span) // 2)
-            indices = [offset + i * 6 for i in range(16)]
-            indices = [min(i, total_frames - 1) for i in indices]
+            if len(frames_arr) < CLIP_LEN:
+                log.warning(f"Video {subj}/seg_{seg_idx}: only {len(frames_arr)} frames, skipping")
+                continue
 
-            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-            frame_buf = {}
-            for fi in range(max(indices) + 1):
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                if fi in set(indices):
-                    frame_buf[fi] = cv2.cvtColor(cv2.resize(frame, (224, 224)), cv2.COLOR_BGR2RGB)
+            clips = make_consecutive_clips(frames_arr)
+            if not clips:
+                continue
 
-            frames = []
-            for i in indices:
-                if i in frame_buf:
-                    frames.append(frame_buf[i])
-                elif frames:
-                    frames.append(frames[-1])
-                else:
-                    frames.append(np.zeros((224, 224, 3), dtype=np.uint8))
-
-            clip = np.stack(frames).astype(np.float32) / 255.0
-            clip = (clip - IMAGENET_MEAN) / IMAGENET_STD
-            clip = torch.tensor(clip, dtype=torch.float32).permute(3, 0, 1, 2).unsqueeze(0).to(device)
-
-            with torch.cuda.amp.autocast(enabled=device != "cpu", dtype=torch.bfloat16):
-                emb = model.extract_features(clip).float().cpu()  # [1, 768]
+            embeddings = []
+            for clip in clips:
+                clip_t = clip.unsqueeze(0).to(device)
+                with torch.amp.autocast("cuda", enabled=device != "cpu", dtype=torch.bfloat16):
+                    emb = model.extract_features(clip_t).float().cpu()
+                embeddings.append(emb)
+            emb = torch.cat(embeddings, dim=0)  # [num_clips, 768]
 
             save_path = output_dir / subj / f"segment_{seg_idx:04d}.pt"
             save_path.parent.mkdir(parents=True, exist_ok=True)
             torch.save({
-                "embedding": emb.squeeze(0),  # [768]
+                "embedding": emb,
                 "segment_idx": seg_idx,
                 "subject": subj,
-                "label": int(row["label"]),
+                "label": EMOTION_TO_LABEL[row["emotion"]],
                 "emotion": row["emotion"],
             }, save_path)
             extracted += 1
@@ -415,6 +460,7 @@ def main():
     parser.add_argument("--layer-decay", type=float, default=0.75)
     parser.add_argument("--warmup-epochs", type=int, default=5)
     parser.add_argument("--patience", type=int, default=10)
+    parser.add_argument("--label-smoothing", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
@@ -429,39 +475,45 @@ def main():
     log.info(f"Experiment: {name}")
     log.info(f"Device: {device}")
 
-    # Load task_times for video frame alignment
     task_times = np.load(data_dir / "task_times.npy", allow_pickle=True).item()
 
-    # Datasets
-    train_ds = VideoSegmentDataset(splits_dir / "train.csv", data_dir, task_times, is_train=True)
-    val_ds = VideoSegmentDataset(splits_dir / "val.csv", data_dir, task_times, is_train=False)
+    train_ds = VideoSegmentDataset(
+        splits_dir / "train.csv", data_dir, task_times, is_train=True,
+    )
+    val_ds = VideoSegmentDataset(
+        splits_dir / "val.csv", data_dir, task_times, is_train=False,
+    )
     log.info(f"Train: {len(train_ds)}, Val: {len(val_ds)}")
 
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=True)
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=0, pin_memory=True)
+    train_loader = DataLoader(
+        train_ds, batch_size=args.batch_size, shuffle=True,
+        num_workers=0, pin_memory=True,
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=args.batch_size, shuffle=False,
+        num_workers=0, pin_memory=True,
+    )
 
-    # Compute class weights from training labels
     train_labels = np.array([s[2] for s in train_ds.samples])
     class_weights = compute_class_weights(train_labels, NUM_CLASSES).to(device)
 
-    # Model
     model = load_videomae_for_finetune(NUM_CLASSES, device)
     total_params = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     log.info(f"Model: {trainable:,} / {total_params:,} trainable params")
 
-    # Optimizer with layer decay
     param_groups = build_param_groups(model, args.lr, args.weight_decay, args.layer_decay)
     optimizer = torch.optim.AdamW(param_groups, betas=(0.9, 0.999))
 
-    # Scheduler
-    steps_per_epoch = math.ceil(len(train_loader) / args.grad_accum)
-    scheduler = cosine_with_warmup(optimizer, args.warmup_epochs, args.epochs, steps_per_epoch)
+    optimizer_steps_per_epoch = math.ceil(len(train_loader) / args.grad_accum)
+    scheduler = cosine_with_warmup(
+        optimizer, args.warmup_epochs, args.epochs, optimizer_steps_per_epoch,
+    )
 
-    # Loss
-    loss_fn = nn.CrossEntropyLoss(weight=class_weights)
+    loss_fn = nn.CrossEntropyLoss(
+        weight=class_weights, label_smoothing=args.label_smoothing,
+    )
 
-    # Training loop
     best_f1 = -1.0
     best_state = None
     no_improve = 0
@@ -478,7 +530,8 @@ def main():
 
         log.info(
             f"Epoch {epoch:02d}/{args.epochs} | loss={train_loss:.4f} | "
-            f"val_macro={val_metrics['macro_f1']:.4f} val_weighted={val_metrics['weighted_f1']:.4f} | "
+            f"val_macro={val_metrics['macro_f1']:.4f} "
+            f"val_weighted={val_metrics['weighted_f1']:.4f} | "
             f"lr={current_lr:.6f}"
         )
 
@@ -486,8 +539,10 @@ def main():
             best_f1 = val_metrics["macro_f1"]
             best_state = copy.deepcopy(model.state_dict())
             no_improve = 0
-            torch.save({"model_state_dict": best_state, "epoch": epoch, "val": val_metrics},
-                       ckpt_dir / "best.pt")
+            torch.save(
+                {"model_state_dict": best_state, "epoch": epoch, "val": val_metrics},
+                ckpt_dir / "best.pt",
+            )
             log.info(f"  -> New best: macro_f1={best_f1:.4f}")
         else:
             no_improve += 1
@@ -495,20 +550,24 @@ def main():
                 log.info(f"Early stopping at epoch {epoch}")
                 break
 
-    # Restore best
     if best_state is not None:
         model.load_state_dict(best_state)
     log.info(f"Best val macro F1: {best_f1:.4f}")
 
-    # Extract embeddings for ALL segments (not just train/val)
+    # Extract embeddings for ALL segments (combine all split CSVs)
     log.info("Extracting embeddings from fine-tuned model...")
-    full_manifest = pd.read_csv(data_dir / "ce_hardlabel_manifests" / "dataset_manifest.csv")
+    all_splits = pd.concat(
+        [pd.read_csv(f) for f in sorted(splits_dir.glob("*.csv"))],
+        ignore_index=True,
+    ).drop_duplicates(subset=["subject_id", "segments"])
     emb_output_dir = Path("data/embeddings_10s_finetuned/video_mae_v2")
-    extract_embeddings(model, full_manifest, task_times, data_dir, emb_output_dir, device)
+    extract_embeddings(model, all_splits, task_times, data_dir, emb_output_dir, device)
 
     log.info(f"Done. Embeddings at {emb_output_dir}")
-    log.info(f"Next: conda run -n visphy python scripts/run_linear_probe_10s.py "
-             f"--embeddings-dir {emb_output_dir} --name linear_probe_finetuned")
+    log.info(
+        f"Next: conda run -n visphy python scripts/run_linear_probe_10s.py "
+        f"--embeddings-dir {emb_output_dir} --name linear_probe_finetuned"
+    )
 
 
 if __name__ == "__main__":

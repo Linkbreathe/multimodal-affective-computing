@@ -42,6 +42,16 @@ def test_registry_get_all_embed_dims():
     assert dims == {"video": 768, "eye_tracking": 128}
 
 
+def test_registry_resolves_inceptiontime():
+    config = {
+        "eye_tracking": {"encoder": "inceptiontime", "embed_dim": 128, "enabled": True},
+    }
+    registry = ModalityRegistry(config)
+    encoder_cls = registry.get_encoder_class("eye_tracking")
+    assert encoder_cls.__name__ == "InceptionTimeGazeEncoder"
+    assert registry.get_embedding_dir_name("eye_tracking") == "inceptiontime"
+
+
 from src.encoders.video_mae import VideoMAEV2Encoder
 
 
@@ -53,11 +63,21 @@ def test_video_mae_loads():
 def test_video_mae_forward_shape():
     encoder = VideoMAEV2Encoder()
     encoder.freeze()
-    # 16-frame clip at 224x224
+    # C-first: [B, 3, 16, 224, 224]
     dummy = torch.randn(1, 3, 16, 224, 224)
     with torch.no_grad():
         out = encoder(dummy)
     assert out.shape == (1, 768)
+
+
+def test_video_mae_rejects_wrong_layout():
+    encoder = VideoMAEV2Encoder()
+    encoder.freeze()
+    # T-first should be rejected (was silently auto-permuted before)
+    wrong = torch.randn(1, 16, 3, 224, 224)
+    with pytest.raises(ValueError, match="C-first"):
+        with torch.no_grad():
+            encoder(wrong)
 
 
 from src.encoders.patchtst import PatchTSTEncoder
@@ -87,6 +107,29 @@ def test_patchtst_mean_pool():
     assert pooled.shape == (2, 128)
 
 
+from src.encoders.inceptiontime import InceptionTimeGazeEncoder
+
+
+def test_inceptiontime_forward_shape():
+    encoder = InceptionTimeGazeEncoder()
+    x = torch.randn(2, 2, 900)
+    out = encoder(x)
+    assert out.shape == (2, 128)
+
+
+def test_inceptiontime_architecture_shape_contract():
+    encoder = InceptionTimeGazeEncoder()
+    assert len(encoder.residual_blocks) == 3
+    assert sum(len(block.inception_modules) for block in encoder.residual_blocks) == 6
+
+
+def test_inceptiontime_rejects_wrong_layout():
+    encoder = InceptionTimeGazeEncoder()
+    wrong = torch.randn(2, 900, 2)
+    with pytest.raises(ValueError, match="channels-first"):
+        encoder(wrong)
+
+
 from src.encoders.papagei import PapageiEncoder
 
 
@@ -98,7 +141,7 @@ def test_papagei_loads():
 def test_papagei_forward_shape():
     encoder = PapageiEncoder()
     encoder.freeze()
-    x = torch.randn(2, 1250, 1)  # 10s of PPG at 125Hz
+    x = torch.randn(2, 1, 1250)  # [B, 1, T] 10s of PPG at 125Hz
     with torch.no_grad():
         out = encoder(x)
     assert out.shape == (2, 512)

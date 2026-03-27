@@ -6,19 +6,22 @@ Repo: https://github.com/Nokia-Bell-Labs/papagei-foundation-model
 
 Architecture: 1D ResNet with Mixture of Experts (18 blocks, 3 experts)
 Input: [B, 1, T] single-channel PPG at 125Hz, z-score normalized
-Output: [B, 512] backbone embeddings (mean-pooled before projection head)
+Output: [B, 512] projection head embeddings
 
 The model returns 4 outputs: (class_emb, moe1, moe2, backbone_emb)
-We use backbone_emb (out[3]) as the representation — this is the pooled
-feature before the projection head, providing the richest representation.
+We use class_emb (out[0]) — the dense projection head output — matching
+the official Papagei feature extraction and all published benchmarks.
 """
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
 import torch
 import torch.nn as nn
+
+log = logging.getLogger(__name__)
 
 from src.encoders.base import BaseEncoder
 
@@ -37,14 +40,15 @@ def _load_resnet1d_moe():
 class PapageiEncoder(BaseEncoder):
     """Wraps PaPaGei-S (ResNet1DMoE) for PPG embedding extraction.
 
-    Input: [B, T, 1] PPG signal at 125Hz (will be permuted to [B, 1, T])
-    Output: [B, 512] backbone embeddings
+    Input: [B, 1, T] single-channel PPG at 125Hz (channels-first, Conv1d format)
+    Output: [B, 512] embeddings
 
     Args:
         weights_path: Path to pretrained weights (.pt file).
             Default: weights/papagei/papagei_s.pt
         use_backbone: If True, return backbone embeddings (out[3], dim=512).
-            If False, return projection head output (out[0], dim=512).
+            If False (default), return projection head output (out[0], dim=512),
+            matching the official Papagei feature extraction pipeline.
     """
 
     # PaPaGei-S config from the official repo
@@ -61,7 +65,7 @@ class PapageiEncoder(BaseEncoder):
     def __init__(
         self,
         weights_path: str = "weights/papagei/papagei_s.pt",
-        use_backbone: bool = True,
+        use_backbone: bool = False,
     ) -> None:
         super().__init__(embed_dim=512)
         self.use_backbone = use_backbone
@@ -86,15 +90,20 @@ class PapageiEncoder(BaseEncoder):
             if any(k.startswith("module.") for k in ckpt.keys()):
                 ckpt = {k.replace("module.", ""): v for k, v in ckpt.items()}
             self.model.load_state_dict(ckpt)
+        else:
+            log.warning(
+                f"Papagei weights not found at {weights_path} — "
+                "model will produce random embeddings!"
+            )
 
         self.freeze()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: [B, T, 1] -> [B, 1, T] for Conv1d
-        if x.dim() == 3 and x.shape[-1] == 1:
-            x = x.permute(0, 2, 1)
-        elif x.dim() == 2:
-            x = x.unsqueeze(1)
+        # Ensure channels-first: [B, 1, T]
+        if x.dim() == 2:
+            x = x.unsqueeze(1)          # [B, T] -> [B, 1, T]
+        elif x.dim() == 3 and x.shape[1] != 1:
+            x = x.permute(0, 2, 1)      # [B, T, 1] -> [B, 1, T]
 
         # ResNet1DMoE returns: (class_emb, moe1, moe2, backbone_emb)
         outputs = self.model(x)

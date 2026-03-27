@@ -1,7 +1,7 @@
-"""Run fusion experiments with paper-matched 10s segments.
+"""Run fusion experiments with task-aware 10s segments.
 
-Uses the exact same 2,678 segments from the paper's manifest.
-Results are directly comparable to the paper's 0.46 F1 baseline.
+Uses task-aware segmentation (per-task chunking, no inter-task gaps).
+Labels come from the task-aware manifest CSV.
 
 Usage:
     conda run -n visphy python scripts/run_experiment_10s.py --fusion_config configs/fusion/early.yaml
@@ -93,63 +93,21 @@ def build_fusion_model(cfg: dict, enabled: list[str]) -> tuple:
 
 
 # ---------------------------------------------------------------------------
-# Data loading from 10s embeddings + manifest labels
+# Data loading from task-aware embeddings + manifest
 # ---------------------------------------------------------------------------
-
-def _load_kl_soft_labels(data_dir: Path) -> dict[tuple[int, int], np.ndarray]:
-    """Load per-segment soft labels from KL manifest. Key=(subject, seg_idx)."""
-    kl_path = data_dir / "kl_softlabel_manifests" / "dataset_manifest.csv"
-    if not kl_path.exists():
-        return {}
-    kl = pd.read_csv(kl_path)
-    result = {}
-    for _, row in kl.iterrows():
-        subj = int(row["subject"])
-        seg_idx = int(row["segment_path"].split("/")[-1].replace(".p", ""))
-        soft = np.array([float(row.get(e, 0.0)) for e in EMOTIONS], dtype=np.float32)
-        total = soft.sum()
-        if total > 0:
-            soft /= total
-        result[(subj, seg_idx)] = soft
-    return result
-
-
-def _load_vad_scores(data_dir: Path) -> dict[tuple[int, int], np.ndarray]:
-    """Load per-segment VAD scores from VAD manifest. Key=(subject, seg_idx)."""
-    vad_path = data_dir / "vad_binary_quadrant_manifests" / "dataset_manifest.csv"
-    if not vad_path.exists():
-        return {}
-    vad = pd.read_csv(vad_path)
-    result = {}
-    for _, row in vad.iterrows():
-        subj = int(row["subject"])
-        seg_idx = int(row["segment_path"].split("/")[-1].replace(".p", ""))
-        scores = np.array([
-            float(row.get("valence_score", 0.0)),
-            float(row.get("arousal_score", 0.0)),
-            float(row.get("dominance_score", 0.0)),
-        ], dtype=np.float32)
-        result[(subj, seg_idx)] = scores
-    return result
-
 
 def load_10s_data_by_subject(
     embeddings_dir: str,
     encoder_dir_names: list[str],
     config_mod_names: list[str],
     manifest: pd.DataFrame,
-    data_dir: Path,
     pool_clips: bool = False,
 ) -> dict[str, list[dict]]:
-    """Load 10s-segmented embeddings organized by subject for LOSO.
+    """Load task-aware 10s embeddings organized by subject for LOSO.
 
-    Uses actual soft labels from KL manifest and VAD scores from VAD manifest
-    rather than one-hot approximations.
+    Labels (hard, soft, VAD) come directly from the task-aware manifest.
     """
     emb_path = Path(embeddings_dir)
-    kl_labels = _load_kl_soft_labels(data_dir)
-    vad_scores = _load_vad_scores(data_dir)
-
     data_by_subject: dict[str, list[dict]] = {}
 
     for subj_id, subj_rows in manifest.groupby("subject"):
@@ -157,11 +115,11 @@ def load_10s_data_by_subject(
         samples = []
 
         for _, row in subj_rows.iterrows():
-            seg_idx = int(row["segment_path"].split("/")[-1].replace(".p", ""))
+            global_seq = int(row["global_seq"])
 
             # Check all modalities exist
             all_exist = all(
-                (emb_path / enc / subj / f"segment_{seg_idx:04d}.pt").exists()
+                (emb_path / enc / subj / f"segment_{global_seq:04d}.pt").exists()
                 for enc in encoder_dir_names
             )
             if not all_exist:
@@ -170,33 +128,31 @@ def load_10s_data_by_subject(
             emb_list = []
             for enc in encoder_dir_names:
                 data = torch.load(
-                    emb_path / enc / subj / f"segment_{seg_idx:04d}.pt",
+                    emb_path / enc / subj / f"segment_{global_seq:04d}.pt",
                     weights_only=False,
                 )
-                # Step 1: normalize (strips batch-dim artifact)
                 emb = normalize_loaded_embedding(data["embedding"], enc)
-                # Step 2: pool video clips (video-only, after normalize)
                 if pool_clips and enc == "video_mae_v2" and emb.dim() == 2:
-                    emb = emb.mean(dim=0)  # [T, 768] -> [768]
+                    emb = emb.mean(dim=0)
                 emb_list.append(emb)
 
-            # Soft label from KL manifest (fall back to one-hot if missing)
-            kl_key = (int(subj_id), seg_idx)
-            if kl_key in kl_labels:
-                soft_label = torch.tensor(kl_labels[kl_key], dtype=torch.float32)
-            else:
-                soft_label = torch.zeros(9, dtype=torch.float32)
-                soft_label[int(row["label"])] = 1.0
+            # Parse soft label from manifest (comma-separated string)
+            soft_label = torch.tensor(
+                [float(v) for v in str(row["soft_label"]).split(",")],
+                dtype=torch.float32,
+            )
 
-            # VAD from VAD manifest (fall back to zeros if missing)
-            vad_key = (int(subj_id), seg_idx)
-            vad = torch.tensor(vad_scores.get(vad_key, np.zeros(3, dtype=np.float32)), dtype=torch.float32)
+            vad = torch.tensor([
+                float(row["valence"]),
+                float(row["arousal"]),
+                float(row["dominance"]),
+            ], dtype=torch.float32)
 
             samples.append({
                 "embeddings": emb_list,
                 "modality_ids": config_mod_names,
                 "labels": {
-                    "emotion_label": torch.tensor(int(row["label"]), dtype=torch.long),
+                    "emotion_label": torch.tensor(int(row["emotion_label"]), dtype=torch.long),
                     "soft_label": soft_label,
                     "vad": vad,
                 },
@@ -213,10 +169,10 @@ def load_10s_data_by_subject(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run 10s-segment fusion experiments")
+    parser = argparse.ArgumentParser(description="Run task-aware 10s-segment fusion experiments")
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--fusion_config", required=True, help="Path to fusion method config")
-    parser.add_argument("--embeddings_dir", default="data/embeddings_10s")
+    parser.add_argument("--embeddings_dir", default="data/embeddings_10s_task_aware")
     parser.add_argument("--name", default=None, help="Experiment name")
     parser.add_argument("--device", default=None, help="Device (cuda/cpu)")
     parser.add_argument("--pool-clips", action="store_true",
@@ -229,19 +185,19 @@ def main() -> None:
     name = args.name or f"{cfg.get('fusion_type', 'exp')}_10s_{timestamp}"
 
     logger = setup_logging(cfg["logging"]["log_dir"], name)
-    logger.info(f"Experiment: {name} (10s segments, paper-matched)")
+    logger.info(f"Experiment: {name} (task-aware 10s segments)")
     logger.info(f"Config hash: {config_hash(cfg)}")
     logger.info(f"Device: {device}")
 
-    # Load manifest
-    data_dir = Path(cfg["data_dir"])
-    manifest = pd.read_csv(data_dir / "ce_hardlabel_manifests" / "dataset_manifest.csv")
+    # Load task-aware manifest
+    manifest_path = Path(args.embeddings_dir) / "manifest.csv"
+    manifest = pd.read_csv(manifest_path, dtype={"subject": str})
     logger.info(f"Manifest: {len(manifest)} segments across {manifest['subject'].nunique()} subjects")
 
     # Setup modalities
-    enabled = [m for m, c in cfg["modalities"].items() if c.get("enabled", False)]
-    encoder_map = {"video": "video_mae_v2", "eye_tracking": "patchtst_eye", "ppg": "papagei_ppg"}
-    encoder_dirs = [encoder_map[m] for m in enabled]
+    registry = ModalityRegistry(cfg["modalities"])
+    enabled = registry.get_enabled_modalities()
+    encoder_dirs = [registry.get_embedding_dir_name(m) for m in enabled]
     logger.info(f"Enabled modalities: {enabled}")
 
     # Build model
@@ -254,7 +210,7 @@ def main() -> None:
 
     # Load data
     data_by_subject = load_10s_data_by_subject(
-        args.embeddings_dir, encoder_dirs, enabled, manifest, data_dir,
+        args.embeddings_dir, encoder_dirs, enabled, manifest,
         pool_clips=args.pool_clips,
     )
     total_samples = sum(len(v) for v in data_by_subject.values())
@@ -290,7 +246,7 @@ def main() -> None:
     f1_scores = [r["weighted_f1"] for r in fold_results]
     ccc_scores = [r["ccc"] for r in fold_results]
     logger.info(f"\n{'='*50}")
-    logger.info(f"10s-Segment LOSO Results ({len(fold_results)} folds):")
+    logger.info(f"Task-Aware 10s-Segment LOSO Results ({len(fold_results)} folds):")
     logger.info(f"  Weighted F1: {np.mean(f1_scores):.4f} +/- {np.std(f1_scores):.4f}")
     logger.info(f"  CCC:         {np.mean(ccc_scores):.4f} +/- {np.std(ccc_scores):.4f}")
     logger.info(f"  Paper baseline (Classical, All): 0.46")
@@ -309,7 +265,7 @@ def main() -> None:
     registry = ResultsRegistry()
     registry.add(
         experiment_name=name,
-        fusion_type=f"{cfg.get('fusion_type', 'unknown')}_10s",
+        fusion_type=f"{cfg.get('fusion_type', 'unknown')}_10s_task_aware",
         metrics={
             "weighted_f1": float(np.mean(f1_scores)),
             "weighted_f1_std": float(np.std(f1_scores)),

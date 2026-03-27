@@ -36,6 +36,51 @@ def test_get_segment_data_gaze(extractor):
     assert gaze.ndim == 2
     assert gaze.shape[1] == 2
 
+
+def test_load_eye_tracking_segment_inceptiontime_gaze_only(extractor, monkeypatch):
+    gaze = np.arange(20, dtype=np.float32).reshape(10, 2)
+
+    def fake_load_signal(subject_id, filename, start_90hz, end_90hz):
+        assert filename == "gaze_90fps.npy"
+        return gaze[start_90hz:end_90hz]
+
+    monkeypatch.setattr(extractor, "load_signal", fake_load_signal)
+    eye = extractor.load_eye_tracking_segment(
+        "005",
+        2,
+        7,
+        encoder_name="inceptiontime",
+    )
+    assert eye.ndim == 2
+    assert eye.shape[1] == 2
+    np.testing.assert_array_equal(eye, gaze[2:7])
+
+
+def test_load_eye_tracking_segment_patchtst_includes_pupils(extractor, monkeypatch):
+    gaze = np.arange(20, dtype=np.float32).reshape(10, 2)
+    pupils = np.arange(10, 30, dtype=np.float32).reshape(10, 2)
+
+    def fake_load_signal(subject_id, filename, start_90hz, end_90hz):
+        if filename == "gaze_90fps.npy":
+            return gaze[start_90hz:end_90hz]
+        if filename == "pupils_90fps.npy":
+            return pupils[start_90hz:end_90hz]
+        raise AssertionError(f"Unexpected filename {filename}")
+
+    monkeypatch.setattr(extractor, "load_signal", fake_load_signal)
+    eye = extractor.load_eye_tracking_segment(
+        "005",
+        1,
+        6,
+        encoder_name="patchtst",
+    )
+    assert eye.ndim == 2
+    assert eye.shape[1] == 4
+    np.testing.assert_array_equal(
+        eye,
+        np.concatenate([gaze[1:6], pupils[1:6]], axis=1),
+    )
+
 def test_get_segment_data_ppg(extractor):
     segments = extractor.get_segments("005")
     seg = segments[0]

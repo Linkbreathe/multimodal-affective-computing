@@ -18,11 +18,11 @@ from src.encoders.base import BaseEncoder
 class VideoMAEV2Encoder(BaseEncoder):
     """Wraps OpenGVLab VideoMAE V2 Base for embedding extraction.
 
-    Input: [B, 3, 16, 224, 224] (16-frame clips, C-first)
-    Output: [B, 768] (mean-pooled patch embeddings)
+    Input:  ``[B, C, T, H, W]`` — always C-first, i.e. ``[B, 3, 16, 224, 224]``.
+    Output: ``[B, 768]`` (mean-pooled patch embeddings).
 
     The V2 model uses ``use_mean_pooling=True`` and ``num_classes=0``,
-    so it returns a mean-pooled [B, 768] tensor directly.
+    so it returns a mean-pooled ``[B, 768]`` tensor directly.
     """
 
     MODEL_NAME = "OpenGVLab/VideoMAEv2-Base"
@@ -38,9 +38,10 @@ class VideoMAEV2Encoder(BaseEncoder):
         self.freeze()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # V2 expects [B, C, T, H, W] which matches our convention.
-        # If input arrives as [B, T, C, H, W] (T-first), permute.
-        if x.dim() == 5 and x.shape[2] == 3:
-            x = x.permute(0, 2, 1, 3, 4)
-        # V2 returns a plain tensor [B, 768] (mean-pooled internally).
+        """Forward pass.  Input must be ``[B, 3, 16, 224, 224]`` (C-first)."""
+        if x.dim() != 5 or x.shape[1] != 3:
+            raise ValueError(
+                f"Expected [B, 3, T, H, W] (C-first) input, got shape {tuple(x.shape)}.  "
+                "Use src.data.video_transforms.normalize_clip to produce the correct layout."
+            )
         return self.model(x)

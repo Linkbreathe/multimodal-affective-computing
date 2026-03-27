@@ -13,15 +13,12 @@ import numpy as np
 import torch
 import cv2
 
+from src.data.video_transforms import make_consecutive_clips, preprocess_frame, normalize_clip
 from src.encoders.extract import EmbeddingExtractor
 from src.utils.config import load_config, config_hash
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
-
-# ImageNet normalization
-IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
-IMAGENET_STD = np.array([0.229, 0.224, 0.225])
 
 
 def main() -> None:
@@ -63,20 +60,19 @@ def _extract_video(extractor: EmbeddingExtractor, device: str) -> None:
     def encode_fn(subject_id: str, segment: dict) -> torch.Tensor:
         video_path = f"{extractor.segment_extractor.data_dir}/{subject_id}/pov.mp4"
         start_sec = segment["start_idx"] / 90.0
-        end_sec = segment["end_idx"] / 90.0
+        duration_sec = (segment["end_idx"] - segment["start_idx"]) / 90.0
         cap = cv2.VideoCapture(str(video_path))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        start_frame = int(start_sec * fps)
-        end_frame = int(end_sec * fps)
+        expected = int(duration_sec * fps)
+
+        # Timestamp-based seeking (more reliable than frame-index for compressed video)
+        cap.set(cv2.CAP_PROP_POS_MSEC, start_sec * 1000.0)
         frames = []
-        cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-        for _ in range(end_frame - start_frame):
+        for _ in range(expected):
             ret, frame = cap.read()
             if not ret:
                 break
-            frame = cv2.resize(frame, (224, 224))
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(frame)
+            frames.append(preprocess_frame(frame))  # center crop + BGR->RGB
         cap.release()
 
         if len(frames) < 16:
@@ -84,21 +80,15 @@ def _extract_video(extractor: EmbeddingExtractor, device: str) -> None:
                 frames.append(frames[-1] if frames else np.zeros((224, 224, 3), dtype=np.uint8))
 
         frames_arr = np.stack(frames)
-        clips = []
-        for i in range(0, len(frames_arr) - 15, 16):
-            clip = frames_arr[i : i + 16].astype(np.float32) / 255.0
-            clip = (clip - IMAGENET_MEAN) / IMAGENET_STD
-            clip = torch.tensor(clip, dtype=torch.float32).permute(3, 0, 1, 2)
-            clips.append(clip)
+        clips = make_consecutive_clips(frames_arr)
 
         if not clips:
             clips.append(torch.zeros(3, 16, 224, 224))
 
-        clip_batch = torch.stack(clips).to(device)
         embeddings = []
         with torch.no_grad():
-            for clip in clip_batch:
-                emb = encoder(clip.unsqueeze(0))
+            for clip in clips:
+                emb = encoder(clip.unsqueeze(0).to(device))
                 embeddings.append(emb)
         return torch.cat(embeddings, dim=0)
 
@@ -162,7 +152,7 @@ def _extract_ppg(extractor: EmbeddingExtractor, device: str) -> None:
         ppg = extractor.segment_extractor.load_ppg_segment(
             subject_id, segment["start_idx"], segment["end_idx"]
         )
-        x = torch.tensor(ppg, dtype=torch.float32).unsqueeze(0).to(device)
+        x = torch.tensor(ppg.squeeze(), dtype=torch.float32).unsqueeze(0).unsqueeze(1).to(device)  # [1, 1, T]
         with torch.no_grad():
             return encoder(x)
 

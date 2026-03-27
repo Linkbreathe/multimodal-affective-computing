@@ -1,18 +1,16 @@
-"""Segment data into 10s windows matching the paper's manifest and extract embeddings.
+"""Task-aware segmentation and embedding extraction (10s non-overlapping chunks).
 
-The egoEMOTION paper chunks each task into non-overlapping 10-second windows
-(at 90Hz = 900 samples per chunk), dropping remainders. The manifest defines
-exactly which segments are kept (2,678 across 40 subjects).
-
-IMPORTANT: The resampled data files (gaze_90fps.npy, pupils_90fps.npy,
-ppg_ear_125hz.npy) are SHIFTED to start from session_A, NOT from recording
-start. Their length = session_B_end - session_A_start (in native Hz).
-Segment index N means samples [N*900 : (N+1)*900] in the SHIFTED 90Hz files.
-For video (pov.mp4), the file IS absolute, so we need session_A_start offset.
+Follows the official egoEMOTION segmentation approach:
+1. Split by task first using task_times.npy
+2. Within each task, chunk into 10s non-overlapping windows (900 samples at 90Hz)
+3. Discard incomplete trailing chunks
+4. Exclude inter-task gaps (calibration, questionnaires)
+5. One label per task — all chunks inherit the task's self-reported emotion label
 
 Usage:
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder papagei_ppg
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder patchtst_eye
+    conda run -n visphy python scripts/segment_and_extract_10s.py --encoder inceptiontime
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder video_mae_v2
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder all
 """
@@ -31,301 +29,493 @@ import torch
 import cv2
 from tqdm import tqdm
 
+from src.data.video_transforms import make_consecutive_clips, read_frames
 from src.utils.config import load_config
+from src.encoders.registry import ModalityRegistry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
 
-CHUNK_SAMPLES_90HZ = 900   # 10s at 90Hz
-CHUNK_SAMPLES_125HZ = 1250  # 10s at 125Hz
-IMAGENET_MEAN = np.array([0.485, 0.456, 0.406])
-IMAGENET_STD = np.array([0.229, 0.224, 0.225])
+CHUNK_LEN_SEC = 10
+FS_ET = 90
+CHUNK_SAMPLES_90HZ = CHUNK_LEN_SEC * FS_ET       # 900
+CHUNK_SAMPLES_125HZ = CHUNK_LEN_SEC * 125         # 1250
+
+EMOTIONS = ["Amused", "Content", "Excited", "Awe", "Neutral", "Fear", "Sad", "Disgust", "Anger"]
+EMOTION_TO_LABEL = {e: i for i, e in enumerate(EMOTIONS)}
+
+SESSION_B_TASKS = {"trynottolaugh", "sadletter", "flappybird", "slenderman", "jellybean", "painting", "jenga"}
+
+# Session A Video Emotion column sometimes uses different names
+SESSION_A_EMOTION_MAP = {
+    "Sadness": "Sad",
+    "Angry": "Anger",
+}
 
 
-def _parse_segment_idx(segment_path: str) -> int:
-    """Extract integer segment index from manifest segment_path like '005/ppg_segments/5.p'."""
-    return int(segment_path.split("/")[-1].replace(".p", ""))
+# ---------------------------------------------------------------------------
+# Label loading from Session CSVs
+# ---------------------------------------------------------------------------
 
+def load_task_label(subject_dir: Path, subject_id: str, task_name: str) -> dict | None:
+    """Load emotion labels for a task from Session A or Session B CSV.
+
+    Returns dict with emotion_label (int), emotion_name (str),
+    soft_label (np.ndarray [9]), valence, arousal, dominance, or None.
+    """
+    task_lower = task_name.lower()
+
+    if task_lower in SESSION_B_TASKS:
+        return _lookup_session_b(subject_dir, subject_id, task_lower)
+    elif task_name.startswith("video_"):
+        emotion_suffix = task_name[len("video_"):]
+        return _lookup_session_a(subject_dir, subject_id, emotion_suffix)
+    return None
+
+
+def _lookup_session_a(subject_dir: Path, subject_id: str, emotion_suffix: str) -> dict | None:
+    csv_path = subject_dir / f"Session_A_{subject_id}.csv"
+    if not csv_path.exists():
+        return None
+    df = pd.read_csv(csv_path)
+    mask = df["Video Emotion"].str.lower() == emotion_suffix.lower()
+    if mask.sum() == 0:
+        return None
+    row = df[mask].iloc[0]
+    video_emotion = str(row["Video Emotion"])
+    ce_emotion = SESSION_A_EMOTION_MAP.get(video_emotion, video_emotion)
+
+    soft_label = np.array([float(row.get(e, 0.0)) for e in EMOTIONS], dtype=np.float32)
+    total = soft_label.sum()
+    if total > 0:
+        soft_label /= total
+
+    emotion_label = EMOTION_TO_LABEL.get(ce_emotion, 4)
+
+    return {
+        "emotion_label": emotion_label,
+        "emotion_name": ce_emotion,
+        "soft_label": soft_label,
+        "valence": float(row.get("Valence", 0.0)),
+        "arousal": float(row.get("Arousal", 0.0)),
+        "dominance": float(row.get("Dominance", 0.0)),
+    }
+
+
+def _lookup_session_b(subject_dir: Path, subject_id: str, task_lower: str) -> dict | None:
+    csv_path = subject_dir / f"Session_B_{subject_id}.csv"
+    if not csv_path.exists():
+        return None
+    df = pd.read_csv(csv_path)
+    df["_name_lower"] = df["Activity Name"].str.lower().str.replace(" ", "")
+    mask = df["_name_lower"] == task_lower.replace(" ", "")
+    if mask.sum() == 0:
+        return None
+    rows = df[mask]
+
+    soft_label = np.zeros(9, dtype=np.float32)
+    for _, r in rows.iterrows():
+        for i, e in enumerate(EMOTIONS):
+            soft_label[i] += float(r.get(e, 0.0))
+    soft_label /= len(rows)
+    total = soft_label.sum()
+    if total > 0:
+        soft_label /= total
+
+    dominant_idx = int(np.argmax(soft_label))
+    emotion_name = EMOTIONS[dominant_idx]
+    emotion_label = EMOTION_TO_LABEL[emotion_name]
+
+    return {
+        "emotion_label": emotion_label,
+        "emotion_name": emotion_name,
+        "soft_label": soft_label,
+        "valence": float(rows["Valence"].mean()),
+        "arousal": float(rows["Arousal"].mean()),
+        "dominance": float(rows["Dominance"].mean()),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Task enumeration and chunking
+# ---------------------------------------------------------------------------
+
+def get_task_chunks(subject_tasks: dict, subject_dir: Path, subject_id: str) -> list[dict]:
+    """Enumerate tasks and chunk each into 10s windows.
+
+    Returns list of dicts with: task_name, chunk_idx_in_task, start_90hz, end_90hz,
+    and label info.  All coordinates are shifted (relative to session_A start).
+    """
+    session_a_start = subject_tasks["session_A"][0]
+    chunks = []
+
+    for task_name, (start_raw, end_raw) in subject_tasks.items():
+        if task_name in ("session_A", "session_B"):
+            continue
+
+        # Load label for this task
+        label_info = load_task_label(subject_dir, subject_id, task_name)
+        if label_info is None:
+            log.debug(f"No label for {subject_id}/{task_name}, skipping")
+            continue
+
+        # Shifted coordinates (resampled files start from session_A_start)
+        shifted_start = start_raw - session_a_start
+        shifted_end = end_raw - session_a_start
+
+        # Chunk into 10s windows at 90Hz
+        task_samples = shifted_end - shifted_start
+        n_chunks = task_samples // CHUNK_SAMPLES_90HZ
+
+        for ci in range(n_chunks):
+            chunk_start_90 = shifted_start + ci * CHUNK_SAMPLES_90HZ
+            chunk_end_90 = chunk_start_90 + CHUNK_SAMPLES_90HZ
+            chunks.append({
+                "task_name": task_name,
+                "chunk_idx_in_task": ci,
+                "start_90hz": chunk_start_90,
+                "end_90hz": chunk_end_90,
+                **label_info,
+            })
+
+    return chunks
+
+
+# ---------------------------------------------------------------------------
+# Extraction functions
+# ---------------------------------------------------------------------------
+
+EYE_ENCODER_DIR_TO_KEY = {
+    "patchtst_eye": "patchtst",
+    "inceptiontime": "inceptiontime",
+}
+
+def extract_ppg(
+    chunks_by_subject: dict[str, list[dict]],
+    data_dir: Path,
+    output_dir: Path,
+    device: str,
+) -> int:
+    """Extract Papagei embeddings for each 10s chunk."""
+    from src.encoders.papagei import PapageiEncoder
+
+    encoder = PapageiEncoder().to(device)
+    extracted = 0
+
+    for subj, chunks in tqdm(chunks_by_subject.items(), desc="PPG subjects"):
+        ppg_path = data_dir / subj / "ppg_ear_125hz.npy"
+        if not ppg_path.exists():
+            raw_exists = (data_dir / subj / "ppg_ear.npy").exists()
+            hint = " -- run `python scripts/preprocess_ppg.py` first" if raw_exists else ""
+            log.warning(f"PPG not found: {ppg_path}{hint}")
+            continue
+        ppg = np.load(ppg_path)
+
+        for c in chunks:
+            save_path = output_dir / subj / f"segment_{c['global_seq']:04d}.pt"
+            if save_path.exists():
+                extracted += 1
+                continue
+
+            start_125 = int(c["start_90hz"] * 125 / 90)
+            end_125 = start_125 + CHUNK_SAMPLES_125HZ
+
+            if end_125 > len(ppg):
+                log.debug(f"PPG {subj}/seq_{c['global_seq']}: end_125={end_125} > len={len(ppg)}, skipping")
+                continue
+
+            chunk = ppg[start_125:end_125]
+            assert len(chunk) == CHUNK_SAMPLES_125HZ, (
+                f"PPG chunk size mismatch: {len(chunk)} != {CHUNK_SAMPLES_125HZ} "
+                f"for {subj}/seq_{c['global_seq']}"
+            )
+
+            # Z-score normalize per-segment
+            std = chunk.std()
+            if std > 0:
+                chunk = (chunk - chunk.mean()) / std
+
+            x = torch.tensor(chunk, dtype=torch.float32).unsqueeze(0).unsqueeze(1).to(device)  # [1, 1, T]
+            with torch.no_grad():
+                emb = encoder(x)
+
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save({
+                "embedding": emb.cpu(),
+                "segment_idx": c["global_seq"],
+                "subject": subj,
+                "label": c["emotion_label"],
+                "emotion": c["emotion_name"],
+            }, save_path)
+            extracted += 1
+
+    return extracted
+
+
+def extract_eye(
+    chunks_by_subject: dict[str, list[dict]],
+    data_dir: Path,
+    output_dir: Path,
+    device: str,
+    eye_encoder_key: str,
+) -> int:
+    """Extract eye-tracking embeddings for each 10s chunk."""
+    import os
+    if eye_encoder_key == "patchtst":
+        from src.encoders.patchtst import PatchTSTEncoder
+
+        encoder = PatchTSTEncoder(
+            num_channels=4, patch_len=45, stride=22,
+            d_model=128, n_heads=4, n_layers=3, seq_len=900,
+        ).to(device)
+        pretrained = "checkpoints/patchtst_pretrained.pt"
+    elif eye_encoder_key == "inceptiontime":
+        from src.encoders.inceptiontime import InceptionTimeGazeEncoder
+
+        encoder = InceptionTimeGazeEncoder().to(device)
+        pretrained = "checkpoints/inceptiontime_gaze_pretrained.pt"
+    else:
+        raise ValueError(f"Unsupported eye encoder '{eye_encoder_key}'")
+
+    if not os.path.exists(pretrained):
+        raise FileNotFoundError(
+            f"Pre-trained eye-tracking checkpoint not found at {pretrained}."
+        )
+    encoder.load_state_dict(torch.load(pretrained, weights_only=True))
+    log.info(f"Loaded pre-trained {eye_encoder_key} encoder from {pretrained}")
+    encoder.freeze()
+
+    extracted = 0
+
+    for subj, chunks in tqdm(chunks_by_subject.items(), desc="Eye subjects"):
+        gaze_path = data_dir / subj / "gaze_90fps.npy"
+        pupil_path = data_dir / subj / "pupils_90fps.npy"
+        if not gaze_path.exists():
+            log.warning(f"Eye data not found for {subj}")
+            continue
+        gaze = np.load(gaze_path)
+        pupils = None
+        if eye_encoder_key == "patchtst":
+            if not pupil_path.exists():
+                log.warning(f"Pupil data not found for {subj}")
+                continue
+            pupils = np.load(pupil_path)
+
+        for c in chunks:
+            save_path = output_dir / subj / f"segment_{c['global_seq']:04d}.pt"
+            if save_path.exists():
+                extracted += 1
+                continue
+
+            start_90 = c["start_90hz"]
+            end_90 = c["end_90hz"]
+
+            available_len = len(gaze)
+            if pupils is not None:
+                available_len = min(available_len, len(pupils))
+            if end_90 > available_len:
+                log.debug(
+                    f"Eye {subj}/seq_{c['global_seq']}: end_90={end_90} > len={available_len}, skipping"
+                )
+                continue
+
+            gaze_chunk = gaze[start_90:end_90, :2]
+            if eye_encoder_key == "patchtst":
+                assert pupils is not None
+                pupil_chunk = pupils[start_90:end_90]
+                eye_chunk = np.concatenate([gaze_chunk, pupil_chunk], axis=1)
+                x = torch.tensor(eye_chunk, dtype=torch.float32).unsqueeze(0).to(device)
+            else:
+                x = torch.tensor(gaze_chunk.T, dtype=torch.float32).unsqueeze(0).to(device)
+
+            with torch.no_grad():
+                emb = encoder(x)
+
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save({
+                "embedding": emb.cpu(),
+                "segment_idx": c["global_seq"],
+                "subject": subj,
+                "label": c["emotion_label"],
+                "emotion": c["emotion_name"],
+            }, save_path)
+            extracted += 1
+
+    return extracted
+
+
+def extract_video(
+    chunks_by_subject: dict[str, list[dict]],
+    data_dir: Path,
+    output_dir: Path,
+    device: str,
+) -> int:
+    """Extract VideoMAE V2 embeddings for each 10s chunk.
+
+    Preprocessing matches the official HuggingFace preprocessor_config.json:
+    resize shortest edge to 224, center crop to 224x224, ImageNet normalize.
+    Non-overlapping consecutive 16-frame clips -> [num_clips, 768].
+    """
+    from src.encoders.video_mae import VideoMAEV2Encoder
+
+    encoder = VideoMAEV2Encoder().to(device)
+    extracted = 0
+
+    for subj, chunks in tqdm(chunks_by_subject.items(), desc="Video subjects"):
+        video_path = str(data_dir / subj / "pov.mp4")
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            log.warning(f"Cannot open video: {video_path}")
+            continue
+
+        for c in chunks:
+            save_path = output_dir / subj / f"segment_{c['global_seq']:04d}.pt"
+            if save_path.exists():
+                extracted += 1
+                continue
+
+            start_sec = c["start_90hz"] / 90.0
+            frames_arr = read_frames(cap, start_sec, CHUNK_LEN_SEC)
+
+            if len(frames_arr) < 16:
+                log.warning(
+                    f"Video {subj}/seq_{c['global_seq']}: only {len(frames_arr)} frames, skipping"
+                )
+                continue
+
+            clips = make_consecutive_clips(frames_arr)
+            if not clips:
+                log.warning(f"Video {subj}/seq_{c['global_seq']}: no 16-frame clips, skipping")
+                continue
+
+            embeddings = []
+            with torch.no_grad():
+                for clip in clips:
+                    emb = encoder(clip.unsqueeze(0).to(device))
+                    embeddings.append(emb)
+            emb = torch.cat(embeddings, dim=0)
+
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save({
+                "embedding": emb.cpu(),
+                "segment_idx": c["global_seq"],
+                "subject": subj,
+                "label": c["emotion_label"],
+                "emotion": c["emotion_name"],
+            }, save_path)
+            extracted += 1
+
+        cap.release()
+
+    return extracted
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract 10s segment embeddings matching paper manifest")
+    parser = argparse.ArgumentParser(description="Task-aware 10s segment extraction")
     parser.add_argument("--config", default="configs/base.yaml")
-    parser.add_argument("--encoder", choices=["papagei_ppg", "patchtst_eye", "video_mae_v2", "all"], default="all")
+    parser.add_argument(
+        "--encoder",
+        choices=["papagei_ppg", "patchtst_eye", "inceptiontime", "video_mae_v2", "all"],
+        default="all",
+    )
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--output_dir", default="data/embeddings_10s")
+    parser.add_argument("--output_dir", default="data/embeddings_10s_task_aware")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    registry = ModalityRegistry(cfg["modalities"])
     device = args.device if torch.cuda.is_available() else "cpu"
     data_dir = Path(cfg["data_dir"])
     output_dir = Path(args.output_dir)
 
-    # Load manifest (2,678 segments)
-    manifest = pd.read_csv(data_dir / "ce_hardlabel_manifests" / "dataset_manifest.csv")
-    log.info(f"Manifest: {len(manifest)} segments across {manifest['subject'].nunique()} subjects")
-
-    # Load task_times for session_A offset
+    # Load task_times
     tt = np.load(data_dir / "task_times.npy", allow_pickle=True).item()
 
-    encoders = ["papagei_ppg", "patchtst_eye", "video_mae_v2"] if args.encoder == "all" else [args.encoder]
+    # Discover subjects (directories that are numeric and in task_times)
+    subject_ids = sorted(
+        d.name for d in data_dir.iterdir()
+        if d.is_dir() and d.name.isdigit() and d.name in tt
+    )
+    log.info(f"Found {len(subject_ids)} subjects")
+
+    # Build chunks for all subjects and collect manifest rows
+    chunks_by_subject: dict[str, list[dict]] = {}
+    manifest_rows = []
+
+    for subj in subject_ids:
+        subject_tasks = tt[subj]
+        subject_dir = data_dir / subj
+        task_chunks = get_task_chunks(subject_tasks, subject_dir, subj)
+
+        # Assign global_seq (sequential counter per subject across all tasks)
+        for seq_idx, c in enumerate(task_chunks):
+            c["global_seq"] = seq_idx
+
+        chunks_by_subject[subj] = task_chunks
+
+        for c in task_chunks:
+            soft_str = ",".join(f"{v:.6f}" for v in c["soft_label"])
+            manifest_rows.append({
+                "subject": subj,
+                "task_name": c["task_name"],
+                "chunk_idx_in_task": c["chunk_idx_in_task"],
+                "global_seq": c["global_seq"],
+                "emotion_label": c["emotion_label"],
+                "emotion_name": c["emotion_name"],
+                "soft_label": soft_str,
+                "valence": c["valence"],
+                "arousal": c["arousal"],
+                "dominance": c["dominance"],
+            })
+
+    total_chunks = sum(len(v) for v in chunks_by_subject.values())
+    log.info(f"Total chunks: {total_chunks} across {len(chunks_by_subject)} subjects")
+
+    # Save manifest
+    manifest_path = output_dir / "manifest.csv"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_df = pd.DataFrame(manifest_rows)
+    manifest_df.to_csv(manifest_path, index=False)
+    log.info(f"Manifest saved: {manifest_path} ({len(manifest_df)} rows)")
+
+    # Extract embeddings
+    configured_eye_dir = registry.get_embedding_dir_name("eye_tracking")
+    encoders = (
+        ["papagei_ppg", configured_eye_dir, "video_mae_v2"]
+        if args.encoder == "all"
+        else [args.encoder]
+    )
 
     for enc_name in encoders:
         log.info(f"\n=== Extracting {enc_name} ===")
         enc_dir = output_dir / enc_name
 
         if enc_name == "papagei_ppg":
-            extract_ppg(manifest, tt, data_dir, enc_dir, device)
-        elif enc_name == "patchtst_eye":
-            extract_eye(manifest, tt, data_dir, enc_dir, device)
+            n = extract_ppg(chunks_by_subject, data_dir, enc_dir, device)
+        elif enc_name in EYE_ENCODER_DIR_TO_KEY:
+            n = extract_eye(
+                chunks_by_subject,
+                data_dir,
+                enc_dir,
+                device,
+                eye_encoder_key=EYE_ENCODER_DIR_TO_KEY[enc_name],
+            )
         elif enc_name == "video_mae_v2":
-            extract_video(manifest, tt, data_dir, enc_dir, device)
+            n = extract_video(chunks_by_subject, data_dir, enc_dir, device)
+        else:
+            continue
+
+        log.info(f"{enc_name}: {n} segments extracted")
 
     # Final count verification
     for enc_name in encoders:
         enc_dir = output_dir / enc_name
         count = sum(1 for _ in enc_dir.rglob("segment_*.pt")) if enc_dir.exists() else 0
-        log.info(f"{enc_name}: {count} / {len(manifest)} segments extracted")
-
-
-def extract_ppg(
-    manifest: pd.DataFrame,
-    tt: dict,
-    data_dir: Path,
-    output_dir: Path,
-    device: str,
-) -> None:
-    """Extract Papagei embeddings for each 10s segment."""
-    from src.encoders.papagei import PapageiEncoder
-
-    encoder = PapageiEncoder().to(device)
-    extracted, skipped = 0, 0
-
-    for _, row in tqdm(manifest.iterrows(), total=len(manifest), desc="PPG"):
-        subj = str(row["subject"]).zfill(3)
-        seg_idx = _parse_segment_idx(row["segment_path"])
-        save_path = output_dir / subj / f"segment_{seg_idx:04d}.pt"
-        if save_path.exists():
-            extracted += 1
-            continue
-
-        # Load full PPG signal
-        ppg_path = data_dir / subj / "ppg_ear_125hz.npy"
-        if not ppg_path.exists():
-            skipped += 1
-            continue
-        ppg = np.load(ppg_path)
-
-        # Compute SHIFTED position (files start from session_A, not recording start)
-        # Segment index N = samples [N*900 : (N+1)*900] in 90Hz shifted space
-        start_90 = seg_idx * CHUNK_SAMPLES_90HZ
-        end_90 = start_90 + CHUNK_SAMPLES_90HZ
-        # Convert shifted 90Hz position to shifted 125Hz position
-        start_125 = int(start_90 * 125 / 90)
-        end_125 = start_125 + CHUNK_SAMPLES_125HZ  # exact 1250 samples
-
-        if end_125 > len(ppg):
-            skipped += 1
-            log.debug(f"PPG {subj}/seg_{seg_idx}: end_125={end_125} > len={len(ppg)}, skipping")
-            continue
-
-        chunk = ppg[start_125:end_125]
-        if len(chunk) < CHUNK_SAMPLES_125HZ:
-            # Pad if slightly short due to rate conversion rounding
-            chunk = np.pad(chunk, (0, CHUNK_SAMPLES_125HZ - len(chunk)), mode="edge")
-        chunk = chunk[:CHUNK_SAMPLES_125HZ]  # exact 10s at 125Hz
-
-        # Z-score normalize per-segment (Papagei expects normalized input)
-        std = chunk.std()
-        if std > 0:
-            chunk = (chunk - chunk.mean()) / std
-
-        x = torch.tensor(chunk, dtype=torch.float32).unsqueeze(0).unsqueeze(-1).to(device)  # [1, T, 1]
-        with torch.no_grad():
-            emb = encoder(x)  # [1, 512]
-
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({
-            "embedding": emb.cpu(),
-            "segment_idx": seg_idx,
-            "subject": subj,
-            "label": int(row["label"]),
-            "emotion": row["emotion"],
-        }, save_path)
-        extracted += 1
-
-    log.info(f"PPG: {extracted} extracted, {skipped} skipped")
-
-
-def extract_eye(
-    manifest: pd.DataFrame,
-    tt: dict,
-    data_dir: Path,
-    output_dir: Path,
-    device: str,
-) -> None:
-    """Extract PatchTST embeddings for each 10s segment."""
-    import os
-    from src.encoders.patchtst import PatchTSTEncoder
-
-    encoder = PatchTSTEncoder(
-        num_channels=4, patch_len=45, stride=22,
-        d_model=128, n_heads=4, n_layers=3, seq_len=900,
-    ).to(device)
-    pretrained = "checkpoints/patchtst_pretrained.pt"
-    if not os.path.exists(pretrained):
-        raise FileNotFoundError(
-            f"Pre-trained PatchTST checkpoint not found at {pretrained}. "
-            "Run 'python scripts/pretrain_patchtst.py' first."
-        )
-    encoder.load_state_dict(torch.load(pretrained, weights_only=True))
-    log.info(f"Loaded pre-trained PatchTST from {pretrained}")
-    encoder.freeze()
-
-    extracted, skipped = 0, 0
-
-    for _, row in tqdm(manifest.iterrows(), total=len(manifest), desc="Eye"):
-        subj = str(row["subject"]).zfill(3)
-        seg_idx = _parse_segment_idx(row["segment_path"])
-        save_path = output_dir / subj / f"segment_{seg_idx:04d}.pt"
-        if save_path.exists():
-            extracted += 1
-            continue
-
-        gaze_path = data_dir / subj / "gaze_90fps.npy"
-        pupil_path = data_dir / subj / "pupils_90fps.npy"
-        if not gaze_path.exists() or not pupil_path.exists():
-            skipped += 1
-            continue
-
-        gaze = np.load(gaze_path)    # [N, 2]
-        pupils = np.load(pupil_path)  # [N, 2]
-
-        # Compute SHIFTED position (files start from session_A)
-        start_90 = seg_idx * CHUNK_SAMPLES_90HZ
-        end_90 = start_90 + CHUNK_SAMPLES_90HZ
-
-        min_len = min(len(gaze), len(pupils))
-        if end_90 > min_len:
-            skipped += 1
-            log.debug(f"Eye {subj}/seg_{seg_idx}: end_90={end_90} > len={min_len}, skipping")
-            continue
-
-        gaze_chunk = gaze[start_90:end_90]      # [900, 2]
-        pupil_chunk = pupils[start_90:end_90]    # [900, 2]
-        combined = np.concatenate([gaze_chunk, pupil_chunk], axis=1)  # [900, 4]
-
-        x = torch.tensor(combined, dtype=torch.float32).unsqueeze(0).to(device)  # [1, 900, 4]
-        with torch.no_grad():
-            emb = encoder(x)  # [1, num_patches, 128] — keep full token sequence
-
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({
-            "embedding": emb.cpu(),
-            "segment_idx": seg_idx,
-            "subject": subj,
-            "label": int(row["label"]),
-            "emotion": row["emotion"],
-        }, save_path)
-        extracted += 1
-
-    log.info(f"Eye: {extracted} extracted, {skipped} skipped")
-
-
-def extract_video(
-    manifest: pd.DataFrame,
-    tt: dict,
-    data_dir: Path,
-    output_dir: Path,
-    device: str,
-) -> None:
-    """Extract VideoMAE embeddings for each 10s segment."""
-    from src.encoders.video_mae import VideoMAEV2Encoder
-
-    encoder = VideoMAEV2Encoder().to(device)
-    extracted, skipped = 0, 0
-
-    # Group by subject to avoid reopening video files
-    for subj_id, subj_manifest in tqdm(
-        manifest.groupby("subject"), desc="Video subjects"
-    ):
-        subj = str(subj_id).zfill(3)
-        video_path = str(data_dir / subj / "pov.mp4")
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            log.warning(f"Cannot open video: {video_path}")
-            skipped += len(subj_manifest)
-            continue
-        fps = cap.get(cv2.CAP_PROP_FPS)
-
-        session_a_start_90 = tt[subj]["session_A"][0]
-
-        for _, row in subj_manifest.iterrows():
-            seg_idx = _parse_segment_idx(row["segment_path"])
-            save_path = output_dir / subj / f"segment_{seg_idx:04d}.pt"
-            if save_path.exists():
-                extracted += 1
-                continue
-
-            # Video file (pov.mp4) is in ABSOLUTE time, so add session_A offset
-            # (unlike gaze/ppg files which are shifted to start from session_A)
-            abs_start_90 = session_a_start_90 + seg_idx * CHUNK_SAMPLES_90HZ
-            start_sec = abs_start_90 / 90.0
-            end_sec = start_sec + 10.0
-
-            start_frame = int(start_sec * fps)
-            end_frame = int(end_sec * fps)
-
-            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-            frames = []
-            for _ in range(end_frame - start_frame):
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                frame = cv2.resize(frame, (224, 224))
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                frames.append(frame)
-
-            if len(frames) < 16:
-                # Pad with last frame (or zeros if no frames at all)
-                while len(frames) < 16:
-                    frames.append(
-                        frames[-1] if frames
-                        else np.zeros((224, 224, 3), dtype=np.uint8)
-                    )
-
-            frames_arr = np.stack(frames)
-
-            # Non-overlapping 16-frame clips, then mean-pool embeddings
-            clips = []
-            for i in range(0, len(frames_arr) - 15, 16):
-                clip = frames_arr[i:i + 16].astype(np.float32) / 255.0
-                clip = (clip - IMAGENET_MEAN) / IMAGENET_STD
-                clip = torch.tensor(clip, dtype=torch.float32).permute(3, 0, 1, 2)  # [3, 16, H, W]
-                clips.append(clip)
-
-            if not clips:
-                clips.append(torch.zeros(3, 16, 224, 224))
-
-            embeddings = []
-            with torch.no_grad():
-                for clip in clips:
-                    emb = encoder(clip.unsqueeze(0).to(device))  # [1, 768]
-                    embeddings.append(emb)
-            emb = torch.cat(embeddings, dim=0)  # [num_clips, 768] — keep all clip tokens
-
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            torch.save({
-                "embedding": emb.cpu(),
-                "segment_idx": seg_idx,
-                "subject": subj,
-                "label": int(row["label"]),
-                "emotion": row["emotion"],
-            }, save_path)
-            extracted += 1
-
-        cap.release()
-
-    log.info(f"Video: {extracted} extracted, {skipped} skipped")
+        log.info(f"{enc_name}: {count} / {total_chunks} segments on disk")
 
 
 if __name__ == "__main__":

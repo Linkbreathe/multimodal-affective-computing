@@ -73,10 +73,27 @@ class SegmentExtractor:
     ) -> np.ndarray:
         return self.load_signal(subject_id, "ppg_ear_125hz.npy", start_90hz, end_90hz)
 
+    @staticmethod
+    def _canonicalize_encoder_name(encoder_name: str) -> str:
+        return "".join(ch for ch in encoder_name.lower() if ch.isalnum())
+
     def load_eye_tracking_segment(
-        self, subject_id: str, start_90hz: int, end_90hz: int
+        self,
+        subject_id: str,
+        start_90hz: int,
+        end_90hz: int,
+        encoder_name: str = "patchtst",
     ) -> np.ndarray:
         gaze = self.load_signal(subject_id, "gaze_90fps.npy", start_90hz, end_90hz)
+        encoder_key = self._canonicalize_encoder_name(encoder_name)
+        if encoder_key == "inceptiontime":
+            return gaze[:, :2]
+        if encoder_key != "patchtst":
+            raise ValueError(
+                f"Unsupported eye-tracking encoder '{encoder_name}'. "
+                "Expected 'inceptiontime' or 'patchtst'."
+            )
+
         pupils = self.load_signal(subject_id, "pupils_90fps.npy", start_90hz, end_90hz)
         min_len = min(len(gaze), len(pupils))
         return np.concatenate([gaze[:min_len], pupils[:min_len]], axis=1)

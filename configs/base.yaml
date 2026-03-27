@@ -9,7 +9,7 @@ modalities:
     embed_dim: 768
     enabled: true
   eye_tracking:
-    encoder: PatchTST
+    encoder: inceptiontime  # options: inceptiontime, PatchTST
     embed_dim: 128
     enabled: true
   ppg:

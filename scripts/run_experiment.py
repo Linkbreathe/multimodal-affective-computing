@@ -300,12 +300,7 @@ def main() -> None:
     logger.info(f"Subjects: {len(subject_ids)}")
 
     # Map config modality names to embedding dir names
-    encoder_dir_map = {
-        "video": "video_mae_v2",
-        "eye_tracking": "patchtst_eye",
-        "ppg": "papagei_ppg",
-    }
-    embedding_dir_names = [encoder_dir_map[m] for m in enabled]
+    embedding_dir_names = [registry.get_embedding_dir_name(m) for m in enabled]
 
     # Load data by subject
     logger.info("Loading cached embeddings...")
