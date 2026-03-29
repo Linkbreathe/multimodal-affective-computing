@@ -53,6 +53,11 @@ class FusionTrainer:
         self.tmc_annealing_epochs = tmc_cfg.get("annealing_epochs", 10)
         self.tmc_num_classes = tmc_cfg.get("num_classes", 9)
 
+        # Distillation configuration
+        distill_cfg = config.get("distill", {})
+        self.distill_enabled = distill_cfg.get("enabled", False)
+        self.distill_lambda = distill_cfg.get("lambda_distill", 1.0)
+
     def train_fold(
         self,
         train_data: list[dict],
@@ -173,6 +178,12 @@ class FusionTrainer:
                                     alpha, labels["emotion_label"], self.tmc_num_classes
                                 )
                             loss = loss + lambda_t * dkl_total
+
+                    # Distillation: add soft-target KL loss from fusion module
+                    if self.distill_enabled and hasattr(fusion_model, 'fusion'):
+                        d_mod = fusion_model.fusion
+                        if hasattr(d_mod, 'last_distill_loss') and d_mod.last_distill_loss is not None:
+                            loss = loss + self.distill_lambda * d_mod.last_distill_loss
 
                     optimizer.zero_grad(set_to_none=True)
                     loss.backward()
@@ -301,6 +312,13 @@ class FusionTrainer:
                 mean_cu = float(np.mean(tmc_combined_uncert))
                 metrics["uncertainty_combined"] = mean_cu
                 log.info(f"  TMC combined uncertainty: {mean_cu:.4f}")
+
+        # Log distillation cosine similarities
+        d_mod = getattr(fusion_model, 'fusion', None)
+        if d_mod is not None and hasattr(d_mod, 'last_cosine_sims') and d_mod.last_cosine_sims:
+            for mod_id, sim in d_mod.last_cosine_sims.items():
+                metrics[f"cosine_sim_{mod_id}_video"] = sim
+                log.info(f"  Distill cosine_sim [{mod_id}<->video]: {sim:.4f}")
 
         return metrics
 

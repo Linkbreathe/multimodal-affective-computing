@@ -251,6 +251,13 @@ def main() -> None:
             "num_classes": tmc_cfg.get("num_classes", 9),
         }
         logger.info(f"TMC evidential fusion: annealing_epochs={tmc_cfg.get('annealing_epochs', 10)}")
+    if cfg.get("fusion_type") == "distill_late":
+        dcfg = cfg["fusion"].get("distill", {})
+        trainer_config["distill"] = {
+            "enabled": True,
+            "lambda_distill": dcfg.get("lambda_distill", 1.0),
+        }
+        logger.info(f"Distillation: tau={dcfg.get('tau', 3.0)}, lambda={dcfg.get('lambda_distill', 1.0)}")
 
     trainer = FusionTrainer(
         fusion_model=projected_fusion,

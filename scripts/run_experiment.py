@@ -161,6 +161,46 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
             dropout=cfg["fusion"].get("dropout", dropout),
         )
 
+    elif fusion_type == "distill_late":
+        from src.fusion.distill_late import DistillLateFusion, EnrichedModalityProjector
+        dcfg = cfg["fusion"].get("distill", {})
+        enriched_mods = dcfg.get("enriched_modalities", [])
+        # Override projector with enriched version
+        projector = EnrichedModalityProjector(
+            embed_dims=embed_dims,
+            d_common=d_common,
+            enriched_modalities=enriched_mods,
+        )
+        fusion = DistillLateFusion(
+            d_common=d_common,
+            num_modalities=len(enabled),
+            num_classes=dcfg.get("num_classes", 9),
+            tau=dcfg.get("tau", 3.0),
+            enriched_modalities=enriched_mods,
+            teacher_modality=dcfg.get("teacher_modality", "video"),
+            dropout=cfg["fusion"].get("dropout", dropout),
+        )
+        fusion.register_modality_classifiers(enabled)
+
+    elif fusion_type == "enriched_late":
+        from src.fusion.distill_late import EnrichedModalityProjector
+        from src.fusion.late import LateFusion
+        ecfg = cfg["fusion"].get("enriched", {})
+        enriched_mods = ecfg.get("enriched_modalities", [])
+        proj_dropout = ecfg.get("projection_dropout", 0.0)
+        projector = EnrichedModalityProjector(
+            embed_dims=embed_dims,
+            d_common=d_common,
+            enriched_modalities=enriched_mods,
+            dropout=proj_dropout,
+        )
+        fusion = LateFusion(
+            d_common=d_common,
+            num_modalities=len(enabled),
+            mode=cfg["fusion"].get("mode", "weighted"),
+            dropout=dropout,
+        )
+
     else:
         raise ValueError(f"Unknown fusion type: {fusion_type}")
 
