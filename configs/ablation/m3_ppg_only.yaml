@@ -1,0 +1,18 @@
+fusion_type: late
+modalities:
+  video:
+    encoder: VideoMAEV2
+    embed_dim: 768
+    enabled: false
+  eye_tracking:
+    encoder: inceptiontime
+    embed_dim: 128
+    enabled: false
+  ppg:
+    encoder: Papagei
+    embed_dim: 512
+    enabled: true
+fusion:
+  d_common: 256
+  dropout: 0.1
+  mode: "weighted"
