@@ -13,12 +13,14 @@ class ModalityRegistry:
         "patchtst": ("src.encoders.patchtst", "PatchTSTEncoder"),
         "inceptiontime": ("src.encoders.inceptiontime", "InceptionTimeGazeEncoder"),
         "papagei": ("src.encoders.papagei", "PapageiEncoder"),
+        "pulseppg": ("src.encoders.pulse_ppg", "PulsePPGEncoder"),
     }
     EMBEDDING_DIR_REGISTRY = {
         ("video", "videomaev2"): "video_mae_v2",
         ("eye_tracking", "patchtst"): "patchtst_eye",
         ("eye_tracking", "inceptiontime"): "inceptiontime",
         ("ppg", "papagei"): "papagei_ppg",
+        ("ppg", "pulseppg"): "pulseppg_ppg",
     }
 
     def __init__(self, modality_config: dict[str, dict[str, Any]]) -> None:

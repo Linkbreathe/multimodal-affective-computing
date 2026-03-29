@@ -18,3 +18,25 @@ class MultiTaskHead(nn.Module):
             "soft_logits": self.soft_head(x),
             "vad_pred": self.vad_head(x),
         }
+
+
+class TMCTaskHead(nn.Module):
+    """Task head for TMC evidential fusion.
+
+    TMC outputs a (B, K) belief vector (already class-level), so:
+    - emotion_logits = log(belief + eps) — feeds into CE loss
+    - soft_logits = log(belief + eps) — feeds into KL loss
+    - vad_pred = Linear(K, num_vad)(belief)
+    """
+
+    def __init__(self, num_emotions: int = 9, num_vad: int = 3) -> None:
+        super().__init__()
+        self.vad_head = nn.Linear(num_emotions, num_vad)
+
+    def forward(self, belief: torch.Tensor) -> dict[str, torch.Tensor]:
+        log_belief = torch.log(belief + 1e-8)
+        return {
+            "emotion_logits": log_belief,
+            "soft_logits": log_belief,
+            "vad_pred": self.vad_head(belief),
+        }

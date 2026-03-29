@@ -195,11 +195,19 @@ def extract_ppg(
     data_dir: Path,
     output_dir: Path,
     device: str,
+    ppg_encoder: str = "papagei",
 ) -> int:
-    """Extract Papagei embeddings for each 10s chunk."""
-    from src.encoders.papagei import PapageiEncoder
+    """Extract PPG embeddings for each 10s chunk.
 
-    encoder = PapageiEncoder().to(device)
+    Args:
+        ppg_encoder: Which PPG encoder to use ('papagei' or 'pulseppg').
+    """
+    if ppg_encoder == "pulseppg":
+        from src.encoders.pulse_ppg import PulsePPGEncoder
+        encoder = PulsePPGEncoder().to(device)
+    else:
+        from src.encoders.papagei import PapageiEncoder
+        encoder = PapageiEncoder().to(device)
     extracted = 0
 
     for subj, chunks in tqdm(chunks_by_subject.items(), desc="PPG subjects"):
@@ -419,7 +427,7 @@ def main() -> None:
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument(
         "--encoder",
-        choices=["papagei_ppg", "patchtst_eye", "inceptiontime", "video_mae_v2", "all"],
+        choices=["papagei_ppg", "pulseppg_ppg", "patchtst_eye", "inceptiontime", "video_mae_v2", "all"],
         default="all",
     )
     parser.add_argument("--device", default="cuda")
@@ -484,18 +492,25 @@ def main() -> None:
 
     # Extract embeddings
     configured_eye_dir = registry.get_embedding_dir_name("eye_tracking")
+    configured_ppg_dir = registry.get_embedding_dir_name("ppg")
     encoders = (
-        ["papagei_ppg", configured_eye_dir, "video_mae_v2"]
+        [configured_ppg_dir, configured_eye_dir, "video_mae_v2"]
         if args.encoder == "all"
         else [args.encoder]
     )
+
+    PPG_ENCODER_DIR_TO_KEY = {
+        "papagei_ppg": "papagei",
+        "pulseppg_ppg": "pulseppg",
+    }
 
     for enc_name in encoders:
         log.info(f"\n=== Extracting {enc_name} ===")
         enc_dir = output_dir / enc_name
 
-        if enc_name == "papagei_ppg":
-            n = extract_ppg(chunks_by_subject, data_dir, enc_dir, device)
+        if enc_name in PPG_ENCODER_DIR_TO_KEY:
+            n = extract_ppg(chunks_by_subject, data_dir, enc_dir, device,
+                            ppg_encoder=PPG_ENCODER_DIR_TO_KEY[enc_name])
         elif enc_name in EYE_ENCODER_DIR_TO_KEY:
             n = extract_eye(
                 chunks_by_subject,

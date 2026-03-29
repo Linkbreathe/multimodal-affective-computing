@@ -11,8 +11,9 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 from src.tasks.heads import MultiTaskHead
-from src.tasks.losses import MultiTaskLoss
+from src.tasks.losses import DirichletKLLoss, MultiTaskLoss
 from src.fusion.base import BaseFusionModule
+from src.fusion.cggm import CGGMModule
 from src.trainer.early_stopping import EarlyStopping
 from src.utils.metrics import (
     weighted_f1_score,
@@ -40,6 +41,18 @@ class FusionTrainer:
         self._last_fusion: nn.Module | None = None
         self._last_head: nn.Module | None = None
 
+        # CGGM configuration
+        cggm_cfg = config.get("cggm", {})
+        self.cggm_enabled = cggm_cfg.get("enabled", False)
+        self.cggm_lambda_mod = cggm_cfg.get("lambda_mod", 0.1)
+        self.cggm_hidden = cggm_cfg.get("classifier_hidden", 128)
+
+        # TMC evidential fusion configuration
+        tmc_cfg = config.get("tmc", {})
+        self.tmc_enabled = tmc_cfg.get("enabled", False)
+        self.tmc_annealing_epochs = tmc_cfg.get("annealing_epochs", 10)
+        self.tmc_num_classes = tmc_cfg.get("num_classes", 9)
+
     def train_fold(
         self,
         train_data: list[dict],
@@ -54,6 +67,24 @@ class FusionTrainer:
         fusion_model = copy.deepcopy(self.fusion_model).to(self.device)
         task_head = copy.deepcopy(self.task_head).to(self.device)
         all_params = list(fusion_model.parameters()) + list(task_head.parameters())
+
+        # CGGM: per-modality classifiers for gradient modulation
+        cggm = None
+        if self.cggm_enabled:
+            modality_ids = fusion_model.modality_names
+            d_common = fusion_model.d_common
+            cggm = CGGMModule(
+                modality_ids=modality_ids,
+                d_common=d_common,
+                num_classes=9,
+                d_hidden=self.cggm_hidden,
+            ).to(self.device)
+            all_params += list(cggm.parameters())
+            log.info(
+                f"{fold_name} CGGM enabled: {sum(p.numel() for p in cggm.parameters()):,} "
+                f"classifier params, lambda_mod={self.cggm_lambda_mod}"
+            )
+
         optimizer = torch.optim.AdamW(all_params, lr=cfg["lr"])
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=cfg["max_epochs"]
@@ -77,6 +108,9 @@ class FusionTrainer:
         early_stop = EarlyStopping(patience=cfg["patience"], mode="max")
         best_state = None
 
+        # TMC: Dirichlet KL loss for evidential regularization
+        dkl_loss = DirichletKLLoss() if self.tmc_enabled else None
+
         train_loader = self._make_loader(train_data, cfg["batch_size"], shuffle=True)
         val_loader = self._make_loader(val_data, cfg["batch_size"], shuffle=False)
 
@@ -84,21 +118,70 @@ class FusionTrainer:
             # Train
             fusion_model.train()
             task_head.train()
+            if cggm is not None:
+                cggm.train()
             epoch_loss = 0.0
             for batch in train_loader:
                 embeddings, modality_ids, labels, masks = self._unpack_batch(batch)
-                fused = fusion_model(embeddings, modality_ids, masks)
-                outputs = task_head(fused)
-                loss, breakdown = loss_fn(outputs, labels)
 
-                optimizer.zero_grad(set_to_none=True)
-                loss.backward()
-                optimizer.step()
-                epoch_loss += loss.item()
+                if cggm is not None and hasattr(fusion_model, "project_and_pool"):
+                    # CGGM path: split projection from fusion so we can
+                    # hook gradients on the projected embeddings.
+                    proj_list, proj_masks = fusion_model.project_and_pool(
+                        embeddings, modality_ids, masks
+                    )
+
+                    # Compute per-modality classifier losses and gradient scales
+                    scales, mod_loss = cggm.compute_scales(
+                        proj_list, modality_ids, labels["emotion_label"]
+                    )
+
+                    # Register gradient scaling hooks
+                    hooks = CGGMModule.register_hooks(proj_list, modality_ids, scales)
+
+                    # Forward through fusion + task head
+                    fused = fusion_model.fusion(proj_list, modality_ids, proj_masks)
+                    outputs = task_head(fused)
+                    loss, breakdown = loss_fn(outputs, labels)
+
+                    # Add weighted per-modality classifier loss
+                    total_loss = loss + self.cggm_lambda_mod * mod_loss
+
+                    optimizer.zero_grad(set_to_none=True)
+                    total_loss.backward()
+                    optimizer.step()
+
+                    # Clean up hooks
+                    for h in hooks:
+                        h.remove()
+
+                    epoch_loss += loss.item()
+                else:
+                    # Standard path (no CGGM)
+                    fused = fusion_model(embeddings, modality_ids, masks)
+                    outputs = task_head(fused)
+                    loss, breakdown = loss_fn(outputs, labels)
+
+                    # TMC: add per-modality Dirichlet KL with annealing
+                    if self.tmc_enabled and dkl_loss is not None and hasattr(fusion_model, 'fusion'):
+                        tmc_mod = fusion_model.fusion
+                        if hasattr(tmc_mod, 'last_alphas') and tmc_mod.last_alphas:
+                            lambda_t = min(1.0, epoch / max(self.tmc_annealing_epochs, 1))
+                            dkl_total = torch.tensor(0.0, device=loss.device)
+                            for mod_id, alpha in tmc_mod.last_alphas.items():
+                                dkl_total = dkl_total + dkl_loss(
+                                    alpha, labels["emotion_label"], self.tmc_num_classes
+                                )
+                            loss = loss + lambda_t * dkl_total
+
+                    optimizer.zero_grad(set_to_none=True)
+                    loss.backward()
+                    optimizer.step()
+                    epoch_loss += loss.item()
 
             scheduler.step()
 
-            # Validate
+            # Validate (no CGGM hooks — standard forward)
             val_metrics = self._evaluate(fusion_model, task_head, val_loader, loss_fn)
 
             if tb_logger:
@@ -149,6 +232,10 @@ class FusionTrainer:
         all_vad_pred, all_vad_true = [], []
         total_loss = 0.0
 
+        # TMC reliability tracking
+        tmc_uncertainties: dict[str, list[float]] = {}
+        tmc_combined_uncert: list[float] = []
+
         for batch in loader:
             embeddings, modality_ids, labels, masks = self._unpack_batch(batch)
             fused = fusion_model(embeddings, modality_ids, masks)
@@ -161,6 +248,18 @@ class FusionTrainer:
             all_labels.extend(labels["emotion_label"].cpu().numpy())
             all_vad_pred.append(outputs["vad_pred"].cpu().numpy())
             all_vad_true.append(labels["vad"].cpu().numpy())
+
+            # Collect TMC per-modality uncertainties
+            tmc_mod = getattr(fusion_model, 'fusion', None)
+            if tmc_mod is not None and hasattr(tmc_mod, 'last_uncertainties') and tmc_mod.last_uncertainties:
+                for mod_id, u in tmc_mod.last_uncertainties.items():
+                    tmc_uncertainties.setdefault(mod_id, []).extend(
+                        u.squeeze(-1).cpu().numpy().tolist()
+                    )
+                if tmc_mod.last_combined_uncertainty is not None:
+                    tmc_combined_uncert.extend(
+                        tmc_mod.last_combined_uncertainty.squeeze(-1).cpu().numpy().tolist()
+                    )
 
         all_preds = np.array(all_preds)
         all_labels = np.array(all_labels)
@@ -183,7 +282,7 @@ class FusionTrainer:
             else [0.0, 0.0, 0.0]
         )
 
-        return {
+        metrics: dict[str, float] = {
             "weighted_f1": f1,
             "loss": total_loss / max(len(loader), 1),
             "ccc": float(np.mean(ccc_vals)),
@@ -191,6 +290,19 @@ class FusionTrainer:
             "ccc_arousal": ccc_vals[1] if len(ccc_vals) > 1 else 0.0,
             "ccc_dominance": ccc_vals[2] if len(ccc_vals) > 2 else 0.0,
         }
+
+        # Log TMC reliability scores
+        if tmc_uncertainties:
+            for mod_id, vals in tmc_uncertainties.items():
+                mean_u = float(np.mean(vals))
+                metrics[f"uncertainty_{mod_id}"] = mean_u
+                log.info(f"  TMC uncertainty [{mod_id}]: {mean_u:.4f} (reliability={1-mean_u:.4f})")
+            if tmc_combined_uncert:
+                mean_cu = float(np.mean(tmc_combined_uncert))
+                metrics["uncertainty_combined"] = mean_cu
+                log.info(f"  TMC combined uncertainty: {mean_cu:.4f}")
+
+        return metrics
 
     def _unpack_batch(
         self, batch: dict

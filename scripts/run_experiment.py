@@ -141,6 +141,26 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
             alpha=lcfg.get("alpha", 0.5),
         )
 
+    elif fusion_type == "bottleneck":
+        from src.fusion.bottleneck import BottleneckFusion
+        bcfg = cfg["fusion"].get("bottleneck", {})
+        fusion = BottleneckFusion(
+            d_common=d_common,
+            num_modalities=len(enabled),
+            bottleneck_ratio=bcfg.get("bottleneck_ratio", 0.5),
+            dropout=bcfg.get("dropout", dropout),
+        )
+
+    elif fusion_type == "tmc":
+        from src.fusion.tmc import TMCFusion
+        tcfg = cfg["fusion"].get("tmc", {})
+        fusion = TMCFusion(
+            d_common=d_common,
+            num_classes=tcfg.get("num_classes", 9),
+            num_modalities=len(enabled),
+            dropout=cfg["fusion"].get("dropout", dropout),
+        )
+
     else:
         raise ValueError(f"Unknown fusion type: {fusion_type}")
 
@@ -159,8 +179,13 @@ class ProjectedFusion(torch.nn.Module):
         self.d_common = fusion.d_common
         self.d_out = fusion.d_out
 
-    def forward(self, embeddings, modality_ids, masks=None):
-        # Project each modality to d_common
+    def project_and_pool(self, embeddings, modality_ids, masks=None):
+        """Project raw embeddings and optionally pool sequences.
+
+        Returns (proj_list, masks) where proj_list contains the projected
+        (and pooled, if the fusion module does not support sequences) tensors.
+        Useful for inserting gradient hooks between projection and fusion.
+        """
         proj_dict = {}
         for emb, mod_id in zip(embeddings, modality_ids):
             proj_dict[mod_id] = emb
@@ -184,6 +209,10 @@ class ProjectedFusion(torch.nn.Module):
             proj_list = pooled
             masks = None
 
+        return proj_list, masks
+
+    def forward(self, embeddings, modality_ids, masks=None):
+        proj_list, masks = self.project_and_pool(embeddings, modality_ids, masks)
         return self.fusion(proj_list, modality_ids, masks)
 
 
@@ -319,14 +348,19 @@ def main() -> None:
         return
 
     # Create trainer
+    trainer_config = {
+        "training": cfg["training"],
+        "loss_weights": cfg["loss_weights"],
+        "seed": cfg["seed"],
+    }
+    if "cggm" in cfg:
+        trainer_config["cggm"] = cfg["cggm"]
+        logger.info(f"CGGM gradient modulation: {cfg['cggm']}")
+
     trainer = FusionTrainer(
         fusion_model=projected_fusion,
         task_head=task_head,
-        config={
-            "training": cfg["training"],
-            "loss_weights": cfg["loss_weights"],
-            "seed": cfg["seed"],
-        },
+        config=trainer_config,
         device=device,
     )
 

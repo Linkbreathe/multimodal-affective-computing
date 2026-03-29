@@ -35,6 +35,50 @@ class CCCLoss(nn.Module):
         return 1.0 - ccc.mean()
 
 
+class DirichletKLLoss(nn.Module):
+    """KL divergence between predicted Dirichlet and a target Dirichlet.
+
+    For TMC: the target Dirichlet concentrates mass on the true class.
+    alpha_target_k = 1 for all k, except alpha_target_y = 1 (i.e. we
+    remove the evidence from non-target classes to get a uniform-ish target).
+
+    Specifically, we compute:
+        alpha_tilde = y_onehot + (1 - y_onehot) * alpha_pred
+    so the predicted alpha for the correct class is kept, and wrong-class
+    alphas are shrunk toward 1 (uniform).
+
+    The KL is: KL(Dir(alpha_tilde) || Dir(1, ..., 1))
+    """
+
+    def forward(
+        self, alpha: torch.Tensor, targets: torch.Tensor, num_classes: int = 9,
+    ) -> torch.Tensor:
+        """Compute Dirichlet KL for one modality's alpha.
+
+        Args:
+            alpha: (B, K) Dirichlet parameters (evidence + 1).
+            targets: (B,) integer class labels.
+            num_classes: K.
+        """
+        y_onehot = F.one_hot(targets, num_classes).float().to(alpha.device)
+        # Remove misleading evidence: keep correct-class alpha, shrink others to 1
+        alpha_tilde = y_onehot + (1.0 - y_onehot) * alpha
+
+        S_tilde = alpha_tilde.sum(dim=-1, keepdim=True)
+        ones = torch.ones_like(alpha_tilde)
+        S_ones = ones.sum(dim=-1, keepdim=True)  # = K
+
+        # KL(Dir(alpha_tilde) || Dir(1,...,1))
+        kl = (
+            torch.lgamma(S_tilde) - torch.lgamma(S_ones)
+            - (torch.lgamma(alpha_tilde) - torch.lgamma(ones)).sum(dim=-1, keepdim=True)
+            + ((alpha_tilde - ones) * (torch.digamma(alpha_tilde) - torch.digamma(S_tilde))).sum(
+                dim=-1, keepdim=True
+            )
+        )
+        return kl.mean()
+
+
 class MultiTaskLoss(nn.Module):
     def __init__(
         self,

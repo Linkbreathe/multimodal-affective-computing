@@ -23,7 +23,7 @@ import torch
 
 from src.encoders.registry import ModalityRegistry
 from src.fusion.projector import ModalityProjector
-from src.tasks.heads import MultiTaskHead
+from src.tasks.heads import MultiTaskHead, TMCTaskHead
 from src.trainer.fusion_trainer import FusionTrainer
 from src.utils.config import load_config, merge_configs, config_hash
 from src.utils.logging_setup import setup_logging
@@ -56,7 +56,13 @@ class ProjectedFusion(torch.nn.Module):
         self.d_common = fusion.d_common
         self.d_out = fusion.d_out
 
-    def forward(self, embeddings, modality_ids, masks=None):
+    def project_and_pool(self, embeddings, modality_ids, masks=None):
+        """Project raw embeddings and optionally pool sequences.
+
+        Returns (proj_list, masks) where proj_list contains the projected
+        (and pooled, if the fusion module does not support sequences) tensors.
+        Useful for inserting gradient hooks between projection and fusion.
+        """
         proj_dict = {}
         for emb, mod_id in zip(embeddings, modality_ids):
             proj_dict[mod_id] = emb
@@ -79,6 +85,10 @@ class ProjectedFusion(torch.nn.Module):
             proj_list = pooled
             masks = None
 
+        return proj_list, masks
+
+    def forward(self, embeddings, modality_ids, masks=None):
+        proj_list, masks = self.project_and_pool(embeddings, modality_ids, masks)
         return self.fusion(proj_list, modality_ids, masks)
 
 
@@ -202,7 +212,10 @@ def main() -> None:
 
     # Build model
     projected_fusion, d_out = build_fusion_model(cfg, enabled)
-    task_head = MultiTaskHead(d_fused=d_out, num_emotions=9, num_vad=3)
+    if cfg.get("fusion_type") == "tmc":
+        task_head = TMCTaskHead(num_emotions=9, num_vad=3)
+    else:
+        task_head = MultiTaskHead(d_fused=d_out, num_emotions=9, num_vad=3)
 
     logger.info(f"Fusion type: {cfg.get('fusion_type')}, d_out={d_out}")
     logger.info(f"Fusion params: {sum(p.numel() for p in projected_fusion.parameters()):,}")
@@ -222,14 +235,27 @@ def main() -> None:
 
     # Run LOSO
     logger.info("Starting LOSO cross-validation...")
+    trainer_config = {
+        "training": cfg["training"],
+        "loss_weights": cfg["loss_weights"],
+        "seed": cfg["seed"],
+    }
+    if "cggm" in cfg:
+        trainer_config["cggm"] = cfg["cggm"]
+        logger.info(f"CGGM gradient modulation: {cfg['cggm']}")
+    if cfg.get("fusion_type") == "tmc":
+        tmc_cfg = cfg["fusion"].get("tmc", {})
+        trainer_config["tmc"] = {
+            "enabled": True,
+            "annealing_epochs": tmc_cfg.get("annealing_epochs", 10),
+            "num_classes": tmc_cfg.get("num_classes", 9),
+        }
+        logger.info(f"TMC evidential fusion: annealing_epochs={tmc_cfg.get('annealing_epochs', 10)}")
+
     trainer = FusionTrainer(
         fusion_model=projected_fusion,
         task_head=task_head,
-        config={
-            "training": cfg["training"],
-            "loss_weights": cfg["loss_weights"],
-            "seed": cfg["seed"],
-        },
+        config=trainer_config,
         device=device,
     )
 
