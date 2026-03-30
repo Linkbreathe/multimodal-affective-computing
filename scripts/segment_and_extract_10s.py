@@ -472,6 +472,8 @@ def main() -> None:
                 "task_name": c["task_name"],
                 "chunk_idx_in_task": c["chunk_idx_in_task"],
                 "global_seq": c["global_seq"],
+                "start_90hz": c["start_90hz"],
+                "end_90hz": c["end_90hz"],
                 "emotion_label": c["emotion_label"],
                 "emotion_name": c["emotion_name"],
                 "soft_label": soft_str,

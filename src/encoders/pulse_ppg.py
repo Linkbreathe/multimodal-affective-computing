@@ -1,4 +1,4 @@
-"""Pulse-PPG frozen encoder wrapper for PPG signals.
+"""Pulse-PPG encoder wrapper for PPG signals with optional fine-tuning.
 
 Uses the Pulse-PPG model (ResNet1D with morphology-aware contrastive learning).
 Repo: https://github.com/maxxu05/pulseppg
@@ -6,6 +6,11 @@ Repo: https://github.com/maxxu05/pulseppg
 Architecture: 1D ResNet (base_filters=128, 12 blocks, 28.5M params)
 Input: [B, 1, T] single-channel PPG (channels-first, 125Hz)
 Output: [B, 512] embeddings (max-pooled over temporal dim)
+
+Block structure (12 BasicBlocks grouped by filter stage):
+  - Stage 0: blocks 0-3  (128 filters, 1.4M params)  — low-level temporal
+  - Stage 1: blocks 4-7  (256 filters, 5.4M params)  — mid-level features
+  - Stage 2: blocks 8-11 (512 filters, 21.6M params) — high-level, task-specific
 
 The model uses max-pooling over the temporal dimension, so it handles
 variable-length inputs. Our 10s segments at 125Hz = 1250 samples work
@@ -103,6 +108,77 @@ class PulsePPGEncoder(BaseEncoder):
             )
 
         self.freeze()
+
+    @property
+    def n_blocks(self) -> int:
+        """Number of residual blocks in the ResNet1D backbone."""
+        return self.MODEL_CONFIG["n_block"]
+
+    def unfreeze(self, from_layer: int | None = None) -> None:
+        """Unfreeze ResNet1D blocks for fine-tuning.
+
+        Args:
+            from_layer: Block index (0-11). Blocks >= ``from_layer`` are
+                unfrozen.  If ``None``, unfreeze all parameters.
+
+        Note:
+            BatchNorm layers stay in eval mode — use :meth:`selective_train`
+            instead of ``train()`` to avoid degenerate BN stats at BS=1.
+        """
+        if from_layer is None:
+            for param in self.parameters():
+                param.requires_grad = True
+            return
+
+        if not (0 <= from_layer < self.n_blocks):
+            raise ValueError(
+                f"from_layer must be in [0, {self.n_blocks}), got {from_layer}"
+            )
+
+        for i in range(from_layer, self.n_blocks):
+            for param in self.model.basicblock_list[i].parameters():
+                param.requires_grad = True
+
+        log.info(
+            f"PulsePPG: unfroze blocks {from_layer}-{self.n_blocks - 1} "
+            f"({sum(p.numel() for p in self.parameters() if p.requires_grad):,} "
+            f"trainable params)"
+        )
+
+    def get_layer_groups(self) -> list[dict]:
+        """Return parameter groups for layer-wise LR decay.
+
+        Groups:
+          - ``first_block``: stem conv+bn (always frozen, lr_scale=0)
+          - ``blocks_0_3``: stage 0 (lr_scale=0.02)
+          - ``blocks_4_7``: stage 1 (lr_scale=0.05)
+          - ``blocks_8_9``: stage 2 lower (lr_scale=0.05)
+          - ``blocks_10_11``: stage 2 upper (lr_scale=0.1)
+        """
+        groups = [
+            {
+                "name": "ppg_first_block",
+                "params": [
+                    p for n, p in self.model.named_parameters()
+                    if n.startswith("first_block") or n.startswith("instnorm")
+                ],
+                "lr_scale": 0.0,
+            },
+        ]
+
+        block_ranges = [
+            ("ppg_blocks_0_3", range(0, 4), 0.02),
+            ("ppg_blocks_4_7", range(4, 8), 0.05),
+            ("ppg_blocks_8_9", range(8, 10), 0.05),
+            ("ppg_blocks_10_11", range(10, 12), 0.1),
+        ]
+        for name, block_indices, lr_scale in block_ranges:
+            params = []
+            for i in block_indices:
+                params.extend(self.model.basicblock_list[i].parameters())
+            groups.append({"name": name, "params": params, "lr_scale": lr_scale})
+
+        return groups
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Ensure channels-first: [B, 1, T]

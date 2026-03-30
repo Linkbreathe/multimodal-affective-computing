@@ -1,10 +1,19 @@
-"""InceptionTime encoder for gaze-only eye tracking."""
+"""InceptionTime encoder for gaze-only eye tracking with optional fine-tuning.
+
+Architecture: 3 InceptionResidualBlocks (130K params total) + AdaptiveAvgPool1d.
+Each block has 2 InceptionModules with BatchNorm1d — use selective_train()
+to keep BN in eval mode when fine-tuning at batch_size=1.
+"""
 from __future__ import annotations
+
+import logging
 
 import torch
 import torch.nn as nn
 
 from src.encoders.base import BaseEncoder
+
+log = logging.getLogger(__name__)
 
 
 class InceptionModule(nn.Module):
@@ -137,6 +146,67 @@ class InceptionTimeGazeEncoder(BaseEncoder):
             ]
         )
         self.global_pool = nn.AdaptiveAvgPool1d(1)
+
+    @property
+    def n_blocks(self) -> int:
+        """Number of residual blocks."""
+        return len(self.residual_blocks)
+
+    def unfreeze(self, from_layer: int | None = None) -> None:
+        """Unfreeze InceptionTime blocks for fine-tuning.
+
+        Args:
+            from_layer: Block index (0-2). Blocks >= ``from_layer`` are
+                unfrozen.  If ``None``, unfreeze everything (recommended —
+                only 130K params).
+        """
+        if from_layer is None:
+            for param in self.parameters():
+                param.requires_grad = True
+            log.info(
+                f"InceptionTime: unfroze all "
+                f"({sum(p.numel() for p in self.parameters()):,} params)"
+            )
+            return
+
+        if not (0 <= from_layer < self.n_blocks):
+            raise ValueError(
+                f"from_layer must be in [0, {self.n_blocks}), got {from_layer}"
+            )
+
+        for i in range(from_layer, self.n_blocks):
+            for param in self.residual_blocks[i].parameters():
+                param.requires_grad = True
+
+        log.info(
+            f"InceptionTime: unfroze blocks {from_layer}-{self.n_blocks - 1} "
+            f"({sum(p.numel() for p in self.parameters() if p.requires_grad):,} "
+            f"trainable params)"
+        )
+
+    def get_layer_groups(self) -> list[dict]:
+        """Return parameter groups for layer-wise LR decay.
+
+        Groups: one per residual block (0, 1, 2) + global_pool.
+        All share the same lr_scale since InceptionTime is small (130K params)
+        and has no pretrained weights to preserve.
+        """
+        groups = []
+        for i, block in enumerate(self.residual_blocks):
+            groups.append({
+                "name": f"gaze_block_{i}",
+                "params": list(block.parameters()),
+                "lr_scale": 0.5,
+            })
+        # global_pool has no learnable params but include for completeness
+        pool_params = list(self.global_pool.parameters())
+        if pool_params:
+            groups.append({
+                "name": "gaze_pool",
+                "params": pool_params,
+                "lr_scale": 0.5,
+            })
+        return groups
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() != 3 or x.shape[1] != self.num_channels:

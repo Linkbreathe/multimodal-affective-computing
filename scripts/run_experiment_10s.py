@@ -87,7 +87,7 @@ class ProjectedFusion(torch.nn.Module):
 
         return proj_list, masks
 
-    def forward(self, embeddings, modality_ids, masks=None):
+    def forward(self, embeddings, modality_ids, masks=None, raw_signals=None):
         proj_list, masks = self.project_and_pool(embeddings, modality_ids, masks)
         return self.fusion(proj_list, modality_ids, masks)
 

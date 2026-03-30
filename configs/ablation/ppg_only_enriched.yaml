@@ -1,0 +1,24 @@
+fusion_type: distill_late
+modalities:
+  video:
+    encoder: VideoMAEV2
+    embed_dim: 768
+    enabled: false
+  eye_tracking:
+    encoder: inceptiontime
+    embed_dim: 128
+    enabled: false
+  ppg:
+    encoder: pulseppg
+    embed_dim: 512
+    enabled: true
+fusion:
+  d_common: 256
+  dropout: 0.1
+  mode: weighted
+  distill:
+    tau: 3.0
+    lambda_distill: 0.0
+    num_classes: 9
+    enriched_modalities: [ppg]
+    projection_dropout: 0.0

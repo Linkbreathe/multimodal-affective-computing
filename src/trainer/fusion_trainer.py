@@ -33,6 +33,7 @@ class FusionTrainer:
         task_head: MultiTaskHead,
         config: dict[str, Any],
         device: str | None = None,
+        encoder_param_groups: list[dict] | None = None,
     ) -> None:
         self.fusion_model = fusion_model
         self.task_head = task_head
@@ -40,6 +41,13 @@ class FusionTrainer:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self._last_fusion: nn.Module | None = None
         self._last_head: nn.Module | None = None
+
+        # Encoder fine-tuning configuration
+        self.encoder_param_groups = encoder_param_groups or []
+        ft_cfg = config.get("finetune", {})
+        self.finetune_enabled = ft_cfg.get("enabled", False) and bool(self.encoder_param_groups)
+        self.gradient_clip = ft_cfg.get("gradient_clip", 0.0)
+        self.warmup_epochs = ft_cfg.get("warmup_epochs", 0)
 
         # CGGM configuration
         cggm_cfg = config.get("cggm", {})
@@ -68,10 +76,52 @@ class FusionTrainer:
         """Train one LOSO fold. Returns val metrics from best checkpoint."""
         cfg = self.config["training"]
 
-        # Fresh model copies for this fold
+        # Fresh model copies for this fold (includes encoder if present)
         fusion_model = copy.deepcopy(self.fusion_model).to(self.device)
         task_head = copy.deepcopy(self.task_head).to(self.device)
-        all_params = list(fusion_model.parameters()) + list(task_head.parameters())
+
+        # Build optimizer param groups
+        if self.finetune_enabled:
+            # Downstream params (projector + fusion + head) — exclude encoder params
+            encoder_param_ids = set()
+            for enc in getattr(fusion_model, "encoders", {}).values():
+                for p in enc.parameters():
+                    encoder_param_ids.add(id(p))
+
+            downstream_params = [
+                p for p in fusion_model.parameters()
+                if id(p) not in encoder_param_ids
+            ] + list(task_head.parameters())
+
+            # Re-resolve encoder param groups from the deepcopied model
+            encoder_groups = []
+            for enc_name, enc in fusion_model.encoders.items():
+                for group in enc.get_layer_groups():
+                    # Find the matching original group to get the LR
+                    lr = cfg["lr"]
+                    for orig_g in self.encoder_param_groups:
+                        if orig_g["name"] == f"{enc_name}_{group['name']}":
+                            lr = orig_g["lr"]
+                            break
+                    encoder_groups.append({
+                        "params": group["params"],
+                        "lr": lr,
+                    })
+
+            param_groups = [{"params": downstream_params, "lr": cfg["lr"]}]
+            param_groups.extend(encoder_groups)
+
+            all_params = downstream_params
+            for g in encoder_groups:
+                all_params = all_params + g["params"]
+
+            log.info(
+                f"{fold_name} fine-tuning: {len(encoder_groups)} encoder param groups, "
+                f"warmup={self.warmup_epochs} epochs, grad_clip={self.gradient_clip}"
+            )
+        else:
+            all_params = list(fusion_model.parameters()) + list(task_head.parameters())
+            param_groups = [{"params": all_params, "lr": cfg["lr"]}]
 
         # CGGM: per-modality classifiers for gradient modulation
         cggm = None
@@ -84,13 +134,14 @@ class FusionTrainer:
                 num_classes=9,
                 d_hidden=self.cggm_hidden,
             ).to(self.device)
-            all_params += list(cggm.parameters())
+            param_groups.append({"params": list(cggm.parameters()), "lr": cfg["lr"]})
+            all_params = all_params + list(cggm.parameters())
             log.info(
                 f"{fold_name} CGGM enabled: {sum(p.numel() for p in cggm.parameters()):,} "
                 f"classifier params, lambda_mod={self.cggm_lambda_mod}"
             )
 
-        optimizer = torch.optim.AdamW(all_params, lr=cfg["lr"])
+        optimizer = torch.optim.AdamW(param_groups)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=cfg["max_epochs"]
         )
@@ -120,14 +171,35 @@ class FusionTrainer:
         val_loader = self._make_loader(val_data, cfg["batch_size"], shuffle=False)
 
         for epoch in range(cfg["max_epochs"]):
-            # Train
+            # Train mode — use selective_train for encoders (keeps BN in eval)
             fusion_model.train()
+            if self.finetune_enabled and hasattr(fusion_model, "encoders"):
+                for enc in fusion_model.encoders.values():
+                    enc.selective_train()
+                # Warmup: freeze encoder params for the first N epochs
+                encoder_frozen_this_epoch = epoch < self.warmup_epochs
+                if encoder_frozen_this_epoch:
+                    for enc in fusion_model.encoders.values():
+                        for p in enc.parameters():
+                            p.requires_grad = False
+                else:
+                    # Re-enable gradients on unfrozen encoder params
+                    for enc_name, enc in fusion_model.encoders.items():
+                        ft_cfg = self.config.get("finetune", {})
+                        from_block = ft_cfg.get("unfreeze_from_block")
+                        if from_block is not None:
+                            enc.unfreeze(from_layer=from_block)
+                        else:
+                            enc.unfreeze()
+                        enc.selective_train()
+
             task_head.train()
             if cggm is not None:
                 cggm.train()
             epoch_loss = 0.0
             for batch in train_loader:
                 embeddings, modality_ids, labels, masks = self._unpack_batch(batch)
+                raw_signals = self._unpack_raw_signals(batch)
 
                 if cggm is not None and hasattr(fusion_model, "project_and_pool"):
                     # CGGM path: split projection from fusion so we can
@@ -154,6 +226,8 @@ class FusionTrainer:
 
                     optimizer.zero_grad(set_to_none=True)
                     total_loss.backward()
+                    if self.gradient_clip > 0:
+                        torch.nn.utils.clip_grad_norm_(all_params, max_norm=self.gradient_clip)
                     optimizer.step()
 
                     # Clean up hooks
@@ -162,8 +236,8 @@ class FusionTrainer:
 
                     epoch_loss += loss.item()
                 else:
-                    # Standard path (no CGGM)
-                    fused = fusion_model(embeddings, modality_ids, masks)
+                    # Standard path (no CGGM) — passes raw_signals for encoder forward
+                    fused = fusion_model(embeddings, modality_ids, masks, raw_signals=raw_signals)
                     outputs = task_head(fused)
                     loss, breakdown = loss_fn(outputs, labels)
 
@@ -187,6 +261,8 @@ class FusionTrainer:
 
                     optimizer.zero_grad(set_to_none=True)
                     loss.backward()
+                    if self.gradient_clip > 0:
+                        torch.nn.utils.clip_grad_norm_(all_params, max_norm=self.gradient_clip)
                     optimizer.step()
                     epoch_loss += loss.item()
 
@@ -249,7 +325,8 @@ class FusionTrainer:
 
         for batch in loader:
             embeddings, modality_ids, labels, masks = self._unpack_batch(batch)
-            fused = fusion_model(embeddings, modality_ids, masks)
+            raw_signals = self._unpack_raw_signals(batch)
+            fused = fusion_model(embeddings, modality_ids, masks, raw_signals=raw_signals)
             outputs = task_head(fused)
             loss, _ = loss_fn(outputs, labels)
             total_loss += loss.item()
@@ -336,6 +413,13 @@ class FusionTrainer:
         labels = {k: v.to(self.device) for k, v in batch["labels"].items()}
         return embeddings, batch["modality_ids"], labels, masks
 
+    def _unpack_raw_signals(self, batch: dict) -> dict[str, torch.Tensor] | None:
+        """Extract raw signals from batch, if present."""
+        raw = batch.get("raw_signals")
+        if not raw:
+            return None
+        return {k: v.to(self.device) for k, v in raw.items()}
+
     def _make_loader(
         self, data: list[dict], batch_size: int, shuffle: bool
     ) -> DataLoader:
@@ -385,12 +469,25 @@ class FusionTrainer:
                     if isinstance(vals[0], torch.Tensor)
                     else torch.tensor(vals)
                 )
-            return {
+
+            # Collate raw signals if present
+            raw_signals = {}
+            if batch[0].get("raw_signals"):
+                for sig_name in batch[0]["raw_signals"]:
+                    tensors = [b["raw_signals"][sig_name] for b in batch
+                               if sig_name in b.get("raw_signals", {})]
+                    if tensors:
+                        raw_signals[sig_name] = torch.stack(tensors)
+
+            result = {
                 "embeddings": embeddings,
                 "modality_ids": modality_ids,
                 "labels": labels,
                 "masks": masks,
             }
+            if raw_signals:
+                result["raw_signals"] = raw_signals
+            return result
 
         return DataLoader(
             _ListDS(data),

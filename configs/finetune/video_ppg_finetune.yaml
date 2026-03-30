@@ -1,0 +1,38 @@
+finetune:
+  enabled: true
+  raw_modalities: ["ppg"]
+  encoder_base_lr: 1.0e-5
+  unfreeze_from_block: 10  # last 2 blocks of PulsePPG (blocks 10-11)
+  gradient_clip: 1.0
+  warmup_epochs: 5  # freeze encoder for first 5 epochs
+
+fusion_type: late
+fusion:
+  d_common: 256
+  dropout: 0.1
+  mode: "weighted"
+
+modalities:
+  video:
+    encoder: VideoMAEV2
+    embed_dim: 768
+    enabled: true
+  eye_tracking:
+    encoder: inceptiontime
+    embed_dim: 128
+    enabled: false
+  ppg:
+    encoder: pulseppg
+    embed_dim: 512
+    enabled: true
+
+training:
+  lr: 0.0001
+  max_epochs: 50
+  patience: 10
+  batch_size: 32
+
+loss_weights:
+  ce: 1.0
+  kl: 1.0
+  vad: 1.0
