@@ -1,0 +1,34 @@
+# SEED-V EEGPT Ablation: 4-second windows, TP7+TP8 channels only
+# Used by scripts/run_seedv_ablation.py
+
+condition: "4s_tp"
+window_sec: 4
+channels: ["TP7", "TP8"]
+
+# Shared settings (from seedv_base.yaml)
+seed: 42
+num_classes: 5
+emotions: [Disgust, Fear, Sad, Neutral, Happy]
+
+modalities:
+  eeg:
+    encoder: EEGPT
+    embed_dim: 2048
+    enabled: true
+
+fusion:
+  type: early
+  d_common: 256
+  dropout: 0.1
+
+training:
+  batch_size: 64
+  lr: 0.0001
+  weight_decay: 0.01
+  max_epochs: 100
+  patience: 10
+  num_workers: 4
+
+eval:
+  primary_metric: weighted_f1
+  loso: true

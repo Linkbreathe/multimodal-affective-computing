@@ -1,0 +1,38 @@
+seed: 42
+num_classes: 5
+emotions: [Disgust, Fear, Sad, Neutral, Happy]
+
+eegpt_weights: "weights/eegpt/eegpt_mcae_58chs_4s_large4E.ckpt"
+
+encoder:
+  patch_stride: 32          # overlapping patches (matches EEG-FM-Bench)
+  drop_rate: 0.1
+  attn_drop_rate: 0.1
+  drop_path_rate: 0.1
+  window_samples: 2560      # 10s at 256Hz (aligned with EEG-FM-Bench)
+
+head:
+  hidden_dims: [128]
+  dropout: 0.3
+
+training:
+  batch_size: 32
+  max_lr: 5.0e-4
+  encoder_lr_scale: 0.1     # encoder base LR = max_lr * this
+  weight_decay: 0.01
+  max_epochs: 50
+  patience: 15
+  warmup_epochs: 5           # freeze encoder for first N epochs
+  pct_start: 0.2             # OneCycleLR warmup fraction
+  gradient_clip: 3.0
+  use_amp: true
+  label_smoothing: 0.1
+  lr_schedule: onecycle       # onecycle | cosine
+
+finetune:
+  unfreeze_from_block: null   # null = all blocks; int = partial unfreeze
+  layer_wise_lr: true         # use get_layer_groups() scaling
+
+eval:
+  primary_metric: balanced_accuracy
+  loso: true

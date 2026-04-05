@@ -14,6 +14,8 @@ class ModalityRegistry:
         "inceptiontime": ("src.encoders.inceptiontime", "InceptionTimeGazeEncoder"),
         "papagei": ("src.encoders.papagei", "PapageiEncoder"),
         "pulseppg": ("src.encoders.pulse_ppg", "PulsePPGEncoder"),
+        "eegpt": ("src.encoders.eegpt", "EEGPTEncoder"),
+        "reve": ("src.encoders.reve", "ReveEncoder"),
     }
     EMBEDDING_DIR_REGISTRY = {
         ("video", "videomaev2"): "video_mae_v2",
@@ -21,6 +23,8 @@ class ModalityRegistry:
         ("eye_tracking", "inceptiontime"): "inceptiontime",
         ("ppg", "papagei"): "papagei_ppg",
         ("ppg", "pulseppg"): "pulseppg_ppg",
+        ("eeg", "eegpt"): "eegpt_eeg",
+        ("eeg", "reve"): "reve_eeg",
     }
 
     def __init__(self, modality_config: dict[str, dict[str, Any]]) -> None:
