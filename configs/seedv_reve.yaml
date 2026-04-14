@@ -4,12 +4,13 @@ data_dir: "data/seedv_preprocessed_uv"
 embeddings_dir: "data/embeddings_seedv_uv"
 ref_data_dir: "/mnt/c/Users/Public/Data/SEED-V/SEED-V"
 
-eegpt_weights: "weights/eegpt/eegpt_mcae_58chs_4s_large4E.ckpt"
+reve_weights: "weights/reve/reve_base.safetensors"
+reve_pos_bank: "weights/reve/reve_positions.safetensors"
 
 modalities:
   eeg:
-    encoder: EEGPT
-    embed_dim: 2048
+    encoder: REVE
+    embed_dim: 512
     enabled: true
 
 fusion:

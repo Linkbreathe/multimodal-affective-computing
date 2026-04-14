@@ -1,4 +1,4 @@
-"""SEED-V 5-class emotion classification with EEGPT embeddings (LOSO)."""
+"""SEED-V 5-class emotion classification with REVE embeddings (LOSO)."""
 
 import argparse
 import logging
@@ -25,7 +25,7 @@ class EmotionClassifier(nn.Module):
 
     def __init__(
         self,
-        input_dim: int = 2048,
+        input_dim: int = 512,
         hidden_dim: int = 256,
         num_classes: int = 5,
         dropout: float = 0.3,
@@ -44,15 +44,14 @@ class EmotionClassifier(nn.Module):
 
 def load_embeddings(
     embeddings_dir: str | Path,
-    manifest_path: str | Path | None = None,
 ) -> dict[int, dict[str, torch.Tensor]]:
-    """Load all embeddings and group by subject.
+    """Load REVE embeddings grouped by subject.
 
     Returns
     -------
-    dict : ``{subject_id: {"embeddings": Tensor[N, 2048], "labels": Tensor[N]}}``
+    dict : ``{subject_id: {"embeddings": Tensor[N, 512], "labels": Tensor[N]}}``
     """
-    embeddings_dir = Path(embeddings_dir) / "eegpt_eeg"
+    embeddings_dir = Path(embeddings_dir) / "reve_eeg"
     subject_data: dict[int, dict[str, torch.Tensor]] = {}
 
     for subject_dir in sorted(embeddings_dir.iterdir()):
@@ -84,12 +83,7 @@ def train_one_fold(
     config: dict,
     device: torch.device,
 ) -> dict:
-    """Train and evaluate one LOSO fold.
-
-    Early stopping is performed on the *validation* loss, not training loss.
-    The model checkpoint with the lowest validation loss is restored before
-    final evaluation on the test set.
-    """
+    """Train and evaluate one LOSO fold."""
     input_dim = train_embs.shape[1]
     num_classes = config.get("num_classes", 5)
     hidden_dim = config.get("fusion", {}).get("d_common", 256)
@@ -106,7 +100,6 @@ def train_one_fold(
         optimizer, T_max=config["training"]["max_epochs"]
     )
 
-    # DataLoaders
     train_ds = TensorDataset(train_embs.to(device), train_labels.to(device))
     train_loader = DataLoader(
         train_ds,
@@ -117,7 +110,6 @@ def train_one_fold(
     val_embs_dev = val_embs.to(device)
     val_labels_dev = val_labels.to(device)
 
-    # Training with early stopping on validation loss
     best_val_loss = float("inf")
     patience_counter = 0
     patience = config["training"].get("patience", 10)
@@ -133,7 +125,6 @@ def train_one_fold(
             optimizer.step()
         scheduler.step()
 
-        # Validation loss
         model.eval()
         with torch.no_grad():
             val_loss = criterion(model(val_embs_dev), val_labels_dev).item()
@@ -147,7 +138,6 @@ def train_one_fold(
             if patience_counter >= patience:
                 break
 
-    # Evaluate on test set using best checkpoint
     model.load_state_dict(best_state)
     model.eval()
     with torch.no_grad():
@@ -189,8 +179,6 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
     results: list[dict] = []
 
     for fold_idx, test_subject in enumerate(tqdm(subjects, desc="LOSO folds")):
-        # Validation subject: the subject immediately after the test subject
-        # (wrapping around), giving a 14 train / 1 val / 1 test split.
         val_subject = subjects[(fold_idx + 1) % len(subjects)]
         train_subjects = [s for s in subjects if s not in (test_subject, val_subject)]
 
@@ -202,14 +190,10 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
         test_labels = subject_data[test_subject]["labels"]
 
         fold_result = train_one_fold(
-            train_embs,
-            train_labels,
-            val_embs,
-            val_labels,
-            test_embs,
-            test_labels,
-            config,
-            device,
+            train_embs, train_labels,
+            val_embs, val_labels,
+            test_embs, test_labels,
+            config, device,
         )
         fold_result["test_subject"] = test_subject
         fold_result["val_subject"] = val_subject
@@ -227,9 +211,7 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
             f"F1_m={fold_result['f1_macro']:.4f}"
         )
 
-    # ------------------------------------------------------------------
     # Summary
-    # ------------------------------------------------------------------
     mean_bal_acc = np.mean([r["balanced_accuracy"] for r in results])
     std_bal_acc = np.std([r["balanced_accuracy"] for r in results])
     mean_kappa = np.mean([r["kappa"] for r in results])
@@ -250,7 +232,6 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
     print(f"F1 Weighted:       {mean_f1w:.4f} +/- {std_f1w:.4f}")
     print(f"F1 Macro:          {mean_f1m:.4f} +/- {std_f1m:.4f}")
 
-    # Per-subject breakdown
     emotions = config.get("emotions", ["Disgust", "Fear", "Sad", "Neutral", "Happy"])
     print("\nPer-Subject Breakdown:")
     header = f"{'Subj':>6} {'ValSubj':>8} {'BalAcc':>8} {'Kappa':>7} {'Acc':>7} {'F1_w':>7} {'F1_m':>7} {'N_test':>7}"
@@ -264,7 +245,6 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
             f"{r['f1_macro']:>7.4f} {r['n_test']:>7}"
         )
 
-    # Per-class from aggregated confusion matrix
     total_cm = sum(r["confusion_matrix"] for r in results)
     print("\nAggregated Confusion Matrix:")
     print(f"{'':>10}", end="")
@@ -277,13 +257,10 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
             print(f"{total_cm[i][j]:>10}", end="")
         print()
 
-    # ------------------------------------------------------------------
     # Save results
-    # ------------------------------------------------------------------
-    results_dir = Path("logs/seedv_eegpt")
+    results_dir = Path("logs/seedv_reve")
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    # Per-fold CSV
     fold_df = pd.DataFrame(
         [
             {
@@ -304,9 +281,8 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
     )
     fold_df.to_csv(results_dir / "loso_results.csv", index=False)
 
-    # Summary text
     with open(results_dir / "summary.txt", "w") as f:
-        f.write("SEED-V EEGPT LOSO Results  (14 train / 1 val / 1 test)\n")
+        f.write("SEED-V REVE LOSO Results  (14 train / 1 val / 1 test)\n")
         f.write("=" * 54 + "\n")
         f.write(f"Balanced Accuracy: {mean_bal_acc:.4f} +/- {std_bal_acc:.4f}  [PRIMARY]\n")
         f.write(f"Cohen Kappa:       {mean_kappa:.4f} +/- {std_kappa:.4f}\n")
@@ -323,9 +299,9 @@ def run_loso(config: dict, device: torch.device) -> list[dict]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SEED-V emotion classification with EEGPT"
+        description="SEED-V emotion classification with REVE"
     )
-    parser.add_argument("--config", default="configs/seedv_base.yaml")
+    parser.add_argument("--config", default="configs/seedv_reve.yaml")
     parser.add_argument(
         "--device",
         default=None,

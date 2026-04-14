@@ -263,7 +263,9 @@ def process_cnt_file(
     raw.resample(target_sr, verbose=False)
 
     # Get numpy data: shape [n_channels, n_samples]
-    data = raw.get_data()
+    # MNE returns Volts (SI); convert to microvolts for downstream models
+    # EEGPT expects µV (internally scales ×0.001→mV), EEGNet assumes µV-scale
+    data = raw.get_data() * 1e6
     n_channels = data.shape[0]
     logger.info(
         "Data shape after resampling: [%d, %d] (sr=%d Hz)",
