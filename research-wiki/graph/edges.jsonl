@@ -1,0 +1,42 @@
+{"from": "paper:xiong2026_eeg_fm_bench", "to": "paper:elouahidi2025_reve", "type": "extends", "evidence": "EEG-FM-Bench evaluates REVE as one of 7 foundation models"}
+{"from": "paper:ea_fusion2026", "to": "paper:eeg_visual_mixed_attn2025", "type": "extends", "evidence": "Both address EEG-visual fusion with attention mechanisms; EA-FUSION adds quality awareness"}
+{"from": "paper:contrastive_ecg_eeg2025", "to": "paper:crossattn_physio2025", "type": "extends", "evidence": "Both address cross-modal physiological alignment; contrastive approach uses alignment loss vs cross-attention"}
+{"from": "paper:eeg_audio_video2024", "to": "paper:ea_fusion2026", "type": "extends", "evidence": "Three-modal extends two-modal EEG-face fusion to include audio"}
+{"from": "paper:elouahidi2025_reve", "to": "gap:G1", "type": "addresses_gap", "evidence": "REVE's flexible positional encoding addresses cross-setup generalization"}
+{"from": "paper:contrastive_ecg_eeg2025", "to": "gap:G2", "type": "addresses_gap", "evidence": "Contrastive alignment bridges heterogeneous physio representations"}
+{"from": "paper:ea_fusion2026", "to": "gap:G3", "type": "addresses_gap", "evidence": "Quality-aware fusion handles degraded modalities"}
+{"from": "paper:emotiontfn2025", "to": "gap:G4", "type": "addresses_gap", "evidence": "Multi-scale temporal fusion captures different temporal dynamics across modalities"}
+{"from": "paper:hemker2024_healnet", "to": "gap:G5", "type": "addresses_gap", "evidence": "Shared latent bottleneck handles heterogeneous multi-modal fusion, extensible to 4+ modalities"}
+{"from": "paper:han2024_fusemoe", "to": "gap:G5", "type": "addresses_gap", "evidence": "MoE fusion handles arbitrary modality combinations via expert routing"}
+{"from": "paper:hemker2024_healnet", "to": "gap:G7", "type": "addresses_gap", "evidence": "Iterative cross-attention with shared latent handles missing modalities by skipping layers"}
+{"from": "paper:han2024_fusemoe", "to": "gap:G7", "type": "addresses_gap", "evidence": "Fleximodal MoE routes to appropriate experts regardless of available modalities"}
+{"from": "paper:lin2025_cyin", "to": "gap:G7", "type": "addresses_gap", "evidence": "Cyclic IB translation reconstructs missing modalities from available ones"}
+{"from": "paper:miccai2025_contrastive_modality_dropout", "to": "gap:G7", "type": "addresses_gap", "evidence": "Learnable modality tokens + contrastive objectives for missing modality robustness"}
+{"from": "paper:fu2025_physioomni", "to": "gap:G2", "type": "addresses_gap", "evidence": "Decoupled tokenizer with shared/private codebooks aligns heterogeneous physio representations"}
+{"from": "paper:fu2025_physioomni", "to": "gap:G7", "type": "addresses_gap", "evidence": "PhysioOmni handles arbitrary missing physio modalities via decoupled design"}
+{"from": "paper:chen2025_modality_collapse", "to": "gap:G8", "type": "addresses_gap", "evidence": "Root cause analysis and fix for modality collapse via rank bottleneck"}
+{"from": "paper:lin2025_cyin", "to": "paper:han2024_fusemoe", "type": "extends", "evidence": "Both handle incomplete multimodal input; CyIN uses IB theory vs MoE routing"}
+{"from": "paper:fu2025_physioomni", "to": "paper:elouahidi2025_reve", "type": "extends", "evidence": "Both are physio foundation models; PhysioOmni is multimodal while REVE is EEG-only"}
+{"from": "paper:chen2025_modality_collapse", "to": "paper:han2024_fusemoe", "type": "extends", "evidence": "Modality collapse analysis informs why naive fusion fails; MoE could mitigate via expert specialization"}
+{"from": "paper:miccai2025_contrastive_modality_dropout", "to": "paper:crossattn_physio2025", "type": "extends", "evidence": "Both handle missing modalities; MICCAI adds learnable tokens and contrastive loss"}
+{"from": "paper:liu2024_eeg2video", "to": "paper:eeg_visual_mixed_attn2025", "type": "extends", "evidence": "EEG2Video demonstrates EEG-video alignment capability; mixed attention further refines fusion"}
+{"from": "paper:raina2025_i2moe", "to": "paper:han2024_fusemoe", "type": "extends", "evidence": "I2MoE adds interaction-awareness and interpretability to MoE fusion framework"}
+{"from": "idea:001", "to": "paper:chen2025_modality_collapse", "type": "inspired_by", "evidence": "Modality collapse analysis motivates better projection before fusion"}
+{"from": "idea:001", "to": "gap:G2", "type": "addresses_gap", "evidence": "SupCon projection aligns frozen FM embeddings for emotion fusion"}
+{"from": "idea:001", "to": "gap:G8", "type": "addresses_gap", "evidence": "Better projection may prevent modality collapse"}
+{"from": "idea:002", "to": "paper:chen2025_modality_collapse", "type": "inspired_by", "evidence": "Basis reallocation idea from modality collapse analysis"}
+{"from": "idea:002", "to": "gap:G8", "type": "addresses_gap", "evidence": "Orthogonal subspaces prevent modality feature entanglement"}
+{"from": "idea:003", "to": "paper:miccai2025_contrastive_modality_dropout", "type": "inspired_by", "evidence": "Learnable absence tokens from MICCAI'25 contrastive dropout"}
+{"from": "idea:003", "to": "paper:ea_fusion2026", "type": "inspired_by", "evidence": "Quality-aware fusion via confidence gating inspired by EA-FUSION"}
+{"from": "idea:003", "to": "gap:G7", "type": "addresses_gap", "evidence": "Modality dropout + learnable tokens for missing modality robustness"}
+{"from": "idea:003", "to": "gap:G3", "type": "addresses_gap", "evidence": "Confidence gating provides quality-aware modality weighting"}
+{"from": "idea:005", "to": "paper:chen2025_modality_collapse", "type": "inspired_by", "evidence": "Rank analysis motivated by ICML'25 rank bottleneck theory"}
+{"from": "idea:005", "to": "gap:G2", "type": "addresses_gap", "evidence": "Diagnoses whether frozen FM embeddings carry alignable emotion info"}
+{"from": "idea:101", "to": "gap:G2", "type": "addresses_gap", "evidence": "Residual towers avoid symmetric alignment by making video the base"}
+{"from": "idea:101", "to": "gap:G8", "type": "addresses_gap", "evidence": "Asymmetric fusion prevents modality collapse by design"}
+{"from": "idea:101", "to": "gap:G9", "type": "addresses_gap", "evidence": "First principled approach to fusing egocentric video with physio signals"}
+{"from": "idea:102", "to": "gap:G4", "type": "addresses_gap", "evidence": "Temporal offset sweep addresses multi-scale temporal dynamics"}
+{"from": "idea:102", "to": "gap:G9", "type": "addresses_gap", "evidence": "Tests whether PPG is dead or temporally misaligned in egocentric setting"}
+{"from": "idea:103", "to": "gap:G2", "type": "addresses_gap", "evidence": "Counterfactual supervision learns optimal alignment weights per sample"}
+{"from": "idea:103", "to": "gap:G5", "type": "addresses_gap", "evidence": "Modality contribution quantification for quad-modal FM fusion"}
+{"from": "idea:104", "to": "gap:G6", "type": "addresses_gap", "evidence": "Dual-head decoder separates F1/CCC optimization for frozen encoders"}
