@@ -377,7 +377,7 @@ def main():
         help="Path to config YAML.",
     )
     parser.add_argument(
-        "--embeddings_dir", default="data/embeddings_seedv",
+        "--embeddings_dir", default="data/embeddings/seedv/base",
         help="Directory with extracted EEGPT embeddings "
              "(expects {condition}/eegpt_eeg/ subdirectories).",
     )

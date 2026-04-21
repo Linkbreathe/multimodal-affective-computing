@@ -15,7 +15,7 @@ Design and optimize a multimodal fusion layer for emotional state recognition by
 **EgoEmotion** (NeurIPS 2025, ETH Zurich)
 - 40 subjects (IDs 005–046, excluding 001–004, 020, 041)
 - 50+ hours of recordings from Meta Project Aria glasses
-- Raw data: `/home/link/Wei/Models/core/real-time-vis-physio-fusion/data/egoemotion_raw/`
+- Raw data: `/home/link/Wei/Models/core/real-time-vis-physio-fusion/data/datasets/egoemotion_raw/`
 - Reference data: `/mnt/c/Users/Public/Data/egoEMOTION/egoEMOTION/`
 - Reference codebase: `/home/link/Wei/Models/core/egoEMOTION/`
 
@@ -130,7 +130,7 @@ modalities:
 One-time pre-extraction of all frozen encoder outputs, cached to disk.
 
 ```
-data/embeddings/
+data/embeddings/egoemotion/papagei/
 ├── video_mae_v2/
 │   ├── {subject_id}/segment_{idx}.pt
 │   └── ...

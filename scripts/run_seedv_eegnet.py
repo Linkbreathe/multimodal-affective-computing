@@ -18,7 +18,7 @@ validation balanced_accuracy.
 Usage:
     python scripts/run_seedv_eegnet.py
     python scripts/run_seedv_eegnet.py --max-epochs 50 --batch-size 64 --folds 2
-    python scripts/run_seedv_eegnet.py --manifest data/seedv_preprocessed/manifest.csv
+    python scripts/run_seedv_eegnet.py --manifest data/preprocessed/seedv_preprocessed/manifest.csv
 """
 from __future__ import annotations
 
@@ -685,7 +685,7 @@ def parse_args() -> argparse.Namespace:
     # Data
     parser.add_argument(
         "--manifest",
-        default="data/seedv_preprocessed/manifest.csv",
+        default="data/preprocessed/seedv_preprocessed/manifest.csv",
         help="Path to manifest CSV (relative to repo root or absolute).",
     )
     parser.add_argument(

@@ -151,7 +151,7 @@ def main():
         description="SEED-V 4-channel headband linear probe with frozen REVE (LOSO)."
     )
     parser.add_argument("--config", default="configs/seedv_reve_headband.yaml")
-    parser.add_argument("--manifest", default="data/seedv_preprocessed/manifest.csv")
+    parser.add_argument("--manifest", default="data/preprocessed/seedv_preprocessed/manifest.csv")
     parser.add_argument("--output_dir", default="logs/seedv_reve_headband")
     parser.add_argument("--device", default=None)
     parser.add_argument("--folds", type=int, default=None,

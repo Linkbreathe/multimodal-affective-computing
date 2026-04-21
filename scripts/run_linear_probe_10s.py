@@ -228,8 +228,8 @@ def run_loso(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Pure video linear probe with LOSO")
-    parser.add_argument("--embeddings-dir", default="data/embeddings_10s/video_mae_v2")
-    parser.add_argument("--data-dir", default="data/egoemotion_raw")
+    parser.add_argument("--embeddings-dir", default="data/embeddings/egoemotion/10s/video_mae_v2")
+    parser.add_argument("--data-dir", default="data/datasets/egoemotion_raw")
     parser.add_argument("--device", default=None)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--name", default=None)

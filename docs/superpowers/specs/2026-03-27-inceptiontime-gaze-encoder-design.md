@@ -162,9 +162,9 @@ Output is `[B, 128]` (pooled). `ModalityProjector` maps to `[B, 256]` (d_common)
 
 ### Embedding Cache
 
-- Path: `data/embeddings_10s/inceptiontime/{subject_id}/segment_{idx:04d}.pt`
+- Path: `data/embeddings/egoemotion/10s/inceptiontime/{subject_id}/segment_{idx:04d}.pt`
 - Format: `{"embedding": [128], "metadata": dict, "config_hash": str}`
-- Existing PatchTST embeddings remain untouched in `data/embeddings_10s/patchtst/`
+- Existing PatchTST embeddings remain untouched in `data/embeddings/egoemotion/10s/patchtst/`
 
 ## Files to Create or Modify
 

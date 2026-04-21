@@ -1,7 +1,7 @@
 seed: 42
 
-data_dir: "data/seedv_preprocessed_uv"
-embeddings_dir: "data/embeddings_seedv_uv"
+data_dir: "data/preprocessed/seedv_preprocessed_uv"
+embeddings_dir: "data/embeddings/seedv/uv"
 ref_data_dir: "/mnt/c/Users/Public/Data/SEED-V/SEED-V"
 
 eegpt_weights: "weights/eegpt/eegpt_mcae_58chs_4s_large4E.ckpt"

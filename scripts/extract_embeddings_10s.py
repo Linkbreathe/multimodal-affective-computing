@@ -10,7 +10,7 @@ Temporal alignment (reference clock = 90 Hz from task_times.npy):
     Video        (10 FPS): pov.mp4 frames at [start/90, (start+900)/90] sec           -> ~100 frames -> 16-frame clips
 
 Output layout:
-    data/embeddings_10s/
+    data/embeddings/egoemotion/10s/
     ├── video_mae_v2/{subject}/segment_{seg_idx:04d}.pt
     ├── patchtst_eye/{subject}/segment_{seg_idx:04d}.pt
     └── papagei_ppg/{subject}/segment_{seg_idx:04d}.pt

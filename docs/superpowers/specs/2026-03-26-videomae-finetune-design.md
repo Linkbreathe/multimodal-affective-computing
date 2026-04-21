@@ -27,7 +27,7 @@ fine-tuning (Phase A).
 
 ### Fixed split CSVs
 
-**Location:** `data/egoemotion_raw/ce_hardlabel_manifests/splits/`
+**Location:** `data/datasets/egoemotion_raw/ce_hardlabel_manifests/splits/`
 
 | File | Segments | Format |
 |------|----------|--------|
@@ -181,7 +181,7 @@ with torch.no_grad():
     emb = model.extract_features(clip.unsqueeze(0))  # [1, 768]
 ```
 
-Save to `data/embeddings_10s_finetuned/video_mae_v2/{subject}/segment_{idx:04d}.pt`
+Save to `data/embeddings/egoemotion/10s_finetuned/video_mae_v2/{subject}/segment_{idx:04d}.pt`
 with the same format as existing embeddings but using a SINGLE `[768]`
 vector (not `[T, 768]` clip sequence).
 
@@ -194,7 +194,7 @@ pointed at the new embeddings directory:
 
 ```bash
 conda run -n visphy python scripts/run_linear_probe_10s.py \
-    --embeddings-dir data/embeddings_10s_finetuned/video_mae_v2 \
+    --embeddings-dir data/embeddings/egoemotion/10s_finetuned/video_mae_v2 \
     --name linear_probe_finetuned_video
 ```
 
@@ -264,7 +264,7 @@ conda run -n visphy python scripts/finetune_videomae_10s.py \
 
 # 3. Run LOSO linear probe on fine-tuned embeddings
 conda run -n visphy python scripts/run_linear_probe_10s.py \
-    --embeddings-dir data/embeddings_10s_finetuned/video_mae_v2 \
+    --embeddings-dir data/embeddings/egoemotion/10s_finetuned/video_mae_v2 \
     --name linear_probe_finetuned_video
 
 # 4. Compare results:

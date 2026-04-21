@@ -5,8 +5,8 @@ from src.data.segments import SegmentExtractor
 @pytest.fixture
 def extractor():
     return SegmentExtractor(
-        data_dir="data/egoemotion_raw",
-        task_times_path="data/egoemotion_raw/task_times.npy",
+        data_dir="data/datasets/egoemotion_raw",
+        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
     )
 
 def test_loads_task_times(extractor):
@@ -94,7 +94,7 @@ import pandas as pd
 
 @pytest.fixture
 def label_loader():
-    return LabelLoader(data_dir="data/egoemotion_raw")
+    return LabelLoader(data_dir="data/datasets/egoemotion_raw")
 
 def test_load_hard_labels(label_loader):
     manifest = label_loader.load_ce_manifest()
@@ -120,8 +120,8 @@ from src.data.label_builder import build_label_mapping
 
 def test_build_label_mapping():
     mapping = build_label_mapping(
-        data_dir="data/egoemotion_raw",
-        task_times_path="data/egoemotion_raw/task_times.npy",
+        data_dir="data/datasets/egoemotion_raw",
+        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
     )
     assert len(mapping) > 0
     sample_key = list(mapping.keys())[0]

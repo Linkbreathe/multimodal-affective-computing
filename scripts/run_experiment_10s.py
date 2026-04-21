@@ -182,7 +182,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run task-aware 10s-segment fusion experiments")
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument("--fusion_config", required=True, help="Path to fusion method config")
-    parser.add_argument("--embeddings_dir", default="data/embeddings_10s_task_aware")
+    parser.add_argument("--embeddings_dir", default="data/embeddings/egoemotion/10s_task_aware")
     parser.add_argument("--name", default=None, help="Experiment name")
     parser.add_argument("--device", default=None, help="Device (cuda/cpu)")
     parser.add_argument("--pool-clips", action="store_true",

@@ -502,7 +502,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--manifest",
-        default="data/seedv_preprocessed_uv/manifest.csv",
+        default="data/preprocessed/seedv_preprocessed_uv/manifest.csv",
         help="Path to the preprocessed SEED-V manifest CSV.",
     )
     parser.add_argument(

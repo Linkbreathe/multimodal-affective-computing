@@ -18,8 +18,8 @@ import time
 
 # === Paths ===
 EYE_DIR = Path("/mnt/c/Users/Public/Data/SEED-V/SEED-V/Eye_movement_features")
-REVE_DIR = Path("/home/link/Wei/Models/core/real-time-vis-physio-fusion/data/embeddings_seedv_uv/reve_eeg")
-MANIFEST = Path("/home/link/Wei/Models/core/real-time-vis-physio-fusion/data/embeddings_seedv_uv/reve_manifest.csv")
+REVE_DIR = Path("/home/link/Wei/Models/core/real-time-vis-physio-fusion/data/embeddings/seedv/uv/reve_eeg")
+MANIFEST = Path("/home/link/Wei/Models/core/real-time-vis-physio-fusion/data/embeddings/seedv/uv/reve_manifest.csv")
 
 EMOTION_NAMES = {0: "Disgust", 1: "Fear", 2: "Sad", 3: "Neutral", 4: "Happy"}
 N_SUBJECTS = 16

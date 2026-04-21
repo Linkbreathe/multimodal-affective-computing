@@ -193,7 +193,7 @@ def build_views(batch: torch.Tensor, augmenter: GazeAugmenter) -> tuple[torch.Te
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", default="data/egoemotion_raw")
+    parser.add_argument("--data_dir", default="data/datasets/egoemotion_raw")
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--lr", type=float, default=1e-3)

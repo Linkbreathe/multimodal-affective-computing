@@ -1,6 +1,6 @@
 seed: 42
-data_dir: "data/egoemotion_raw"
-embeddings_dir: "data/embeddings"
+data_dir: "data/datasets/egoemotion_raw"
+embeddings_dir: "data/embeddings/egoemotion/papagei"
 ref_data_dir: "/mnt/c/Users/Public/Data/egoEMOTION/egoEMOTION"
 
 modalities:

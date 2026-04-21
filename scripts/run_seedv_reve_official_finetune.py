@@ -674,7 +674,7 @@ def main():
         description="SEED-V REVE official two-stage fine-tuning (LOSO)."
     )
     parser.add_argument("--config", default="configs/seedv_reve_official.yaml")
-    parser.add_argument("--manifest", default="data/seedv_preprocessed/manifest.csv")
+    parser.add_argument("--manifest", default="data/preprocessed/seedv_preprocessed/manifest.csv")
     parser.add_argument("--output_dir", default="logs/seedv_reve_official")
     parser.add_argument("--device", default=None)
     parser.add_argument("--folds", type=int, default=None,

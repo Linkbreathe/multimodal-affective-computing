@@ -13,7 +13,7 @@ under the current repo's evaluation protocol (LOSO).
 
 ### Embedding files
 
-**Location:** `data/embeddings_10s/video_mae_v2/{subject}/segment_{idx:04d}.pt`
+**Location:** `data/embeddings/egoemotion/10s/video_mae_v2/{subject}/segment_{idx:04d}.pt`
 
 **Verified contents** (from `005/segment_0005.pt`):
 
@@ -32,7 +32,7 @@ across subjects 005, 010, 025). No variable-length padding needed.
 
 ### Manifest
 
-**Location:** `data/egoemotion_raw/ce_hardlabel_manifests/dataset_manifest.csv`
+**Location:** `data/datasets/egoemotion_raw/ce_hardlabel_manifests/dataset_manifest.csv`
 
 **Columns used:** `subject` (int), `segment_path` (str, segment index
 extracted from filename), `label` (int, 0-8).
@@ -98,7 +98,7 @@ No import from `src/fusion/`, `src/tasks/`, `src/trainer/`,
 
 ```
 Input:
-    embeddings_dir: str  — path to data/embeddings_10s/video_mae_v2
+    embeddings_dir: str  — path to data/embeddings/egoemotion/10s/video_mae_v2
     manifest: pd.DataFrame  — loaded from dataset_manifest.csv
 
 Output:
@@ -240,8 +240,8 @@ Logic:
 
 ```
 CLI args:
-    --embeddings-dir  default="data/embeddings_10s/video_mae_v2"
-    --data-dir        default="data/egoemotion_raw"
+    --embeddings-dir  default="data/embeddings/egoemotion/10s/video_mae_v2"
+    --data-dir        default="data/datasets/egoemotion_raw"
     --device          default=None (auto-detect)
     --seed            default=42
     --name            default=None

@@ -20,10 +20,10 @@ import torch
 log = logging.getLogger(__name__)
 
 CONDITIONS = {
-    "4s_all":  "data/embeddings_seedv/4s_all",
-    "10s_all": "data/embeddings_seedv/10s_all",
-    "4s_tp":   "data/embeddings_seedv/4s_tp",
-    "10s_tp":  "data/embeddings_seedv/10s_tp",
+    "4s_all":  "data/embeddings/seedv/base/4s_all",
+    "10s_all": "data/embeddings/seedv/base/10s_all",
+    "4s_tp":   "data/embeddings/seedv/base/4s_tp",
+    "10s_tp":  "data/embeddings/seedv/base/10s_tp",
 }
 
 METRICS = ["accuracy", "balanced_accuracy", "weighted_f1", "macro_f1", "cohen_kappa"]

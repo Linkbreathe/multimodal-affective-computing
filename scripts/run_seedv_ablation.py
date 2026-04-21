@@ -52,7 +52,7 @@ SAMPLING_RATE = 256
 def _make_config(condition_name: str) -> dict:
     """Build a run_loso-compatible config dict for a given condition."""
     return {
-        "embeddings_dir": f"data/embeddings_seedv/{condition_name}",
+        "embeddings_dir": f"data/embeddings/seedv/base/{condition_name}",
         "num_classes": 5,
         "emotions": ["Disgust", "Fear", "Sad", "Neutral", "Happy"],
         "fusion": {"d_common": 256, "dropout": 0.1},
@@ -75,7 +75,7 @@ def phase_preprocess(
 ) -> None:
     """Ensure preprocessed data exists for each unique window length."""
     for ws in sorted(set(window_secs)):
-        out_dir = Path(f"data/seedv_preprocessed_{ws}s")
+        out_dir = Path(f"data/preprocessed/seedv_preprocessed_{ws}s")
         manifest = out_dir / "manifest.csv"
         if manifest.exists():
             log.info("Preprocessed data already exists: %s", manifest)
@@ -111,7 +111,7 @@ def phase_extract(conditions: list[dict], skip: bool = False) -> None:
         channels = cond["channels"]
         window_samples = ws * SAMPLING_RATE
 
-        emb_dir = Path(f"data/embeddings_seedv/{name}")
+        emb_dir = Path(f"data/embeddings/seedv/base/{name}")
         emb_manifest = emb_dir / "manifest.csv"
         if emb_manifest.exists():
             log.info("Embeddings already exist: %s", emb_manifest)
@@ -122,7 +122,7 @@ def phase_extract(conditions: list[dict], skip: bool = False) -> None:
             )
             continue
 
-        preproc_manifest = Path(f"data/seedv_preprocessed_{ws}s/manifest.csv")
+        preproc_manifest = Path(f"data/preprocessed/seedv_preprocessed_{ws}s/manifest.csv")
         if not preproc_manifest.exists():
             raise FileNotFoundError(
                 f"Preprocessed manifest not found: {preproc_manifest}. "

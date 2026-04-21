@@ -449,7 +449,7 @@ def extract_embeddings(model, manifest_df, task_times, data_dir, output_dir, dev
 
 def main():
     parser = argparse.ArgumentParser(description="Fine-tune VideoMAEv2 on EgoEmotion")
-    parser.add_argument("--data-dir", default="data/egoemotion_raw")
+    parser.add_argument("--data-dir", default="data/datasets/egoemotion_raw")
     parser.add_argument("--device", default=None)
     parser.add_argument("--name", default=None)
     parser.add_argument("--epochs", type=int, default=40)
@@ -560,7 +560,7 @@ def main():
         [pd.read_csv(f) for f in sorted(splits_dir.glob("*.csv"))],
         ignore_index=True,
     ).drop_duplicates(subset=["subject_id", "segments"])
-    emb_output_dir = Path("data/embeddings_10s_finetuned/video_mae_v2")
+    emb_output_dir = Path("data/embeddings/egoemotion/10s_finetuned/video_mae_v2")
     extract_embeddings(model, all_splits, task_times, data_dir, emb_output_dir, device)
 
     log.info(f"Done. Embeddings at {emb_output_dir}")

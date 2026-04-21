@@ -199,7 +199,7 @@ def validate_boundaries(chunks: list[dict], signal_len_90hz: int) -> list[str]:
 def main() -> None:
     cfg = load_config("configs/base.yaml")
     data_dir = Path(cfg["data_dir"])
-    output_dir = Path("data/segmentation_10s_task_aware")
+    output_dir = Path("data/preprocessed/segmentation_10s_task_aware")
 
     tt = np.load(data_dir / "task_times.npy", allow_pickle=True).item()
 

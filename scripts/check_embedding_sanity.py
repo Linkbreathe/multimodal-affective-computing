@@ -4,8 +4,8 @@ and produce a t-SNE / UMAP visualisation.
 Usage
 -----
     python scripts/check_embedding_sanity.py
-    python scripts/check_embedding_sanity.py --embeddings-dir data/embeddings_seedv_4s
-    python scripts/check_embedding_sanity.py --embeddings-dir data/embeddings_seedv_4s --vis umap
+    python scripts/check_embedding_sanity.py --embeddings-dir data/embeddings/seedv/4s
+    python scripts/check_embedding_sanity.py --embeddings-dir data/embeddings/seedv/4s --vis umap
 
 The script saves all artefacts under logs/embedding_sanity/ and prints a
 clear verdict at the end:
@@ -353,11 +353,11 @@ def main() -> None:
     )
     parser.add_argument(
         "--embeddings-dir",
-        default="data/embeddings_seedv",
+        default="data/embeddings/seedv/base",
         help=(
             "Root embeddings directory.  The script appends /eegpt_eeg/ internally "
             "(matching run_seedv_experiment.py behaviour).  "
-            "Default: data/embeddings_seedv"
+            "Default: data/embeddings/seedv/base"
         ),
     )
     parser.add_argument(

@@ -41,7 +41,7 @@ def report(check_id: str, passed: bool, detail: str = "") -> None:
 
 
 CKPT_PATH = Path("checkpoints/inceptiontime_gaze_pretrained.pt")
-EMB_ROOT = Path("data/embeddings_10s_task_aware")
+EMB_ROOT = Path("data/embeddings/egoemotion/10s_task_aware")
 MANIFEST = EMB_ROOT / "manifest.csv"
 ENCODERS = {
     "inceptiontime": {"dir": EMB_ROOT / "inceptiontime", "expected_shape_suffix": (128,)},

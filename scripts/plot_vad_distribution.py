@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-ROOT = "data/egoemotion_raw"
+ROOT = "data/datasets/egoemotion_raw"
 OUT = "figures/vad_analysis/vad_distribution.png"
 
 

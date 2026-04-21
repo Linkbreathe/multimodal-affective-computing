@@ -431,7 +431,7 @@ def main() -> None:
         default="all",
     )
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--output_dir", default="data/embeddings_10s_task_aware")
+    parser.add_argument("--output_dir", default="data/embeddings/egoemotion/10s_task_aware")
     args = parser.parse_args()
 
     cfg = load_config(args.config)

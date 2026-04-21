@@ -352,7 +352,7 @@ def process_cnt_file(
 
 def preprocess_seedv(
     data_dir: str | Path = "/mnt/c/Users/Public/Data/SEED-V/SEED-V",
-    output_dir: str | Path = "data/seedv_preprocessed",
+    output_dir: str | Path = "data/preprocessed/seedv_preprocessed",
     target_sr: int = 256,
     window_sec: int = 10,
 ) -> pd.DataFrame:

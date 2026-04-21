@@ -106,9 +106,9 @@ real-time-vis-physio-fusion/
 
 ```bash
 cp /mnt/c/Users/Public/Data/egoEMOTION/egoEMOTION/task_times.npy \
-   /home/link/Wei/Models/core/real-time-vis-physio-fusion/data/egoemotion_raw/
+   /home/link/Wei/Models/core/real-time-vis-physio-fusion/data/datasets/egoemotion_raw/
 cp /mnt/c/Users/Public/Data/egoEMOTION/egoEMOTION/personality_questionnaire_results.csv \
-   /home/link/Wei/Models/core/real-time-vis-physio-fusion/data/egoemotion_raw/
+   /home/link/Wei/Models/core/real-time-vis-physio-fusion/data/datasets/egoemotion_raw/
 ```
 
 - [ ] **Step 2: Validate task_times.npy loads correctly**
@@ -116,7 +116,7 @@ cp /mnt/c/Users/Public/Data/egoEMOTION/egoEMOTION/personality_questionnaire_resu
 ```bash
 conda run -n visphy python -c "
 import numpy as np
-tt = np.load('data/egoemotion_raw/task_times.npy', allow_pickle=True).item()
+tt = np.load('data/datasets/egoemotion_raw/task_times.npy', allow_pickle=True).item()
 print(f'Subjects: {len(tt)}')
 print(f'Sample keys for 005: {list(tt[\"005\"].keys())[:5]}')
 print(f'Sample segment: {tt[\"005\"][\"video_Neutral\"]}')
@@ -129,7 +129,7 @@ Expected: Prints subject count (40+), task keys, and a `[start, end]` pair.
 ```bash
 conda run -n visphy python -c "
 import os, numpy as np
-data_dir = 'data/egoemotion_raw'
+data_dir = 'data/datasets/egoemotion_raw'
 subjects = sorted([d for d in os.listdir(data_dir) if d.isdigit()])
 print(f'Found {len(subjects)} subjects')
 required = ['gaze_90fps.npy', 'pupils_90fps.npy', 'ppg_ear_125hz.npy', 'pov.mp4']
@@ -201,8 +201,8 @@ from src.data.segments import SegmentExtractor
 @pytest.fixture
 def extractor():
     return SegmentExtractor(
-        data_dir="data/egoemotion_raw",
-        task_times_path="data/egoemotion_raw/task_times.npy",
+        data_dir="data/datasets/egoemotion_raw",
+        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
     )
 
 def test_loads_task_times(extractor):
@@ -375,7 +375,7 @@ from src.data.segments import LabelLoader
 
 @pytest.fixture
 def label_loader():
-    return LabelLoader(data_dir="data/egoemotion_raw")
+    return LabelLoader(data_dir="data/datasets/egoemotion_raw")
 
 def test_load_hard_labels(label_loader):
     manifest = label_loader.load_ce_manifest()
@@ -600,8 +600,8 @@ Create `configs/base.yaml`:
 ```yaml
 # Base configuration for all experiments
 seed: 42
-data_dir: "data/egoemotion_raw"
-embeddings_dir: "data/embeddings"
+data_dir: "data/datasets/egoemotion_raw"
+embeddings_dir: "data/embeddings/egoemotion/papagei"
 ref_data_dir: "/mnt/c/Users/Public/Data/egoEMOTION/egoEMOTION"
 
 # Modality registry
@@ -1412,7 +1412,7 @@ class EyeTrackingDataset(Dataset):
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", default="data/egoemotion_raw")
+    parser.add_argument("--data_dir", default="data/datasets/egoemotion_raw")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -1577,9 +1577,9 @@ from src.encoders.extract import EmbeddingExtractor
 def test_embedding_cache_structure(tmp_path):
     """Test that extraction creates correct directory structure."""
     extractor = EmbeddingExtractor(
-        data_dir="data/egoemotion_raw",
+        data_dir="data/datasets/egoemotion_raw",
         output_dir=str(tmp_path / "embeddings"),
-        task_times_path="data/egoemotion_raw/task_times.npy",
+        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
     )
     # Just test the path generation
     path = extractor.get_cache_path("video_mae_v2", "005", 0)
@@ -1919,8 +1919,8 @@ from src.data.label_builder import build_label_mapping
 
 def test_build_label_mapping():
     mapping = build_label_mapping(
-        data_dir="data/egoemotion_raw",
-        task_times_path="data/egoemotion_raw/task_times.npy",
+        data_dir="data/datasets/egoemotion_raw",
+        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
     )
     assert len(mapping) > 0
     # Keys are "{subject_id}_{segment_idx}"

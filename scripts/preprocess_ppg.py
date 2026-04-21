@@ -7,7 +7,7 @@ Usage:
     python scripts/preprocess_ppg.py                       # ear only, local + ref
     python scripts/preprocess_ppg.py --signals both        # ear + nose
     python scripts/preprocess_ppg.py --dry-run             # preview without writing
-    python scripts/preprocess_ppg.py --data-dir data/egoemotion_raw --signals ear
+    python scripts/preprocess_ppg.py --data-dir data/datasets/egoemotion_raw --signals ear
 """
 from __future__ import annotations
 
@@ -133,7 +133,7 @@ def main() -> None:
         if ref:
             data_dirs.append(Path(ref))
     else:
-        data_dirs.append(Path("data/egoemotion_raw"))
+        data_dirs.append(Path("data/datasets/egoemotion_raw"))
 
     sensors = ["ear", "nose"] if args.signals == "both" else [args.signals]
 

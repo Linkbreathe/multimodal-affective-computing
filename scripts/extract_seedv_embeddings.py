@@ -162,12 +162,12 @@ def main():
     )
     parser.add_argument(
         "--manifest",
-        default="data/seedv_preprocessed/manifest.csv",
+        default="data/preprocessed/seedv_preprocessed/manifest.csv",
         help="Path to the preprocessed segment manifest CSV.",
     )
     parser.add_argument(
         "--output_dir",
-        default="data/embeddings_seedv",
+        default="data/embeddings/seedv/base",
         help="Root directory for output embeddings.",
     )
     parser.add_argument(
