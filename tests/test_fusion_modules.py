@@ -3,6 +3,7 @@ import torch
 from src.fusion.base import BaseFusionModule
 from src.fusion.projector import ModalityProjector
 from src.fusion.early import EarlyFusion
+from src.fusion.mid import MidFusion
 
 def test_base_fusion_is_abstract():
     with pytest.raises(TypeError):
@@ -44,6 +45,27 @@ def test_early_fusion_variable_modalities():
     assert out.shape == (4, 256)
 
 
+@pytest.mark.parametrize(
+    "fusion,embeddings,modality_ids",
+    [
+        (
+            EarlyFusion(d_common=32, num_modalities=2, dropout=0.1),
+            [torch.randn(1, 32), torch.randn(1, 32)],
+            ["video", "ppg"],
+        ),
+        (
+            MidFusion(d_common=32, modality_ids=["video", "ppg"], dropout=0.1),
+            [torch.randn(1, 32), torch.randn(1, 32)],
+            ["video", "ppg"],
+        ),
+    ],
+)
+def test_mlp_fusions_accept_single_sample_batches_in_train_mode(fusion, embeddings, modality_ids):
+    fusion.train()
+    out = fusion(embeddings, modality_ids=modality_ids)
+    assert out.shape == (1, fusion.d_out)
+
+
 # --- Mid Fusion Tests ---
 
 try:
@@ -79,6 +101,52 @@ def test_late_fusion_weighted():
     embeddings = [torch.randn(4, 256) for _ in range(3)]
     out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
     assert out.shape == (4, 256)
+
+
+@pytest.mark.skipif(LateFusion is None, reason="src.fusion.late not yet implemented")
+def test_late_fusion_branches_follow_modality_names_not_input_order():
+    torch.manual_seed(7)
+    fusion = LateFusion(
+        d_common=32,
+        modality_ids=["video", "eye"],
+        mode="weighted",
+        dropout=0.0,
+    )
+    fusion.eval()
+    video = torch.randn(3, 32)
+    eye = torch.randn(3, 32)
+
+    out_original = fusion([video, eye], modality_ids=["video", "eye"])
+    out_reordered = fusion([eye, video], modality_ids=["eye", "video"])
+
+    assert torch.allclose(out_original, out_reordered, atol=1e-6)
+
+
+# --- TMC Fusion Tests ---
+
+try:
+    from src.fusion.tmc import TMCFusion
+except ImportError:
+    TMCFusion = None
+
+
+@pytest.mark.skipif(TMCFusion is None, reason="src.fusion.tmc not yet implemented")
+def test_tmc_fusion_branches_follow_modality_names_not_input_order():
+    torch.manual_seed(11)
+    fusion = TMCFusion(
+        d_common=16,
+        num_classes=3,
+        modality_ids=["video", "eye"],
+        dropout=0.0,
+    )
+    fusion.eval()
+    video = torch.randn(2, 16)
+    eye = torch.randn(2, 16)
+
+    out_original = fusion([video, eye], modality_ids=["video", "eye"])
+    out_reordered = fusion([eye, video], modality_ids=["eye", "video"])
+
+    assert torch.allclose(out_original, out_reordered, atol=1e-6)
 
 
 # --- Perceiver IO Fusion Tests ---

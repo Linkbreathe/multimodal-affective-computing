@@ -6,29 +6,51 @@ import torch
 from scripts.run_experiment_10s import load_10s_data_by_subject
 
 
+def _manifest(rows: list[dict]) -> pd.DataFrame:
+    defaults = {
+        "subject": "005",
+        "global_seq": 5,
+        "task_name": "video_neutral",
+        "chunk_idx_in_task": 0,
+        "emotion_label": 4,
+        "emotion_name": "Neutral",
+        "soft_label": "0,0,0,0,1,0,0,0,0",
+        "valence": 0.0,
+        "arousal": 0.0,
+        "dominance": 0.0,
+    }
+    return pd.DataFrame([{**defaults, **row} for row in rows])
+
+
+def _save_embedding(root: Path, enc: str, seq: int, emb: torch.Tensor) -> None:
+    path = root / enc / "005" / f"segment_{seq:04d}.pt"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({
+        "embedding": emb,
+        "subject": "005",
+        "segment_idx": seq,
+        "label": 4,
+        "emotion": "Neutral",
+    }, path)
+
+
 def test_load_10s_data_preserves_singleton_sequences(tmp_path):
     embeddings_dir = tmp_path / "embeddings_10s"
-    data_dir = tmp_path / "egoemotion_raw"
 
     for enc, emb in {
         "video_mae_v2": torch.randn(1, 768),
         "patchtst_eye": torch.randn(1, 39, 128),
         "papagei_ppg": torch.randn(1, 512),
     }.items():
-        path = embeddings_dir / enc / "005" / "segment_0005.pt"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({"embedding": emb}, path)
+        _save_embedding(embeddings_dir, enc, 5, emb)
 
-    manifest = pd.DataFrame([
-        {"subject": 5, "segment_path": "005/ppg_segments/5.p", "label": 4},
-    ])
+    manifest = _manifest([{"global_seq": 5}])
 
     loaded = load_10s_data_by_subject(
         str(embeddings_dir),
         ["video_mae_v2", "patchtst_eye", "papagei_ppg"],
         ["video", "eye_tracking", "ppg"],
         manifest,
-        data_dir,
     )
 
     sample = loaded["005"][0]
@@ -42,7 +64,6 @@ def test_load_10s_data_preserves_singleton_sequences(tmp_path):
 def test_pool_clips_collapses_video_only(tmp_path):
     """--pool-clips mean-pools video [T, 768] -> [768], leaves eye_tracking untouched."""
     embeddings_dir = tmp_path / "embeddings_10s"
-    data_dir = tmp_path / "egoemotion_raw"
 
     num_clips = 6
     for enc, emb in {
@@ -50,20 +71,15 @@ def test_pool_clips_collapses_video_only(tmp_path):
         "patchtst_eye": torch.randn(39, 128),           # [39, 128] sequence
         "papagei_ppg": torch.randn(1, 512),             # [1, 512] pooled
     }.items():
-        path = embeddings_dir / enc / "005" / "segment_0005.pt"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({"embedding": emb}, path)
+        _save_embedding(embeddings_dir, enc, 5, emb)
 
-    manifest = pd.DataFrame([
-        {"subject": 5, "segment_path": "005/ppg_segments/5.p", "label": 4},
-    ])
+    manifest = _manifest([{"global_seq": 5}])
 
     loaded = load_10s_data_by_subject(
         str(embeddings_dir),
         ["video_mae_v2", "patchtst_eye", "papagei_ppg"],
         ["video", "eye_tracking", "ppg"],
         manifest,
-        data_dir,
         pool_clips=True,
     )
 
@@ -98,16 +114,13 @@ def test_pooled_video_batches_without_masks(tmp_path):
             return self.fc(embeddings[0])
 
     embeddings_dir = tmp_path / "embeddings_10s"
-    data_dir = tmp_path / "egoemotion_raw"
 
     # Create 3 samples with DIFFERENT clip counts (would trigger padding if 2D)
     for seg_idx, num_clips in [(0, 6), (1, 10), (2, 4)]:
-        path = embeddings_dir / "video_mae_v2" / "005" / f"segment_{seg_idx:04d}.pt"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        torch.save({"embedding": torch.randn(num_clips, 768)}, path)
+        _save_embedding(embeddings_dir, "video_mae_v2", seg_idx, torch.randn(num_clips, 768))
 
-    manifest = pd.DataFrame([
-        {"subject": 5, "segment_path": f"005/ppg_segments/{i}.p", "label": i % 9}
+    manifest = _manifest([
+        {"global_seq": i, "chunk_idx_in_task": i}
         for i in range(3)
     ])
 
@@ -116,7 +129,6 @@ def test_pooled_video_batches_without_masks(tmp_path):
         ["video_mae_v2"],
         ["video"],
         manifest,
-        data_dir,
         pool_clips=True,
     )
 

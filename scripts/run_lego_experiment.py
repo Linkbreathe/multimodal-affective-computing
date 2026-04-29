@@ -29,6 +29,18 @@ from src.utils.registry import ResultsRegistry
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fusion")
 
+LEGO_GLOBAL_PRETRAIN_WARNING = (
+    "MM-Lego blocks from pretrain_lego_blocks.py are produced by global supervised "
+    "pretraining across all subjects. Reusing them inside LOSO can leak held-out "
+    "subject label information. Pass --allow-global-pretrained-blocks only for a "
+    "clearly labeled ablation, not for a clean LOSO result."
+)
+
+
+def require_lego_pretrain_leakage_acknowledgement(allow_global_pretrained_blocks: bool) -> None:
+    if not allow_global_pretrained_blocks:
+        raise RuntimeError(LEGO_GLOBAL_PRETRAIN_WARNING)
+
 
 class MultimodalDataset(Dataset):
     """Loads embeddings for all modalities with labels."""
@@ -420,7 +432,13 @@ def main():
     parser.add_argument("--tune_epochs", type=int, default=20)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--name", default=None)
+    parser.add_argument(
+        "--allow-global-pretrained-blocks",
+        action="store_true",
+        help="Acknowledge that globally supervised pretrained Lego blocks are a leaky ablation.",
+    )
     args = parser.parse_args()
+    require_lego_pretrain_leakage_acknowledgement(args.allow_global_pretrained_blocks)
 
     cfg = merge_configs(load_config(args.config), load_config(args.fusion_config))
     device = args.device if torch.cuda.is_available() else "cpu"

@@ -78,7 +78,55 @@ def load_reve_embeddings(subject_id: int, manifest_df: pd.DataFrame) -> tuple[np
     return np.array(features), np.array(labels)
 
 
-def run_loso(all_features: dict[str, np.ndarray], all_labels: np.ndarray,
+def _summarize_loso_predictions(
+    y_true_all: list[int],
+    y_pred_all: list[int],
+    per_subject_acc: list[float],
+) -> dict:
+    y_true_arr = np.array(y_true_all)
+    y_pred_arr = np.array(y_pred_all)
+
+    bal_acc = balanced_accuracy_score(y_true_arr, y_pred_arr)
+    macro_f1 = f1_score(y_true_arr, y_pred_arr, average="macro")
+    cm = confusion_matrix(y_true_arr, y_pred_arr, labels=[0, 1, 2, 3, 4])
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        per_class_acc = cm.diagonal() / cm.sum(axis=1)
+    per_class_acc = np.nan_to_num(per_class_acc, nan=0.0)
+
+    return {
+        "bal_acc": bal_acc,
+        "macro_f1": macro_f1,
+        "per_class_acc": per_class_acc,
+        "per_subject_acc": per_subject_acc,
+        "cm": cm,
+        "std_acc": np.std(per_subject_acc),
+    }
+
+
+def _fit_fold_local_eeg_pca(
+    all_eeg: np.ndarray,
+    train_mask: np.ndarray,
+    test_mask: np.ndarray,
+    n_components: int = 66,
+) -> tuple[np.ndarray, np.ndarray, StandardScaler, PCA, float]:
+    """Fit EEG scaler/PCA on the training subjects only for one LOSO fold."""
+    eeg_scaler = StandardScaler()
+    eeg_train_scaled = eeg_scaler.fit_transform(all_eeg[train_mask])
+    eeg_test_scaled = eeg_scaler.transform(all_eeg[test_mask])
+
+    fold_components = min(n_components, eeg_train_scaled.shape[0], eeg_train_scaled.shape[1])
+    if fold_components < 1:
+        raise ValueError("PCA requires at least one training sample and feature")
+
+    pca = PCA(n_components=fold_components)
+    eeg_train_pca = pca.fit_transform(eeg_train_scaled)
+    eeg_test_pca = pca.transform(eeg_test_scaled)
+    explained = float(pca.explained_variance_ratio_.sum())
+    return eeg_train_pca, eeg_test_pca, eeg_scaler, pca, explained
+
+
+def run_loso(all_features: np.ndarray, all_labels: np.ndarray,
              all_subjects: np.ndarray, feature_name: str) -> dict:
     """Run LOSO cross-validation with SVM (RBF)."""
     unique_subjects = np.unique(all_subjects)
@@ -110,24 +158,57 @@ def run_loso(all_features: dict[str, np.ndarray], all_labels: np.ndarray,
         sub_acc = balanced_accuracy_score(y_test, y_pred)
         per_subject_acc.append(sub_acc)
 
-    y_true_all = np.array(y_true_all)
-    y_pred_all = np.array(y_pred_all)
+    return _summarize_loso_predictions(y_true_all, y_pred_all, per_subject_acc)
 
-    bal_acc = balanced_accuracy_score(y_true_all, y_pred_all)
-    macro_f1 = f1_score(y_true_all, y_pred_all, average="macro")
-    cm = confusion_matrix(y_true_all, y_pred_all, labels=[0, 1, 2, 3, 4])
 
-    # Per-class accuracy from confusion matrix
-    per_class_acc = cm.diagonal() / cm.sum(axis=1)
+def run_loso_pca_concat(
+    all_eye: np.ndarray,
+    all_eeg: np.ndarray,
+    all_labels: np.ndarray,
+    all_subjects: np.ndarray,
+    feature_name: str = "PCA-Concat(132)",
+    n_components: int = 66,
+) -> dict:
+    """Run LOSO with EEG PCA fit independently inside each fold."""
+    unique_subjects = np.unique(all_subjects)
+    y_true_all = []
+    y_pred_all = []
+    per_subject_acc = []
+    pca_explained = []
 
-    return {
-        "bal_acc": bal_acc,
-        "macro_f1": macro_f1,
-        "per_class_acc": per_class_acc,
-        "per_subject_acc": per_subject_acc,
-        "cm": cm,
-        "std_acc": np.std(per_subject_acc),
-    }
+    for test_sub in unique_subjects:
+        train_mask = all_subjects != test_sub
+        test_mask = all_subjects == test_sub
+
+        eeg_train_pca, eeg_test_pca, _, _, explained = _fit_fold_local_eeg_pca(
+            all_eeg,
+            train_mask,
+            test_mask,
+            n_components=n_components,
+        )
+        pca_explained.append(explained)
+
+        X_train = np.hstack([all_eye[train_mask], eeg_train_pca])
+        X_test = np.hstack([all_eye[test_mask], eeg_test_pca])
+        y_train = all_labels[train_mask]
+        y_test = all_labels[test_mask]
+
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+
+        svm = SVC(kernel="rbf", C=1.0, gamma="scale", class_weight="balanced")
+        svm.fit(X_train, y_train)
+        y_pred = svm.predict(X_test)
+
+        y_true_all.extend(y_test.tolist())
+        y_pred_all.extend(y_pred.tolist())
+        per_subject_acc.append(balanced_accuracy_score(y_test, y_pred))
+
+    result = _summarize_loso_predictions(y_true_all, y_pred_all, per_subject_acc)
+    result["pca_variance_explained_mean"] = float(np.mean(pca_explained))
+    result["pca_variance_explained_std"] = float(np.std(pca_explained))
+    return result
 
 
 def main():
@@ -174,19 +255,11 @@ def main():
     # Fusion: concatenate
     all_concat = np.hstack([all_eye, all_eeg])   # (720, 578)
 
-    # PCA-reduced EEG for balanced fusion
-    scaler_pca = StandardScaler()
-    eeg_scaled = scaler_pca.fit_transform(all_eeg)
-    pca = PCA(n_components=66)
-    all_eeg_pca = pca.fit_transform(eeg_scaled)
-    all_concat_pca = np.hstack([all_eye, all_eeg_pca])  # (720, 132)
-    print(f"  PCA variance explained (66 components): {pca.explained_variance_ratio_.sum():.3f}")
-
     print(f"\nData loaded in {time.time()-t0:.1f}s")
     print(f"  Eye features:    {all_eye.shape}")
     print(f"  EEG features:    {all_eeg.shape}")
     print(f"  Concat features: {all_concat.shape}")
-    print(f"  PCA-Concat:      {all_concat_pca.shape}")
+    print(f"  PCA-Concat:      fold-local EEG PCA + eye features")
     print(f"  Labels:          {all_labels.shape}, classes: {np.unique(all_labels)}")
 
     # Check for NaN/Inf
@@ -201,13 +274,27 @@ def main():
     results = {}
     for name, feats in [("Eye-only(66)", all_eye),
                          ("EEG-only(512)", all_eeg),
-                         ("Concat(578)", all_concat),
-                         ("PCA-Concat(132)", all_concat_pca)]:
+                         ("Concat(578)", all_concat)]:
         print(f"  {name}...", end=" ", flush=True)
         t1 = time.time()
         res = run_loso(feats, all_labels, all_subjects, name)
         print(f"done ({time.time()-t1:.1f}s)")
         results[name] = res
+
+    print(f"  PCA-Concat(132)...", end=" ", flush=True)
+    t1 = time.time()
+    results["PCA-Concat(132)"] = run_loso_pca_concat(
+        all_eye,
+        all_eeg,
+        all_labels,
+        all_subjects,
+        "PCA-Concat(132)",
+        n_components=66,
+    )
+    print(
+        f"done ({time.time()-t1:.1f}s, "
+        f"mean PCA variance={results['PCA-Concat(132)']['pca_variance_explained_mean']:.3f})"
+    )
 
     # Report
     eye_acc = results["Eye-only(66)"]["bal_acc"]

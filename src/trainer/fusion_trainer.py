@@ -237,7 +237,9 @@ class FusionTrainer:
                     epoch_loss += loss.item()
                 else:
                     # Standard path (no CGGM) — passes raw_signals for encoder forward
-                    fused = fusion_model(embeddings, modality_ids, masks, raw_signals=raw_signals)
+                    fused = self._forward_fusion(
+                        fusion_model, embeddings, modality_ids, masks, raw_signals
+                    )
                     outputs = task_head(fused)
                     loss, breakdown = loss_fn(outputs, labels)
 
@@ -326,7 +328,9 @@ class FusionTrainer:
         for batch in loader:
             embeddings, modality_ids, labels, masks = self._unpack_batch(batch)
             raw_signals = self._unpack_raw_signals(batch)
-            fused = fusion_model(embeddings, modality_ids, masks, raw_signals=raw_signals)
+            fused = self._forward_fusion(
+                fusion_model, embeddings, modality_ids, masks, raw_signals
+            )
             outputs = task_head(fused)
             loss, _ = loss_fn(outputs, labels)
             total_loss += loss.item()
@@ -398,6 +402,18 @@ class FusionTrainer:
                 log.info(f"  Distill cosine_sim [{mod_id}<->video]: {sim:.4f}")
 
         return metrics
+
+    @staticmethod
+    def _forward_fusion(
+        fusion_model: nn.Module,
+        embeddings: list[torch.Tensor],
+        modality_ids: list[str],
+        masks: list[torch.Tensor | None],
+        raw_signals: dict[str, torch.Tensor] | None,
+    ) -> torch.Tensor:
+        if raw_signals is None:
+            return fusion_model(embeddings, modality_ids, masks)
+        return fusion_model(embeddings, modality_ids, masks, raw_signals=raw_signals)
 
     def _unpack_batch(
         self, batch: dict
@@ -502,8 +518,9 @@ class FusionTrainer:
         all_data: dict[str, list[dict]],
         subject_ids: list[str],
         tb_base_dir: str | None = None,
-    ) -> list[dict[str, float]]:
+    ) -> list[dict[str, Any]]:
         """Run full LOSO cross-validation."""
+        self._validate_loso_inputs(all_data, subject_ids)
         fold_results = []
         for i, test_subj in enumerate(subject_ids):
             seed = self.config["seed"] + i
@@ -514,6 +531,7 @@ class FusionTrainer:
             train_subjects = [
                 s for s in subject_ids if s not in (test_subj, val_subj)
             ]
+            self._validate_loso_split(train_subjects, val_subj, test_subj)
 
             train_data = [
                 s for subj in train_subjects for s in all_data.get(subj, [])
@@ -546,6 +564,11 @@ class FusionTrainer:
                 self._last_fusion, self._last_head, test_loader, loss_fn
             )
             metrics["test_subject"] = test_subj
+            metrics["val_subject"] = val_subj
+            metrics["train_subjects"] = list(train_subjects)
+            metrics["n_train"] = len(train_data)
+            metrics["n_val"] = len(val_data)
+            metrics["n_test"] = len(test_data)
             fold_results.append(metrics)
             log.info(
                 f"Fold {test_subj}: F1={metrics['weighted_f1']:.4f}, "
@@ -553,3 +576,35 @@ class FusionTrainer:
             )
 
         return fold_results
+
+    @staticmethod
+    def _validate_loso_inputs(
+        all_data: dict[str, list[dict]],
+        subject_ids: list[str],
+    ) -> None:
+        if len(subject_ids) < 3:
+            raise ValueError("LOSO with held-out validation requires at least 3 subjects")
+
+        duplicates = sorted({s for s in subject_ids if subject_ids.count(s) > 1})
+        if duplicates:
+            raise ValueError(f"Duplicate subject_ids are not allowed: {duplicates}")
+
+        missing = [s for s in subject_ids if not all_data.get(s)]
+        if missing:
+            raise ValueError(f"subject_ids with no data: {missing}")
+
+    @staticmethod
+    def _validate_loso_split(
+        train_subjects: list[str],
+        val_subject: str,
+        test_subject: str,
+    ) -> None:
+        train_set = set(train_subjects)
+        if len(train_set) != len(train_subjects):
+            raise ValueError(f"Duplicate train subjects in LOSO split: {train_subjects}")
+        if val_subject == test_subject:
+            raise ValueError(f"LOSO leakage: val_subject equals test_subject {test_subject}")
+        if test_subject in train_set:
+            raise ValueError(f"LOSO leakage: test_subject {test_subject} is in train_subjects")
+        if val_subject in train_set:
+            raise ValueError(f"LOSO leakage: val_subject {val_subject} is in train_subjects")

@@ -155,3 +155,73 @@ def test_variable_length_batches_reach_sequence_aware_fusion_with_masks():
         fusion.seen_masks[1],
         torch.tensor([[True, True, False, False], [True, True, True, True]]),
     )
+
+
+def _sample(label: int = 0) -> dict:
+    return {
+        "embeddings": [torch.randn(32), torch.randn(32)],
+        "modality_ids": ["video", "ppg"],
+        "labels": {
+            "emotion_label": torch.tensor(label),
+            "soft_label": torch.softmax(torch.randn(9), dim=0),
+            "vad": torch.randn(3),
+        },
+    }
+
+
+def test_run_loso_rejects_duplicate_subject_ids():
+    trainer = FusionTrainer(
+        fusion_model=DummyFusion(),
+        task_head=MultiTaskHead(d_fused=32, num_emotions=9),
+        config={
+            "training": {"batch_size": 2, "lr": 1e-3, "max_epochs": 1, "patience": 1},
+            "loss_weights": {"ce": 1.0, "kl": 1.0, "vad": 1.0},
+            "seed": 42,
+        },
+        device="cpu",
+    )
+
+    all_data = {"001": [_sample()], "002": [_sample()]}
+    with pytest.raises(ValueError, match="Duplicate subject_ids"):
+        trainer.run_loso(all_data, ["001", "001", "002"])
+
+
+def test_run_loso_records_disjoint_fold_metadata(monkeypatch):
+    trainer = FusionTrainer(
+        fusion_model=DummyFusion(),
+        task_head=MultiTaskHead(d_fused=32, num_emotions=9),
+        config={
+            "training": {"batch_size": 2, "lr": 1e-3, "max_epochs": 1, "patience": 1},
+            "loss_weights": {"ce": 1.0, "kl": 1.0, "vad": 1.0},
+            "seed": 42,
+        },
+        device="cpu",
+    )
+    all_data = {
+        "001": [_sample(0)],
+        "002": [_sample(1)],
+        "003": [_sample(2), _sample(3)],
+        "004": [_sample(4)],
+    }
+
+    def fake_train_fold(train_data, val_data, fold_name="fold", tb_logger=None):
+        trainer._last_fusion = trainer.fusion_model
+        trainer._last_head = trainer.task_head
+        return {"weighted_f1": 0.0, "ccc": 0.0, "loss": 0.0}
+
+    def fake_evaluate(fusion_model, task_head, loader, loss_fn):
+        return {"weighted_f1": 1.0, "ccc": 0.5, "loss": 0.25}
+
+    monkeypatch.setattr(trainer, "train_fold", fake_train_fold)
+    monkeypatch.setattr(trainer, "_evaluate", fake_evaluate)
+
+    results = trainer.run_loso(all_data, ["001", "002", "003", "004"])
+
+    assert results[0]["test_subject"] == "001"
+    assert results[0]["val_subject"] == "002"
+    assert results[0]["train_subjects"] == ["003", "004"]
+    assert results[0]["n_train"] == 3
+    assert results[0]["n_val"] == 1
+    assert results[0]["n_test"] == 1
+    assert "001" not in results[0]["train_subjects"]
+    assert "002" not in results[0]["train_subjects"]

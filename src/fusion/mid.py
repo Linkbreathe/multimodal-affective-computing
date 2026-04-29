@@ -30,7 +30,7 @@ class MidFusion(BaseFusionModule):
         d_in = d_common * len(modality_ids)
         self.cross_modal = nn.Sequential(
             nn.Linear(d_in, d_common * 2),
-            nn.BatchNorm1d(d_common * 2),
+            nn.LayerNorm(d_common * 2),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(d_common * 2, self.d_out),

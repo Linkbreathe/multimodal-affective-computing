@@ -152,6 +152,3 @@ for cfg in early mid late bottleneck healnet enriched_late_pulseppg; do
 done
 ```
 
----
-
-**总运行时长:** 约 82 分钟（extraction 13.5 min + fusion 68 min）

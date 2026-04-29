@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from src.data.egoemotion import Ego10sLoadReport, load_egoemotion_10s_by_subject
 from src.encoders.registry import ModalityRegistry
 from src.fusion.projector import ModalityProjector
 from src.tasks.heads import MultiTaskHead, TMCTaskHead
@@ -111,67 +112,31 @@ def load_10s_data_by_subject(
     encoder_dir_names: list[str],
     config_mod_names: list[str],
     manifest: pd.DataFrame,
+    data_dir_or_pool_clips: object | None = None,
+    *,
     pool_clips: bool = False,
-) -> dict[str, list[dict]]:
+    max_missing_fraction: float = 0.01,
+    require_manifest_hash: bool = False,
+    return_report: bool = False,
+) -> dict[str, list[dict]] | tuple[dict[str, list[dict]], Ego10sLoadReport]:
     """Load task-aware 10s embeddings organized by subject for LOSO.
 
     Labels (hard, soft, VAD) come directly from the task-aware manifest.
     """
-    emb_path = Path(embeddings_dir)
-    data_by_subject: dict[str, list[dict]] = {}
+    if isinstance(data_dir_or_pool_clips, bool):
+        pool_clips = data_dir_or_pool_clips
 
-    for subj_id, subj_rows in manifest.groupby("subject"):
-        subj = str(subj_id).zfill(3)
-        samples = []
-
-        for _, row in subj_rows.iterrows():
-            global_seq = int(row["global_seq"])
-
-            # Check all modalities exist
-            all_exist = all(
-                (emb_path / enc / subj / f"segment_{global_seq:04d}.pt").exists()
-                for enc in encoder_dir_names
-            )
-            if not all_exist:
-                continue
-
-            emb_list = []
-            for enc in encoder_dir_names:
-                data = torch.load(
-                    emb_path / enc / subj / f"segment_{global_seq:04d}.pt",
-                    weights_only=False,
-                )
-                emb = normalize_loaded_embedding(data["embedding"], enc)
-                if pool_clips and enc == "video_mae_v2" and emb.dim() == 2:
-                    emb = emb.mean(dim=0)
-                emb_list.append(emb)
-
-            # Parse soft label from manifest (comma-separated string)
-            soft_label = torch.tensor(
-                [float(v) for v in str(row["soft_label"]).split(",")],
-                dtype=torch.float32,
-            )
-
-            vad = torch.tensor([
-                float(row["valence"]),
-                float(row["arousal"]),
-                float(row["dominance"]),
-            ], dtype=torch.float32)
-
-            samples.append({
-                "embeddings": emb_list,
-                "modality_ids": config_mod_names,
-                "labels": {
-                    "emotion_label": torch.tensor(int(row["emotion_label"]), dtype=torch.long),
-                    "soft_label": soft_label,
-                    "vad": vad,
-                },
-            })
-
-        if samples:
-            data_by_subject[subj] = samples
-
-    return data_by_subject
+    data_by_subject, report = load_egoemotion_10s_by_subject(
+        embeddings_dir=embeddings_dir,
+        encoder_dir_names=encoder_dir_names,
+        config_mod_names=config_mod_names,
+        manifest=manifest,
+        normalize_embedding=normalize_loaded_embedding,
+        pool_clips=pool_clips,
+        max_missing_fraction=max_missing_fraction,
+        require_manifest_hash=require_manifest_hash,
+    )
+    return (data_by_subject, report) if return_report else data_by_subject
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +152,10 @@ def main() -> None:
     parser.add_argument("--device", default=None, help="Device (cuda/cpu)")
     parser.add_argument("--pool-clips", action="store_true",
                         help="Mean-pool video clip sequences to single [768] vectors")
+    parser.add_argument("--max-missing-fraction", type=float, default=0.01,
+                        help="Maximum manifest-row fraction allowed to miss any enabled modality")
+    parser.add_argument("--require-manifest-hash", action="store_true",
+                        help="Require each embedding payload to match the manifest content hash")
     args = parser.parse_args()
 
     cfg = merge_configs(load_config(args.config), load_config(args.fusion_config))
@@ -222,12 +191,26 @@ def main() -> None:
     logger.info(f"Head params: {sum(p.numel() for p in task_head.parameters()):,}")
 
     # Load data
-    data_by_subject = load_10s_data_by_subject(
+    data_by_subject, load_report = load_10s_data_by_subject(
         args.embeddings_dir, encoder_dirs, enabled, manifest,
         pool_clips=args.pool_clips,
+        max_missing_fraction=args.max_missing_fraction,
+        require_manifest_hash=args.require_manifest_hash,
+        return_report=True,
     )
     total_samples = sum(len(v) for v in data_by_subject.values())
     logger.info(f"Loaded: {total_samples} samples across {len(data_by_subject)} subjects")
+    logger.info(
+        "Loader report: manifest_rows=%d, loaded_rows=%d, dropped_rows=%d, "
+        "subjects=%d/%d, missing_fraction=%.4f, missing_by_encoder=%s",
+        load_report.manifest_rows,
+        load_report.loaded_rows,
+        load_report.dropped_rows,
+        load_report.subjects_loaded,
+        load_report.subjects_in_manifest,
+        load_report.missing_fraction,
+        load_report.missing_by_encoder,
+    )
 
     if total_samples == 0:
         logger.error("No data! Run scripts/segment_and_extract_10s.py first.")
@@ -291,6 +274,7 @@ def main() -> None:
         config=cfg,
         fold_results=fold_results,
         report_dir=cfg["logging"]["report_dir"],
+        run_metadata={"egoemotion_10s_loader": load_report.as_dict()},
     )
     logger.info(f"Report saved: {report_path}")
 

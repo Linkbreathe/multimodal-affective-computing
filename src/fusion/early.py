@@ -21,11 +21,11 @@ class EarlyFusion(BaseFusionModule):
         d_in = d_common * num_modalities
         self.mlp = nn.Sequential(
             nn.Linear(d_in, d_common * 2),
-            nn.BatchNorm1d(d_common * 2),
+            nn.LayerNorm(d_common * 2),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(d_common * 2, d_common),
-            nn.BatchNorm1d(d_common),
+            nn.LayerNorm(d_common),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(d_common, self.d_out),

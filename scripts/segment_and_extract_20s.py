@@ -1,18 +1,20 @@
-"""Task-aware segmentation and embedding extraction (10s non-overlapping chunks).
+"""Task-aware segmentation and embedding extraction (20s non-overlapping chunks).
 
 Follows the official egoEMOTION segmentation approach:
 1. Split by task first using task_times.npy
-2. Within each task, chunk into 10s non-overlapping windows (900 samples at 90Hz)
+2. Within each task, chunk into 20s non-overlapping windows (1800 samples at 90Hz)
 3. Discard incomplete trailing chunks
 4. Exclude inter-task gaps (calibration, questionnaires)
 5. One label per task — all chunks inherit the task's self-reported emotion label
 
+This is a copy of ``segment_and_extract_10s.py`` with CHUNK_LEN_SEC=20 and the
+default output directory changed to ``20s_task_aware``. All other logic is
+unchanged; the only functional difference is that each segment now covers twice
+as many frames and therefore typically yields ~12 consecutive 16-frame video
+clips (vs ~6 at 10 s).
+
 Usage:
-    conda run -n visphy python scripts/segment_and_extract_10s.py --encoder papagei_ppg
-    conda run -n visphy python scripts/segment_and_extract_10s.py --encoder patchtst_eye
-    conda run -n visphy python scripts/segment_and_extract_10s.py --encoder inceptiontime
-    conda run -n visphy python scripts/segment_and_extract_10s.py --encoder video_mae_v2
-    conda run -n visphy python scripts/segment_and_extract_10s.py --encoder all
+    conda run -n visphy python scripts/segment_and_extract_20s.py --encoder video_mae_v2
 """
 from __future__ import annotations
 
@@ -29,7 +31,49 @@ import torch
 import cv2
 from tqdm import tqdm
 
-from src.data.egoemotion import compute_manifest_hash
+# Workaround for transformers>=5 + torch>=2.10 lazy-init regression:
+# OpenGVLab's custom modeling_videomaev2.py does
+#     dpr = [x.item() for x in torch.linspace(...)]
+# inside __init__, which crashes under the meta-device dispatch that
+# AutoModel.from_pretrained enters by default. Forcing low_cpu_mem_usage=False
+# is not sufficient in transformers 5.x. Monkey-patch torch.linspace so that
+# if it would return a meta tensor, we fall back to a CPU tensor instead.
+_orig_linspace = torch.linspace
+
+def _safe_linspace(*args, **kwargs):
+    res = _orig_linspace(*args, **kwargs)
+    if res.device.type == "meta":
+        new_kwargs = {k: v for k, v in kwargs.items() if k != "device"}
+        return _orig_linspace(*args, device="cpu", **new_kwargs)
+    return res
+
+torch.linspace = _safe_linspace
+
+# Second transformers 5 incompatibility: modeling_utils.mark_tied_weights_as_initialized
+# reads model.all_tied_weights_keys (dict), but custom models (OpenGVLab) still
+# expose the older _tied_weights_keys list. Shim both shapes onto nn.Module.
+from torch import nn as _nn
+
+if not hasattr(_nn.Module, "all_tied_weights_keys"):
+    @property
+    def _all_tied_weights_keys(self):
+        keys = getattr(self, "_tied_weights_keys", None) or []
+        return {k: None for k in keys}
+
+    _nn.Module.all_tied_weights_keys = _all_tied_weights_keys
+
+# Third: force eager allocation so pos_embed (and other computed buffers) are
+# not left on meta device. Combined with the linspace shim, this keeps
+# model init entirely on the requested device. Requires accelerate installed.
+import transformers as _tx
+_orig_from_pretrained = _tx.AutoModel.from_pretrained
+
+def _patched_from_pretrained(*args, **kwargs):
+    kwargs.setdefault("low_cpu_mem_usage", False)
+    return _orig_from_pretrained(*args, **kwargs)
+
+_tx.AutoModel.from_pretrained = _patched_from_pretrained
+
 from src.data.video_transforms import make_consecutive_clips, read_frames
 from src.utils.config import load_config
 from src.encoders.registry import ModalityRegistry
@@ -37,10 +81,10 @@ from src.encoders.registry import ModalityRegistry
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
 
-CHUNK_LEN_SEC = 10
+CHUNK_LEN_SEC = 20
 FS_ET = 90
-CHUNK_SAMPLES_90HZ = CHUNK_LEN_SEC * FS_ET       # 900
-CHUNK_SAMPLES_125HZ = CHUNK_LEN_SEC * 125         # 1250
+CHUNK_SAMPLES_90HZ = CHUNK_LEN_SEC * FS_ET       # 1800
+CHUNK_SAMPLES_125HZ = CHUNK_LEN_SEC * 125         # 2500
 
 EMOTIONS = ["Amused", "Content", "Excited", "Awe", "Neutral", "Fear", "Sad", "Disgust", "Anger"]
 EMOTION_TO_LABEL = {e: i for i, e in enumerate(EMOTIONS)}
@@ -142,7 +186,7 @@ def _lookup_session_b(subject_dir: Path, subject_id: str, task_lower: str) -> di
 # ---------------------------------------------------------------------------
 
 def get_task_chunks(subject_tasks: dict, subject_dir: Path, subject_id: str) -> list[dict]:
-    """Enumerate tasks and chunk each into 10s windows.
+    """Enumerate tasks and chunk each into 20s windows.
 
     Returns list of dicts with: task_name, chunk_idx_in_task, start_90hz, end_90hz,
     and label info.  All coordinates are shifted (relative to session_A start).
@@ -164,7 +208,7 @@ def get_task_chunks(subject_tasks: dict, subject_dir: Path, subject_id: str) -> 
         shifted_start = start_raw - session_a_start
         shifted_end = end_raw - session_a_start
 
-        # Chunk into 10s windows at 90Hz
+        # Chunk into 20s windows at 90Hz
         task_samples = shifted_end - shifted_start
         n_chunks = task_samples // CHUNK_SAMPLES_90HZ
 
@@ -197,9 +241,8 @@ def extract_ppg(
     output_dir: Path,
     device: str,
     ppg_encoder: str = "papagei",
-    manifest_hash: str | None = None,
 ) -> int:
-    """Extract PPG embeddings for each 10s chunk.
+    """Extract PPG embeddings for each 20s chunk.
 
     Args:
         ppg_encoder: Which PPG encoder to use ('papagei' or 'pulseppg').
@@ -256,7 +299,6 @@ def extract_ppg(
                 "subject": subj,
                 "label": c["emotion_label"],
                 "emotion": c["emotion_name"],
-                "manifest_hash": manifest_hash,
             }, save_path)
             extracted += 1
 
@@ -269,16 +311,15 @@ def extract_eye(
     output_dir: Path,
     device: str,
     eye_encoder_key: str,
-    manifest_hash: str | None = None,
 ) -> int:
-    """Extract eye-tracking embeddings for each 10s chunk."""
+    """Extract eye-tracking embeddings for each 20s chunk."""
     import os
     if eye_encoder_key == "patchtst":
         from src.encoders.patchtst import PatchTSTEncoder
 
         encoder = PatchTSTEncoder(
             num_channels=4, patch_len=45, stride=22,
-            d_model=128, n_heads=4, n_layers=3, seq_len=900,
+            d_model=128, n_heads=4, n_layers=3, seq_len=CHUNK_SAMPLES_90HZ,
         ).to(device)
         pretrained = "checkpoints/patchtst_pretrained.pt"
     elif eye_encoder_key == "inceptiontime":
@@ -350,11 +391,42 @@ def extract_eye(
                 "subject": subj,
                 "label": c["emotion_label"],
                 "emotion": c["emotion_name"],
-                "manifest_hash": manifest_hash,
             }, save_path)
             extracted += 1
 
     return extracted
+
+
+def _materialize_meta_pos_embed(model: torch.nn.Module, device: str) -> None:
+    """Walk model and replace any meta-device pos_embed with a freshly-computed
+    sinusoidal table on the target device.
+
+    Needed because under transformers>=5 lazy init, computed non-state-dict
+    buffers (like the VideoMAE sinusoidal positional encoding) can survive the
+    from_pretrained pipeline still pointing at meta memory.
+    """
+    for sub in model.modules():
+        pe = getattr(sub, "pos_embed", None)
+        if pe is None:
+            continue
+        if not hasattr(pe, "device"):
+            continue
+        if pe.device.type != "meta":
+            continue
+        # Recompute: shape is [1, num_patches, embed_dim]
+        n_patches = pe.shape[1]
+        d_hid = pe.shape[2]
+        pos_i = np.arange(n_patches)[:, None].astype(np.float64)
+        hid_j = np.arange(d_hid)[None, :]
+        angle = pos_i / np.power(10000, 2 * (hid_j // 2) / d_hid)
+        angle[:, 0::2] = np.sin(angle[:, 0::2])
+        angle[:, 1::2] = np.cos(angle[:, 1::2])
+        new_pe = torch.tensor(angle, dtype=torch.float32, device=device).unsqueeze(0)
+        # Preserve Parameter-ness if that's what it was
+        if isinstance(pe, torch.nn.Parameter):
+            sub.pos_embed = torch.nn.Parameter(new_pe, requires_grad=pe.requires_grad)
+        else:
+            sub.pos_embed = new_pe
 
 
 def extract_video(
@@ -362,9 +434,8 @@ def extract_video(
     data_dir: Path,
     output_dir: Path,
     device: str,
-    manifest_hash: str | None = None,
 ) -> int:
-    """Extract VideoMAE V2 embeddings for each 10s chunk.
+    """Extract VideoMAE V2 embeddings for each 20s chunk.
 
     Preprocessing matches the official HuggingFace preprocessor_config.json:
     resize shortest edge to 224, center crop to 224x224, ImageNet normalize.
@@ -373,6 +444,7 @@ def extract_video(
     from src.encoders.video_mae import VideoMAEV2Encoder
 
     encoder = VideoMAEV2Encoder().to(device)
+    _materialize_meta_pos_embed(encoder, device)
     extracted = 0
 
     for subj, chunks in tqdm(chunks_by_subject.items(), desc="Video subjects"):
@@ -416,7 +488,6 @@ def extract_video(
                 "subject": subj,
                 "label": c["emotion_label"],
                 "emotion": c["emotion_name"],
-                "manifest_hash": manifest_hash,
             }, save_path)
             extracted += 1
 
@@ -430,32 +501,57 @@ def extract_video(
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Task-aware 10s segment extraction")
+    parser = argparse.ArgumentParser(description="Task-aware 20s segment extraction")
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument(
         "--encoder",
         choices=["papagei_ppg", "pulseppg_ppg", "patchtst_eye", "inceptiontime", "video_mae_v2", "all"],
-        default="all",
+        default="video_mae_v2",
     )
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--output_dir", default="data/embeddings/egoemotion/10s_task_aware")
+    parser.add_argument("--output_dir", default="data/embeddings/egoemotion/20s_task_aware")
+    parser.add_argument("--data-dir", default=None,
+                        help="Override cfg['data_dir'] with an absolute path (useful when CWD differs from repo root)")
+    parser.add_argument("--subjects", default=None,
+                        help="Comma-separated subject IDs to restrict to (default: all)")
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    repo_root = Path(__file__).resolve().parent.parent
+    # Resolve config and data_dir relative to the repo root, not the caller's CWD.
+    cfg_path = Path(args.config)
+    if not cfg_path.is_absolute():
+        cfg_path = repo_root / cfg_path
+    cfg = load_config(str(cfg_path))
     registry = ModalityRegistry(cfg["modalities"])
     device = args.device if torch.cuda.is_available() else "cpu"
-    data_dir = Path(cfg["data_dir"])
+
+    if args.data_dir:
+        data_dir = Path(args.data_dir).resolve()
+    else:
+        data_dir = Path(cfg["data_dir"])
+        if not data_dir.is_absolute():
+            data_dir = (repo_root / data_dir).resolve()
+
     output_dir = Path(args.output_dir)
+    if not output_dir.is_absolute():
+        output_dir = (repo_root / output_dir).resolve()
 
     # Load task_times
     tt = np.load(data_dir / "task_times.npy", allow_pickle=True).item()
 
     # Discover subjects (directories that are numeric and in task_times)
-    subject_ids = sorted(
-        d.name for d in data_dir.iterdir()
-        if d.is_dir() and d.name.isdigit() and d.name in tt
-    )
-    log.info(f"Found {len(subject_ids)} subjects")
+    if args.subjects:
+        requested = {s.strip() for s in args.subjects.split(",") if s.strip()}
+        subject_ids = sorted(s for s in requested if s in tt)
+        missing = requested - set(subject_ids)
+        if missing:
+            log.warning(f"Subjects not in task_times, skipping: {sorted(missing)}")
+    else:
+        subject_ids = sorted(
+            d.name for d in data_dir.iterdir()
+            if d.is_dir() and d.name.isdigit() and d.name in tt
+        )
+    log.info(f"Using {len(subject_ids)} subjects: {subject_ids[:10]}{'...' if len(subject_ids) > 10 else ''}")
 
     # Build chunks for all subjects and collect manifest rows
     chunks_by_subject: dict[str, list[dict]] = {}
@@ -497,8 +593,7 @@ def main() -> None:
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_df = pd.DataFrame(manifest_rows)
     manifest_df.to_csv(manifest_path, index=False)
-    manifest_hash = compute_manifest_hash(manifest_df)
-    log.info(f"Manifest saved: {manifest_path} ({len(manifest_df)} rows, hash={manifest_hash})")
+    log.info(f"Manifest saved: {manifest_path} ({len(manifest_df)} rows)")
 
     # Extract embeddings
     configured_eye_dir = registry.get_embedding_dir_name("eye_tracking")
@@ -520,8 +615,7 @@ def main() -> None:
 
         if enc_name in PPG_ENCODER_DIR_TO_KEY:
             n = extract_ppg(chunks_by_subject, data_dir, enc_dir, device,
-                            ppg_encoder=PPG_ENCODER_DIR_TO_KEY[enc_name],
-                            manifest_hash=manifest_hash)
+                            ppg_encoder=PPG_ENCODER_DIR_TO_KEY[enc_name])
         elif enc_name in EYE_ENCODER_DIR_TO_KEY:
             n = extract_eye(
                 chunks_by_subject,
@@ -529,11 +623,9 @@ def main() -> None:
                 enc_dir,
                 device,
                 eye_encoder_key=EYE_ENCODER_DIR_TO_KEY[enc_name],
-                manifest_hash=manifest_hash,
             )
         elif enc_name == "video_mae_v2":
-            n = extract_video(chunks_by_subject, data_dir, enc_dir, device,
-                              manifest_hash=manifest_hash)
+            n = extract_video(chunks_by_subject, data_dir, enc_dir, device)
         else:
             continue
 

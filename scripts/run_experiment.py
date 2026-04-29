@@ -81,7 +81,13 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
     elif fusion_type == "late":
         from src.fusion.late import LateFusion
         mode = cfg["fusion"].get("mode", "weighted")
-        fusion = LateFusion(d_common=d_common, num_modalities=len(enabled), mode=mode, dropout=dropout)
+        fusion = LateFusion(
+            d_common=d_common,
+            num_modalities=len(enabled),
+            modality_ids=enabled,
+            mode=mode,
+            dropout=dropout,
+        )
 
     elif fusion_type == "perceiver_io":
         from src.fusion.perceiver_io import PerceiverIOFusion
@@ -158,6 +164,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
             d_common=d_common,
             num_classes=tcfg.get("num_classes", 9),
             num_modalities=len(enabled),
+            modality_ids=enabled,
             dropout=cfg["fusion"].get("dropout", dropout),
         )
 
@@ -197,6 +204,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         fusion = LateFusion(
             d_common=d_common,
             num_modalities=len(enabled),
+            modality_ids=enabled,
             mode=cfg["fusion"].get("mode", "weighted"),
             dropout=dropout,
         )

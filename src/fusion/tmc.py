@@ -106,17 +106,19 @@ class TMCFusion(BaseFusionModule):
         d_common: int = 256,
         num_classes: int = 9,
         num_modalities: int = 3,
+        modality_ids: list[str] | None = None,
         dropout: float = 0.1,
     ) -> None:
         # d_out = num_classes because TMC outputs a belief vector
         super().__init__(d_common=d_common, d_out=num_classes)
         self.num_classes = num_classes
-        self.num_modalities = num_modalities
+        self.modality_ids = list(modality_ids) if modality_ids is not None else None
+        self.num_modalities = len(self.modality_ids) if self.modality_ids is not None else num_modalities
 
-        # Per-modality evidence branches (indexed by position)
+        # Per-modality evidence branches. Branch identity is resolved by modality name.
         self.evidence_branches = nn.ModuleList([
             EvidenceBranch(d_common, num_classes, dropout)
-            for _ in range(num_modalities)
+            for _ in range(self.num_modalities)
         ])
 
         # Inspection buffers (set during forward, read during eval)
@@ -142,8 +144,9 @@ class TMCFusion(BaseFusionModule):
         self.last_uncertainties = {}
         self.last_beliefs = {}
 
-        for i, (emb, mod_id) in enumerate(zip(embeddings, modality_ids)):
-            evidence = self.evidence_branches[i](emb)           # (B, K)
+        branch_indices = self._resolve_branch_indices(modality_ids, len(embeddings))
+        for emb, mod_id, branch_idx in zip(embeddings, modality_ids, branch_indices):
+            evidence = self.evidence_branches[branch_idx](emb)  # (B, K)
             alpha = evidence + 1.0                               # (B, K)
             S = alpha.sum(dim=-1, keepdim=True)                  # (B, 1)
             belief = evidence / S                                # (B, K)
@@ -169,3 +172,26 @@ class TMCFusion(BaseFusionModule):
         self.last_combined_uncertainty = combined_u
 
         return combined_b  # (B, K) belief vector
+
+    def _resolve_branch_indices(
+        self,
+        modality_ids: list[str],
+        n_embeddings: int,
+    ) -> list[int]:
+        if len(modality_ids) != n_embeddings:
+            raise ValueError("modality_ids and embeddings must have the same length")
+        if not modality_ids:
+            raise ValueError("TMCFusion requires at least one modality")
+        if self.modality_ids is None:
+            if len(modality_ids) != len(self.evidence_branches):
+                raise ValueError(
+                    "TMCFusion without constructor modality_ids must see all "
+                    "modalities on the first forward pass"
+                )
+            self.modality_ids = list(modality_ids)
+
+        index_by_modality = {mod: i for i, mod in enumerate(self.modality_ids)}
+        missing = [mod for mod in modality_ids if mod not in index_by_modality]
+        if missing:
+            raise ValueError(f"Unknown modalities for TMCFusion: {missing}")
+        return [index_by_modality[mod] for mod in modality_ids]
