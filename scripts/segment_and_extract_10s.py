@@ -11,6 +11,7 @@ Usage:
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder papagei_ppg
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder patchtst_eye
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder inceptiontime
+    conda run -n visphy python scripts/segment_and_extract_10s.py --encoder ecg_founder
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder video_mae_v2
     conda run -n visphy python scripts/segment_and_extract_10s.py --encoder all
 """
@@ -41,6 +42,7 @@ CHUNK_LEN_SEC = 10
 FS_ET = 90
 CHUNK_SAMPLES_90HZ = CHUNK_LEN_SEC * FS_ET       # 900
 CHUNK_SAMPLES_125HZ = CHUNK_LEN_SEC * 125         # 1250
+CHUNK_SAMPLES_500HZ = CHUNK_LEN_SEC * 500         # 5000
 
 EMOTIONS = ["Amused", "Content", "Excited", "Awe", "Neutral", "Fear", "Sad", "Disgust", "Anger"]
 EMOTION_TO_LABEL = {e: i for i, e in enumerate(EMOTIONS)}
@@ -191,6 +193,17 @@ EYE_ENCODER_DIR_TO_KEY = {
     "inceptiontime": "inceptiontime",
 }
 
+
+def resolve_encoder_dirs(registry: ModalityRegistry, requested_encoder: str) -> list[str]:
+    """Resolve CLI encoder selection to embedding directory names."""
+    if requested_encoder != "all":
+        return [requested_encoder]
+    return [
+        registry.get_embedding_dir_name(modality)
+        for modality in registry.get_enabled_modalities()
+    ]
+
+
 def extract_ppg(
     chunks_by_subject: dict[str, list[dict]],
     data_dir: Path,
@@ -246,6 +259,64 @@ def extract_ppg(
                 chunk = (chunk - chunk.mean()) / std
 
             x = torch.tensor(chunk, dtype=torch.float32).unsqueeze(0).unsqueeze(1).to(device)  # [1, 1, T]
+            with torch.no_grad():
+                emb = encoder(x)
+
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save({
+                "embedding": emb.cpu(),
+                "segment_idx": c["global_seq"],
+                "subject": subj,
+                "label": c["emotion_label"],
+                "emotion": c["emotion_name"],
+                "manifest_hash": manifest_hash,
+            }, save_path)
+            extracted += 1
+
+    return extracted
+
+
+def extract_ecg(
+    chunks_by_subject: dict[str, list[dict]],
+    data_dir: Path,
+    output_dir: Path,
+    device: str,
+    manifest_hash: str | None = None,
+) -> int:
+    """Extract ECGFounder embeddings for each 10s ECG chunk."""
+    from src.data.ecg_preprocessing import preprocess_ecgfounder_segment
+    from src.encoders.ecgfounder import ECGFounderEncoder
+
+    encoder = ECGFounderEncoder().to(device)
+    extracted = 0
+
+    for subj, chunks in tqdm(chunks_by_subject.items(), desc="ECG subjects"):
+        ecg_path = data_dir / subj / "ecg_90fps.npy"
+        if not ecg_path.exists():
+            log.warning(f"ECG not found: {ecg_path}")
+            continue
+        ecg = np.load(ecg_path)
+
+        for c in chunks:
+            save_path = output_dir / subj / f"segment_{c['global_seq']:04d}.pt"
+            if save_path.exists():
+                extracted += 1
+                continue
+
+            start_90 = c["start_90hz"]
+            end_90 = start_90 + CHUNK_SAMPLES_90HZ
+            if end_90 > len(ecg):
+                log.debug(
+                    f"ECG {subj}/seq_{c['global_seq']}: end_90={end_90} > len={len(ecg)}, skipping"
+                )
+                continue
+
+            chunk = ecg[start_90:end_90]
+            x_np = preprocess_ecgfounder_segment(chunk, source_fs=90, target_fs=500)
+            assert x_np.shape == (1, CHUNK_SAMPLES_500HZ), (
+                f"ECG chunk size mismatch: {x_np.shape} for {subj}/seq_{c['global_seq']}"
+            )
+            x = torch.tensor(x_np, dtype=torch.float32).unsqueeze(0).to(device)
             with torch.no_grad():
                 emb = encoder(x)
 
@@ -434,7 +505,7 @@ def main() -> None:
     parser.add_argument("--config", default="configs/base.yaml")
     parser.add_argument(
         "--encoder",
-        choices=["papagei_ppg", "pulseppg_ppg", "patchtst_eye", "inceptiontime", "video_mae_v2", "all"],
+        choices=["papagei_ppg", "pulseppg_ppg", "patchtst_eye", "inceptiontime", "ecg_founder", "video_mae_v2", "all"],
         default="all",
     )
     parser.add_argument("--device", default="cuda")
@@ -501,13 +572,7 @@ def main() -> None:
     log.info(f"Manifest saved: {manifest_path} ({len(manifest_df)} rows, hash={manifest_hash})")
 
     # Extract embeddings
-    configured_eye_dir = registry.get_embedding_dir_name("eye_tracking")
-    configured_ppg_dir = registry.get_embedding_dir_name("ppg")
-    encoders = (
-        [configured_ppg_dir, configured_eye_dir, "video_mae_v2"]
-        if args.encoder == "all"
-        else [args.encoder]
-    )
+    encoders = resolve_encoder_dirs(registry, args.encoder)
 
     PPG_ENCODER_DIR_TO_KEY = {
         "papagei_ppg": "papagei",
@@ -531,6 +596,9 @@ def main() -> None:
                 eye_encoder_key=EYE_ENCODER_DIR_TO_KEY[enc_name],
                 manifest_hash=manifest_hash,
             )
+        elif enc_name == "ecg_founder":
+            n = extract_ecg(chunks_by_subject, data_dir, enc_dir, device,
+                            manifest_hash=manifest_hash)
         elif enc_name == "video_mae_v2":
             n = extract_video(chunks_by_subject, data_dir, enc_dir, device,
                               manifest_hash=manifest_hash)

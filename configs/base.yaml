@@ -16,6 +16,10 @@ modalities:
     encoder: Papagei
     embed_dim: 512
     enabled: true
+  ecg:
+    encoder: ECGFounder
+    embed_dim: 1024
+    enabled: false
 
 fusion:
   d_common: 256

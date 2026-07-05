@@ -17,6 +17,7 @@ class SegmentExtractor:
         "pupils_90fps.npy": 90,
         "ppg_ear_125hz.npy": 125,
         "ppg_nose_125hz.npy": 125,
+        "ecg_90fps.npy": 90,
     }
 
     def __init__(self, data_dir: str, task_times_path: str) -> None:
@@ -72,6 +73,11 @@ class SegmentExtractor:
         self, subject_id: str, start_90hz: int, end_90hz: int
     ) -> np.ndarray:
         return self.load_signal(subject_id, "ppg_ear_125hz.npy", start_90hz, end_90hz)
+
+    def load_ecg_segment(
+        self, subject_id: str, start_90hz: int, end_90hz: int
+    ) -> np.ndarray:
+        return self.load_signal(subject_id, "ecg_90fps.npy", start_90hz, end_90hz)
 
     @staticmethod
     def _canonicalize_encoder_name(encoder_name: str) -> str:

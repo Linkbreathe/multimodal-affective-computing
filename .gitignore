@@ -7,7 +7,11 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+
+# Downloaded pretrained model weights/checkpoints stay local.
 weights/
+weights/ecgfounder/
+weights/ecgfounder/*.pth
 
 # Reference PDFs
 papers/

@@ -16,6 +16,7 @@ class ModalityRegistry:
         "pulseppg": ("src.encoders.pulse_ppg", "PulsePPGEncoder"),
         "eegpt": ("src.encoders.eegpt", "EEGPTEncoder"),
         "reve": ("src.encoders.reve", "ReveEncoder"),
+        "ecgfounder": ("src.encoders.ecgfounder", "ECGFounderEncoder"),
     }
     EMBEDDING_DIR_REGISTRY = {
         ("video", "videomaev2"): "video_mae_v2",
@@ -25,6 +26,7 @@ class ModalityRegistry:
         ("ppg", "pulseppg"): "pulseppg_ppg",
         ("eeg", "eegpt"): "eegpt_eeg",
         ("eeg", "reve"): "reve_eeg",
+        ("ecg", "ecgfounder"): "ecg_founder",
     }
 
     def __init__(self, modality_config: dict[str, dict[str, Any]]) -> None:
