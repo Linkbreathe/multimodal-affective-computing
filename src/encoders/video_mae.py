@@ -10,6 +10,8 @@ Model: OpenGVLab/VideoMAEv2-Base (86M params, embed_dim=768, tubelet_size=2)
 from __future__ import annotations
 
 import torch
+from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
 from transformers import AutoConfig, AutoModel
 
 from src.encoders.base import BaseEncoder
@@ -32,9 +34,18 @@ class VideoMAEV2Encoder(BaseEncoder):
         config = AutoConfig.from_pretrained(
             self.MODEL_NAME, trust_remote_code=True,
         )
-        self.model = AutoModel.from_pretrained(
-            self.MODEL_NAME, config=config, trust_remote_code=True,
+        # Recent Transformers versions construct remote-code models on the
+        # meta device inside ``from_pretrained``.  VideoMAEv2's constructor
+        # calls ``Tensor.item()``, which is invalid for meta tensors.  Build
+        # the official architecture normally, then load the same Hub state
+        # dict explicitly.
+        self.model = AutoModel.from_config(config, trust_remote_code=True)
+        weights_path = hf_hub_download(
+            repo_id=self.MODEL_NAME,
+            filename="model.safetensors",
         )
+        state_dict = load_file(weights_path, device="cpu")
+        self.model.load_state_dict(state_dict, strict=True)
         self.freeze()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
