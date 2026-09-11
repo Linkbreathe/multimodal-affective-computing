@@ -45,7 +45,9 @@ main                                      4e9f9cd
 
 ## Rebase 与交付
 
-fetch 后 `main` 与 `origin/main` 都为 `4e9f9cd`，是整理分支的祖先。`main...final/eee-hm-ev` 左右独有提交数为 `0 / 59`。在整理分支执行 `git rebase origin/main` 无需重放已有提交。
+fetch 后 `main` 与 `origin/main` 都为 `4e9f9cd`，是整理分支的祖先。`main...final/eee-hm-ev` 左右独有提交数为 `0 / 59`。实际采用 `git rebase --rebase-merges origin/main` 保留最初的合并节点；完成后提交 hash 和文件树保持不变，无冲突。普通 rebase 会摊平早期 merge，因此未采用其改写后的历史作为交付。
+
+本地备份分支 `archive/consolidation-before-rebase-20260911` 指向整理完成、rebase 前的 `ec424a7`，用于恢复核对，不随本轮整理分支推送。
 
 本轮推送整理分支，不移动共享 main 和历史分支。审查后可通过 PR 合入；如果 main 仍未推进，也可快进：
 
