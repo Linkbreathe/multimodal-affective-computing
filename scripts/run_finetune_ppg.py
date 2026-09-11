@@ -40,14 +40,15 @@ CHUNK_LEN_SEC = 10
 FS_PPG = 125
 CHUNK_SAMPLES_PPG = CHUNK_LEN_SEC * FS_PPG  # 1250
 
-from scripts.run_experiment import normalize_loaded_embedding
+from src.data.embedding_shapes import normalize_loaded_embedding
+from src.fusion.factory import ProjectedFusion
 
 
 # ---------------------------------------------------------------------------
 # Model building — reuse existing fusion factory
 # ---------------------------------------------------------------------------
 
-class HybridProjectedFusion(torch.nn.Module):
+class HybridProjectedFusion(ProjectedFusion):
     """Wraps PPG encoder + projector + fusion for end-to-end fine-tuning.
 
     Pre-extracted modalities (video, eye) pass through the projector as before.
@@ -62,38 +63,10 @@ class HybridProjectedFusion(torch.nn.Module):
         modality_names: list[str],
         encoders: dict[str, torch.nn.Module] | None = None,
     ):
-        super().__init__()
-        self.projector = projector
-        self.fusion = fusion
-        self.modality_names = modality_names
-        self.d_common = fusion.d_common
-        self.d_out = fusion.d_out
+        super().__init__(projector, fusion, modality_names)
 
         # Register encoders as submodules for deepcopy/state_dict
         self.encoders = torch.nn.ModuleDict(encoders or {})
-
-    def project_and_pool(self, embeddings, modality_ids, masks=None):
-        proj_dict = {}
-        for emb, mod_id in zip(embeddings, modality_ids):
-            proj_dict[mod_id] = emb
-        projected = self.projector(proj_dict)
-        proj_list = [projected[m] for m in modality_ids]
-
-        if not getattr(self.fusion, "supports_sequence_input", False):
-            pooled = []
-            mask_list = masks if masks else [None] * len(proj_list)
-            for proj, mask in zip(proj_list, mask_list):
-                if proj.dim() == 3:
-                    if mask is not None:
-                        mask_f = mask.unsqueeze(-1).float()
-                        proj = (proj * mask_f).sum(dim=1) / mask_f.sum(dim=1).clamp(min=1)
-                    else:
-                        proj = proj.mean(dim=1)
-                pooled.append(proj)
-            proj_list = pooled
-            masks = None
-
-        return proj_list, masks
 
     def forward(self, embeddings, modality_ids, masks=None, raw_signals=None):
         """Forward pass with optional raw signal encoding.
@@ -122,7 +95,7 @@ def build_finetune_model(cfg: dict, enabled: list[str], raw_modalities: list[str
 
     Returns (model, encoder_param_groups, d_out).
     """
-    from scripts.run_experiment import build_fusion_model as _build_core
+    from src.fusion.factory import build_fusion_model as _build_core
 
     registry = ModalityRegistry(cfg["modalities"])
     projector, fusion = _build_core(cfg, registry)
