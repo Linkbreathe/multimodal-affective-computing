@@ -15,3 +15,12 @@ weights/ecgfounder/*.pth
 
 # Reference PDFs
 papers/
+
+# Local experiment products; source and protocol documentation live elsewhere.
+/artifacts/
+/combined/
+/representation_audit/
+/wsl_results/
+/*.zip
+/.venv/
+.ruff_cache/

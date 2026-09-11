@@ -133,11 +133,13 @@ def test_inceptiontime_rejects_wrong_layout():
 from src.encoders.papagei import PapageiEncoder
 
 
+@pytest.mark.external
 def test_papagei_loads():
     encoder = PapageiEncoder()
     assert encoder.embed_dim == 512
 
 
+@pytest.mark.external
 def test_papagei_forward_shape():
     encoder = PapageiEncoder()
     encoder.freeze()
@@ -150,11 +152,11 @@ def test_papagei_forward_shape():
 from src.encoders.extract import EmbeddingExtractor
 
 
-def test_embedding_cache_structure(tmp_path):
+def test_embedding_cache_structure(tmp_path, ego_data_dir):
     extractor = EmbeddingExtractor(
-        data_dir="data/datasets/egoemotion_raw",
+        data_dir=str(ego_data_dir),
         output_dir=str(tmp_path / "embeddings"),
-        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
+        task_times_path=str(ego_data_dir / "task_times.npy"),
     )
     path = extractor.get_cache_path("video_mae_v2", "005", 0)
     assert "video_mae_v2" in str(path)
@@ -162,11 +164,11 @@ def test_embedding_cache_structure(tmp_path):
     assert "segment_0000" in str(path)
 
 
-def test_embedding_save_load(tmp_path):
+def test_embedding_save_load(tmp_path, ego_data_dir):
     extractor = EmbeddingExtractor(
-        data_dir="data/datasets/egoemotion_raw",
+        data_dir=str(ego_data_dir),
         output_dir=str(tmp_path / "embeddings"),
-        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
+        task_times_path=str(ego_data_dir / "task_times.npy"),
     )
     emb = torch.randn(5, 768)
     meta = {"task_name": "test", "subject_id": "005"}
@@ -178,11 +180,11 @@ def test_embedding_save_load(tmp_path):
     assert loaded["config_hash"] == "abc123"
 
 
-def test_validate_cache_detects_single_hash_mismatch(tmp_path):
+def test_validate_cache_detects_single_hash_mismatch(tmp_path, ego_data_dir):
     extractor = EmbeddingExtractor(
-        data_dir="data/datasets/egoemotion_raw",
+        data_dir=str(ego_data_dir),
         output_dir=str(tmp_path / "embeddings"),
-        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
+        task_times_path=str(ego_data_dir / "task_times.npy"),
     )
     emb = torch.randn(5, 768)
     meta = {"task_name": "test", "subject_id": "005"}

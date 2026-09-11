@@ -1,0 +1,2 @@
+-r requirements-extraction.txt
+pytest==8.3.5

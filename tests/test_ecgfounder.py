@@ -36,10 +36,10 @@ def test_preprocess_ecg_90hz_chunk_to_ecgfounder_input():
     assert 0.99 < float(out.std()) < 1.01
 
 
-def test_segment_extractor_loads_ecg_segment():
+def test_segment_extractor_loads_ecg_segment(ego_data_dir):
     extractor = SegmentExtractor(
-        data_dir="data/datasets/egoemotion_raw",
-        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
+        data_dir=str(ego_data_dir),
+        task_times_path=str(ego_data_dir / "task_times.npy"),
     )
     seg = extractor.get_segments("005")[0]
 
@@ -50,6 +50,7 @@ def test_segment_extractor_loads_ecg_segment():
     assert np.isfinite(ecg).all()
 
 
+@pytest.mark.external
 def test_ecgfounder_loads_real_weights_and_extracts_real_ecg_features():
     weights = Path("weights/ecgfounder/1_lead_ECGFounder.pth")
     if not weights.exists():

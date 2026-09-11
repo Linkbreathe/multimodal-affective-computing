@@ -3,10 +3,10 @@ import numpy as np
 from src.data.segments import SegmentExtractor
 
 @pytest.fixture
-def extractor():
+def extractor(ego_data_dir):
     return SegmentExtractor(
-        data_dir="data/datasets/egoemotion_raw",
-        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
+        data_dir=str(ego_data_dir),
+        task_times_path=str(ego_data_dir / "task_times.npy"),
     )
 
 def test_loads_task_times(extractor):
@@ -93,8 +93,19 @@ from src.data.segments import LabelLoader
 import pandas as pd
 
 @pytest.fixture
-def label_loader():
-    return LabelLoader(data_dir="data/datasets/egoemotion_raw")
+def label_loader(tmp_path):
+    manifests = {
+        "ce_hardlabel_manifests": {"subject": "005", "emotion": "Neutral", "label": 4},
+        "kl_softlabel_manifests": {e: float(e == "Neutral") for e in LabelLoader.EMOTIONS},
+        "vad_binary_quadrant_manifests": {
+            "valence_score": 0.5, "arousal_score": 0.4, "dominance_score": 0.6,
+        },
+    }
+    for directory, row in manifests.items():
+        path = tmp_path / directory
+        path.mkdir()
+        pd.DataFrame([row]).to_csv(path / "dataset_manifest.csv", index=False)
+    return LabelLoader(data_dir=str(tmp_path))
 
 def test_load_hard_labels(label_loader):
     manifest = label_loader.load_ce_manifest()
@@ -102,26 +113,31 @@ def test_load_hard_labels(label_loader):
     assert "subject" in manifest.columns
     assert "emotion" in manifest.columns
     assert "label" in manifest.columns
+    assert manifest.loc[0, "label"] == 4
+    assert label_loader.load_ce_manifest() is manifest
 
 def test_load_soft_labels(label_loader):
     manifest = label_loader.load_kl_manifest()
     emotions = ["Amused", "Content", "Excited", "Awe", "Neutral", "Fear", "Sad", "Disgust", "Anger"]
     for e in emotions:
         assert e in manifest.columns
+    assert manifest[emotions].iloc[0].sum() == 1.0
+    assert manifest.loc[0, "Neutral"] == 1.0
 
 def test_load_vad_labels(label_loader):
     manifest = label_loader.load_vad_manifest()
     assert "valence_score" in manifest.columns
     assert "arousal_score" in manifest.columns
     assert "dominance_score" in manifest.columns
+    assert manifest.iloc[0].tolist() == [0.5, 0.4, 0.6]
 
 
 from src.data.label_builder import build_label_mapping
 
-def test_build_label_mapping():
+def test_build_label_mapping(ego_data_dir):
     mapping = build_label_mapping(
-        data_dir="data/datasets/egoemotion_raw",
-        task_times_path="data/datasets/egoemotion_raw/task_times.npy",
+        data_dir=str(ego_data_dir),
+        task_times_path=str(ego_data_dir / "task_times.npy"),
     )
     assert len(mapping) > 0
     sample_key = list(mapping.keys())[0]
