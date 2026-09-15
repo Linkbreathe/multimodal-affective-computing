@@ -359,6 +359,37 @@ assert a is b          # 已验证通过
 现在也不存在。这不是融合造成的，但融合让它变得可见了。需要定位原实现或重建。
 同文件 `:66-68` 依赖它做 EEG 通道契约校验，因此这条路径目前跑不通。
 
+### 融合带来的唯一测试回归：Windows DLL 枚举竞态
+
+`tests/test_cross_project_alignment.py::test_validation_ranking_uses_dedicated_validation_rows`
+在整套同进程运行时失败，抛的是：
+
+```
+threadpoolctl.py:1099: in _find_libraries_with_enum_process_module_ex
+    raise OSError("GetModuleFileNameEx failed")
+```
+
+**不是断言失败**，是 `threadpoolctl`（3.6.0）在 Windows 上枚举进程已加载 DLL 时，
+`EnumProcessModulesEx` 与 `GetModuleFileNameEx` 之间发生模块卸载导致的竞态。
+
+已确证的归因：
+
+| 场景 | 结果 |
+| --- | --- |
+| 单独跑这个测试 | 通过 |
+| 融合仓库里只跑 RTML 那批测试文件（59 个） | 全部通过 |
+| 融合仓库整套同进程 | 失败 |
+| 原 `Relax-Model` 整套（两次） | 通过，从不出现 |
+| 原 `Relax-Model` 里先 `import torch` 再跑该测试 | 通过（单纯预加载 torch 不足以复现） |
+| 加 `OMP/MKL/OPENBLAS_NUM_THREADS=1` | 无效 |
+
+原因是融合后两套依赖栈（torch + sklearn + mne + cv2 + …）进入同一个进程，
+加载的 DLL 变多，那次枚举更容易撞上竞态。
+
+**规避**：单独跑该文件，或让测试文件各自起进程
+（`pip install pytest-xdist` 后 `pytest -n 4 --dist loadfile`）。
+v2 可以考虑把 `pytest-xdist` 加进 `dev` extra 并在 `addopts` 里默认按文件分发。
+
 ### 待去重的重复实现
 
 第一版刻意全部保留。它们功能重叠但不一定等价，合并前需逐个核对语义。

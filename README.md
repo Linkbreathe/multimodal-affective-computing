@@ -257,20 +257,43 @@ Marker meanings: `integration` reads participant source data, `slow` trains mode
 expensive work, `external` needs pretrained weights, external model code or real
 participant data.
 
-Recorded state of the merged suite on the development machine, against the two pre-merge
-baselines:
+Recorded state of the merged suite on the development machine (Windows, Python 3.11),
+against the two pre-merge baselines:
 
 | | collected | passed | failed | skipped | collection errors |
 | --- | --- | --- | --- | --- | --- |
 | `Relax-Model` before merge | 96 | 93 | 3 | 0 | 0 |
 | `real-time-vis-physio-fusion` before merge | 198 | 185 | 0 | 13 | 7 |
 | **sum** | **294** | **278** | **3** | **13** | **7** |
-| **merged** | **294** | **278** | **3** | **13** | **7** |
+| **merged, one process** | **294** | **277** | **4** | **13** | **7** |
 
-The 3 failures and 7 collection errors are the same ones, for the same reasons, as before
-the merge: the failures read a generated cross-project contract that was never versioned,
-and the collection errors are `einops` and `huggingface_hub` missing from that environment.
-Installing the `dl` extra removes the collection errors.
+Every test is still collected and nothing regressed in the merged code itself, but the
+merged run has **one extra failure** that the separate runs did not:
+
+- **3 failures, unchanged from before the merge** — they read
+  `artifacts/cross_project_alignment_2026-07-16/.../contract.json`, a generated artifact
+  that was never versioned. They fail identically in the original `Relax-Model` checkout.
+- **7 collection errors, unchanged from before the merge** — `einops` and `huggingface_hub`
+  absent from that environment. Installing the `dl` extra removes them.
+- **1 new failure, a Windows flake, not a code defect** —
+  `test_cross_project_alignment.py::test_validation_ranking_uses_dedicated_validation_rows`
+  raises `OSError: GetModuleFileNameEx failed` from inside `threadpoolctl` (3.6.0) while it
+  enumerates loaded DLLs, not from any assertion. It passes when run alone, and passes when
+  only the RTML-origin test files run in this repository. It appears because the merged
+  suite now loads both dependency stacks into a single process, which makes that
+  enumeration race more likely. Run the file on its own, or run test files in separate
+  processes (`pip install pytest-xdist` then `pytest -n 4 --dist loadfile`), to avoid it.
+
+Static verification that does not depend on the environment:
+
+```powershell
+# every module in the package and both shim trees imports without error
+python -c "import pkgutil,importlib,mac; [importlib.import_module(m.name) for m in pkgutil.walk_packages(mac.__path__,'mac.')]"
+python -m compileall -q src scripts analysis tests
+```
+
+All 135 `scripts/` and `analysis/` entry points answer `--help` with the same exit code as
+before the merge (133 identical, 0 regressions, 2 that previously failed now succeed).
 
 ## Contributing
 

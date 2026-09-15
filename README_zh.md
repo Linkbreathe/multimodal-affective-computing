@@ -232,18 +232,40 @@ python -m pytest -m "not external and not integration and not slow"
 marker 含义：`integration` 读取被试源数据，`slow` 训练模型或做昂贵计算，
 `external` 需要预训练权重、外部模型代码或真实被试数据。
 
-融合后套件在开发机上的实测，与融合前两个基线对比：
+融合后套件在开发机（Windows，Python 3.11）上的实测，与融合前两个基线对比：
 
 | | collected | passed | failed | skipped | 采集错误 |
 | --- | --- | --- | --- | --- | --- |
 | 融合前 `Relax-Model` | 96 | 93 | 3 | 0 | 0 |
 | 融合前 `real-time-vis-physio-fusion` | 198 | 185 | 0 | 13 | 7 |
 | **合计** | **294** | **278** | **3** | **13** | **7** |
-| **融合后** | **294** | **278** | **3** | **13** | **7** |
+| **融合后（单进程）** | **294** | **277** | **4** | **13** | **7** |
 
-那 3 个失败和 7 个采集错误与融合前是同一批、同一原因：失败的读取一份从未纳入版本控制的
-跨项目 contract 产物；采集错误是该环境缺 `einops` 和 `huggingface_hub`。装上 `dl` extra
-即可消除采集错误。
+测试一个没少，融合代码本身没有回归，但整套同进程跑会**多出 1 个失败**：
+
+- **3 个失败与融合前完全相同** —— 它们读取
+  `artifacts/cross_project_alignment_2026-07-16/.../contract.json`，一份从未纳入版本控制的
+  生成产物。在原 `Relax-Model` 仓库里同样失败。
+- **7 个采集错误与融合前完全相同** —— 该环境缺 `einops` 和 `huggingface_hub`，
+  装上 `dl` extra 即消除。
+- **1 个新失败，是 Windows 环境脆弱点，不是代码缺陷** ——
+  `test_cross_project_alignment.py::test_validation_ranking_uses_dedicated_validation_rows`
+  抛的是 `threadpoolctl`（3.6.0）枚举进程已加载 DLL 时的 `OSError: GetModuleFileNameEx failed`，
+  不是任何断言失败。单独跑它通过；在本仓库只跑 RTML 那批测试文件时也通过。
+  原因是融合后两套依赖栈进入同一个进程，让那次 DLL 枚举更容易撞上竞态。
+  规避方式：单独跑该文件，或让测试文件各自起进程
+  （`pip install pytest-xdist` 后 `pytest -n 4 --dist loadfile`）。
+
+不依赖环境的静态验证：
+
+```powershell
+# 包内与两棵 shim 树的所有模块都能无错导入
+python -c "import pkgutil,importlib,mac; [importlib.import_module(m.name) for m in pkgutil.walk_packages(mac.__path__,'mac.')]"
+python -m compileall -q src scripts analysis tests
+```
+
+`scripts/` 与 `analysis/` 全部 135 个入口点的 `--help` 退出码与融合前一致
+（133 个完全相同，0 个回归，2 个原本失败的现在成功）。
 
 ## 贡献与扩展
 
