@@ -1,8 +1,21 @@
-"""Small synthetic EgoEmotion files for data-loader and cache unit tests."""
+"""Shared test fixtures for the merged multimodal affective computing suite.
+
+Combines the egoEMOTION synthetic-data fixture (formerly
+``real-time-vis-physio-fusion/tests/conftest.py``) with the source-path shim
+that ``Relax-Model/tests/conftest.py`` used before the package was installable.
+The shim is a no-op once ``pip install -e .`` has been run.
+"""
+
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+
+_SRC = Path(__file__).resolve().parents[1] / "src"
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 
 
 @pytest.fixture
