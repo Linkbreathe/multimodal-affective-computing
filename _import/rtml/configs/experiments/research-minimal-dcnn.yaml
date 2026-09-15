@@ -1,0 +1,16 @@
+extends: ../base.yaml
+
+run:
+  id: minimal-dcnn-v1
+  mode: research
+
+features:
+  video:
+    enabled: false
+
+modeling:
+  runtime_backend: dcnn
+
+experiment:
+  kind: minimal_fusion_dcnn
+  research_only: true

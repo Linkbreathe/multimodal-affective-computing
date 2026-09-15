@@ -1,0 +1,171 @@
+schema_version: "1.0.0"
+project_root: ".."
+paths:
+  raw_root: "C:/Users/linki/amaster/data_collection_v3/relaxdata"
+  labels_root: "C:/Users/linki/Downloads/tables-20260621T182109Z-3-001/tables"
+  artifacts: "../artifacts"
+  cache: "../artifacts/cache"
+  manifests: "../artifacts/manifests"
+  preprocessed: "../artifacts/preprocessed"
+  features: "../artifacts/features"
+  models: "../artifacts/models"
+  reports: "../artifacts/reports"
+  realtime_logs: "../artifacts/realtime"
+  video: "../artifacts/video"
+
+participants:
+  include: [P002, P003, P004, P005, P006, P007, P008, P009, P010, P011, P012, P013, P014, P015, P016]
+  eeg_disabled: [P002, P005, P006, P010, P014, P016]
+
+conditions:
+  intensities: [0.08, 0.16, 0.25]
+  frequencies: [0.12, 0.26, 0.41]
+  order: [C1, C2, C3, C4, C5, C6, C7, C8, C9]
+
+streams:
+  marker_name: WaterLiliesExperimentMarkers
+  physio_type: eeg
+  imu_name: imu
+  sample_rate_hz: 500.0
+  counter_column: 0
+  eeg_columns: [1, 2, 3, 4]
+  # True electrode identity per eeg_columns position (raw XDF carries only ch0-ch3).
+  # Physical order is [M2, TP9, TP10, M1] = [R, L, R, L]. M1/M2 are mastoid REFERENCE
+  # electrodes; the cortical signals are TP9 (left) and TP10 (right). See features.eeg
+  # below for how the reference is applied. Aligned index-for-index with eeg_columns.
+  eeg_names: [M2, TP9, TP10, M1]
+  ecg_columns: [7, 8]
+  ecg_bipolar: "ch6-ch7"
+  raw_unit: uV
+
+windows:
+  length_seconds: 10.0
+  step_seconds: 10.0
+  drop_incomplete_tail: true
+  reset_origin_on_condition_change: true
+
+quality:
+  marker_median_residual_ms_max: 10.0
+  marker_outlier_ms: 50.0
+  eeg_strict_coverage_min: 0.60
+  eeg_abs_uV_max: 350.0
+  eeg_flat_std_uV_min: 0.2
+  ecg_peak_f1_min: 0.90
+  ecg_peak_tolerance_ms: 100.0
+  min_heart_rate_bpm: 35.0
+  max_heart_rate_bpm: 220.0
+  source_timeout_seconds: 3.0
+  clock_jump_ms: 250.0
+
+features:
+  eeg:
+    enabled: true
+    common_average_reference: false
+    # Mastoid re-referencing. M1/M2 (see streams.eeg_names) are reference electrodes, not
+    # cortical signal. reference_scheme controls how the reference is formed and subtracted:
+    #   linked_mastoid      -> ref = mean(M1, M2); TP9_ref = TP9 - ref, TP10_ref = TP10 - ref
+    #   ipsilateral_mastoid -> TP9 - M1 (left), TP10 - M2 (right)
+    #   none                -> no re-reference (legacy behaviour; not recommended here)
+    # Only the 'signal' channels produce per-channel features. channel_roles /
+    # channel_hemispheres are aligned index-for-index with streams.eeg_columns / eeg_names.
+    reference_scheme: linked_mastoid
+    channel_roles: [reference, signal, signal, reference]
+    channel_hemispheres: [right, left, right, left]
+    bandpass_hz: [1.0, 45.0]
+    notch_hz: 50.0
+    bands:
+      delta: [1.0, 4.0]
+      theta: [4.0, 8.0]
+      alpha: [8.0, 13.0]
+      beta: [13.0, 30.0]
+      gamma: [30.0, 45.0]
+  ecg:
+    enabled: true
+    bandpass_hz: [5.0, 25.0]
+    slow_hrv_windows_seconds: [30, 60, 120, 300]
+  head:
+    enabled: true
+    source: unity_hmd_pose
+  eye:
+    enabled: true
+    train_eye_closure: false
+    ivt_velocity_threshold_deg_s: 100.0
+  video:
+    enabled: true
+    sample_fps: 2.0
+    clip_enabled: false
+    clip_fps: 1.0
+    clip_pca_components_max: 8
+    mp4:
+      fps: 10.0
+      width: 512
+      height: 288
+      crf: 18
+      retain: true
+      min_free_gb: 30.0
+    videomae2:
+      repo_commit: "29eab1e8a588d1b3ec0cdec7b03a86cca491b74b"
+      repo_dir: "../artifacts/video/videomae2/VideoMAEv2"
+      checkpoint: "../artifacts/video/videomae2/vit_s_k710_dl_from_giant.pth"
+      checkpoint_url: "https://huggingface.co/OpenGVLab/VideoMAE2/resolve/main/distill/vit_s_k710_dl_from_giant.pth"
+      model_name: "vit_small_patch16_224"
+      frames_per_window: 16
+      embedding_dimension: 384
+      pca_components: 32
+
+modeling:
+  random_seed: 20260621
+  runtime_backend: classical
+  candidates: [ridge, elastic_net, svr, random_forest, extra_trees, hist_gradient_boosting]
+  targets: [relaxation, discomfort]
+  auxiliary_targets: [monotony, visual_fit]
+  feature_groups: [context_only, no_eeg, eeg_only, user_all, fused]
+  outer_cv: leave_one_participant_out
+  inner_cv_splits: 2
+  uncertainty_alpha: 0.10
+  deployment_requires_baseline_improvement: true
+  fallback_chain: [full, no_eeg, behavior_only]
+  condition_level:
+    aggregation_statistics: [mean, std, min, max, range, median, first, last, delta, slope, missing_ratio]
+    feature_counts: [20, 30, 50, 80]
+    min_non_missing_fraction: 0.40
+    correlation_threshold: 0.95
+    ensemble_size: 3
+    risk_ensemble_size: 2
+    high_discomfort_label_threshold: 0.50
+    risk_probability_thresholds: [0.20, 0.25, 0.30, 0.35, 0.40, 0.50]
+    personalized_calibration_conditions: [2, 3]
+  dcnn:
+    device: cuda
+    sequence_length: 8
+    minimum_history_windows: 3
+    conv_channels: [16, 32]
+    kernel_sizes: [3, 3]
+    pool_sizes: [2, 2]
+    mlp_hidden: 64
+    dropout: 0.30
+    learning_rate: 0.0001
+    weight_decay: 0.00005
+    batch_size: 16
+    max_epochs: 100
+    early_stopping_patience: 15
+    min_non_missing_fraction: 0.40
+    video_pca_components: 32
+
+policy:
+  shadow: true
+  discomfort_limit_normalized: 0.5
+  uncertainty_width_max: 0.45
+  min_modality_coverage: 0.50
+  min_conservative_relaxation_gain: 0.0
+  adjacent_grid_steps_only: true
+
+realtime:
+  cycle_seconds: 10.0
+  lsl_physio_stream: eeg
+  unity_listen_host: 127.0.0.1
+  unity_to_python_port: 5055
+  python_send_host: 127.0.0.1
+  python_to_unity_port: 5056
+  jsonl_log: true
+  parquet_log: true

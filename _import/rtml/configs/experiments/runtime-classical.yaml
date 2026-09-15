@@ -1,0 +1,13 @@
+extends: ../base.yaml
+
+run:
+  id: runtime-classical-v1
+  mode: runtime
+
+features:
+  video:
+    enabled: false
+
+experiment:
+  kind: runtime_classical
+  research_only: false

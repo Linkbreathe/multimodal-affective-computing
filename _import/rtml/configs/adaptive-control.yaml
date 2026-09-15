@@ -1,0 +1,57 @@
+# This file is intentionally separate from the frozen research and Shadow configs.
+profile_path: "../../../../../Application/Meditation-hdrp-pointcloud-vfxgraph/Assets/StreamingAssets/AdaptiveControl/adaptive-control-v1.json"
+
+models:
+  registry_path: "adaptive_models"
+  default_bundle: "realtime_multimodal_window_v1"
+
+network:
+  listen_host: "127.0.0.1"
+  unity_to_python_port: 5055
+  python_send_host: "127.0.0.1"
+  python_to_unity_port: 5056
+  sensor_hz: 10.0
+  status_hz: 1.0
+
+runtime:
+  initial_condition: "C5"
+  transition_seconds: 2.0
+  command_expiry_ms: 9500
+  command_timeout_seconds: 25.0
+
+policy:
+  min_modality_coverage: 0.2
+  min_active_modalities: 4
+  consecutive_low_modality_windows: 3
+  utility_relaxation_weight: 0.85
+  utility_discomfort_weight: -0.15
+  utility_hysteresis: 0.002
+  extreme_discomfort_limit: 0.95
+  calm_exploration_dwell_windows: 3
+  calm_exploration_penalty_per_window: 0.025
+  calm_exploration_penalty_max: 0.12
+  calm_exploration_relaxation_min: 0.55
+  calm_exploration_discomfort_max: 0.40
+  stochastic_exploration_enabled: true
+  exploration_candidate_scope: "all"
+  exploration_random_seed:
+  exploration_temperature: 0.18
+  exploration_random_floor: 0.08
+  sensor_conditioning_enabled: true
+  sensor_conditioning_weight: 1.0
+  switch_probability_enabled: true
+  switch_probability_after_windows: [0.10, 0.45, 0.85]
+  switch_probability_force_after_windows: 3
+  switch_probability_boredom_weight: 0.25
+  switch_probability_arousal_weight: 0.20
+  switch_probability_discomfort_weight: 0.30
+  switch_probability_stable_calm_weight: 0.15
+  safety_discomfort_min: 0.50
+  safety_conditions: ["C1", "C2", "C4", "C5"]
+  min_condition_dwell_windows: 0
+  max_condition_dwell_windows: 2
+  recent_history_window: 4
+  recent_history_penalty: 0.12
+  high_load_conditions: ["C9"]
+  high_load_penalty: 0.10
+  high_load_cooldown_windows: 6

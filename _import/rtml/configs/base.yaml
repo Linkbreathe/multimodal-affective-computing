@@ -1,0 +1,45 @@
+# New experiments load this file through configs/experiments/*.yaml.  It
+# inherits the complete legacy operational parameters, then locks the
+# participant--Condition/LOPO/Shadow contract below.
+extends: project.yaml
+
+schema_version: "1.0.0"
+
+protocol:
+  unit_of_analysis: participant_condition
+  targets: [relaxation, discomfort]
+  outer_cv: leave_one_participant_out
+  window_seconds: 10.0
+  shadow_only: true
+
+paths:
+  # These are intentionally null in versioned config.  local.yaml supplies
+  # workstation-specific data roots and is ignored by Git.
+  raw_root: null
+  labels_root: null
+  artifacts_root: ../artifacts
+  reports_root: ../reports
+
+run:
+  id: null
+  mode: runtime
+  output_root: ../artifacts/runs
+
+features:
+  video:
+    enabled: false
+
+modeling:
+  random_seed: 20260621
+  runtime_backend: classical
+  candidates: [ridge, elastic_net, svr, random_forest, extra_trees, hist_gradient_boosting]
+
+evaluation:
+  metrics: [mae, spearman, high_discomfort_recall, high_discomfort_precision, false_negatives]
+
+safety:
+  deployment_requires_baseline_improvement: true
+  high_discomfort_label_threshold: 0.50
+  shadow: true
+  discomfort_limit_normalized: 0.50
+  uncertainty_width_max: 0.45

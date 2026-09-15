@@ -1,0 +1,17 @@
+extends: ../base.yaml
+
+run:
+  id: minimal-dcnn-hp-audit-v1
+  mode: research
+
+features:
+  video:
+    enabled: false
+
+modeling:
+  runtime_backend: dcnn
+
+experiment:
+  kind: minimal_fusion_dcnn_hp_audit
+  research_only: true
+  reference_run_id: minimal-dcnn-v1

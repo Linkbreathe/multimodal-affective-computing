@@ -1,0 +1,31 @@
+extends: ../base.yaml
+
+run:
+  id: cross-project-a-s20260705
+  mode: research
+  output_root: ../../artifacts/cross_project_alignment_2026-07-16/aligned_runs/project_a
+
+experiment:
+  research_only: true
+
+alignment:
+  enabled: true
+  require_cuda: true
+  contract_dir: "C:/Users/linki/amaster/data_collection_v3/analysis/real_time_inference/artifacts/cross_project_alignment_2026-07-16/alignment_contract"
+  split_manifest: "C:/Users/linki/amaster/data_collection_v3/analysis/real_time_inference/artifacts/cross_project_alignment_2026-07-16/alignment_contract/split_manifest.csv"
+  modality_masks: "C:/Users/linki/amaster/data_collection_v3/analysis/real_time_inference/artifacts/cross_project_alignment_2026-07-16/alignment_contract/shared_modality_masks.csv"
+  labels: "C:/Users/linki/amaster/data_collection_v3/analysis/real_time_inference/artifacts/cross_project_alignment_2026-07-16/alignment_contract/condition_labels.csv"
+  windows: "C:/Users/linki/amaster/data_collection_v3/analysis/real_time_inference/artifacts/cross_project_alignment_2026-07-16/alignment_contract/windows.csv"
+  window_features: "C:/Users/linki/amaster/data_collection_v3/analysis/real_time_inference/artifacts/cross_project_alignment_2026-07-16/alignment_contract/project_a_window_features_masked.csv"
+
+modeling:
+  random_seed: 20260705
+  runtime_backend: classical
+  dcnn:
+    device: cuda
+    variants: [full, no_eeg]
+    learning_rate: 0.001
+    weight_decay: 0.0001
+    batch_size: 16
+    max_epochs: 40
+    early_stopping_patience: 8

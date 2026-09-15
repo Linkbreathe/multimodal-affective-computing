@@ -1,0 +1,12 @@
+name: rtml-videomae2
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - ffmpeg
+  - pip
+  - pip:
+      - einops==0.8.1
+      - timm==0.4.12
+      - decord==0.6.0
+      - av==14.4.0

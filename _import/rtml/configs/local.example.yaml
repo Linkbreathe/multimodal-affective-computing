@@ -1,0 +1,12 @@
+# Copy to local.yaml.  Do not commit local.yaml: it is the only place for
+# machine-specific source paths and accelerator selection.
+paths:
+  raw_root: "C:/path/to/raw-data"
+  labels_root: "C:/path/to/labels"
+
+hardware:
+  dcnn_device: cuda
+
+modeling:
+  dcnn:
+    device: cuda

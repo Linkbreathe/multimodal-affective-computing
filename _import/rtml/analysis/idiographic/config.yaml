@@ -1,0 +1,79 @@
+# Frozen configuration for the idiographic EEG/ECG decoding study.
+# All thresholds are fixed BEFORE any modeling result is inspected (Part A is
+# outcome-blind). Do not tune these against decoding accuracy.
+# This file is intentionally separate from configs/project.yaml so it never
+# trips real_time_ml.config._validate_legacy (which pins windows.length==10s).
+
+seed: 20260701
+
+# --- signal geometry (mirrors configs/project.yaml streams; duplicated here so
+#     this analysis is self-contained and auditable) ---
+sample_rate_hz: 500.0
+marker_name: WaterLiliesExperimentMarkers
+eeg_columns: [1, 2, 3, 4]        # true order [M2, TP9, TP10, M1] in the xdf "eeg" stream
+eeg_names: [M2, TP9, TP10, M1]   # M1/M2 are mastoid references; TP9(L)/TP10(R) are signals
+ecg_columns: [7, 8]              # bipolar ECG = col7 - col8 (ch6-ch7)
+counter_column: 0
+imu_stream_type: imu
+intensities: [0.08, 0.16, 0.25]
+frequencies: [0.12, 0.26, 0.41]
+
+# --- Part A: outcome-blind subject selection ---
+selection:
+  top_k_eeg: 5
+  block_seconds: 2.0
+  eeg_abs_uV_max: 350.0           # per-block 99th pct |amp| ceiling (post 1-45 filt)
+  eeg_flat_std_uV_min: 0.2        # per-block std floor (not flat/disconnected)
+  block_channel_frac: 0.75        # >= this frac of channels good => block usable
+  min_amplitude_coverage: 0.80    # frac usable blocks to call a subject EEG-usable
+  slope_min: -4.0                 # plausible aperiodic 1/f exponent range
+  slope_max: -0.3
+  min_conditions_ok: 8            # >= this many of 9 conditions pass per-condition QC
+  ecg_min_sqi: 0.70               # fraction of plausible RR intervals
+  ecg_hr_min_bpm: 40.0
+  ecg_hr_max_bpm: 180.0
+  # subjects the existing project.yaml disabled; used only as a reproduce-me check
+  known_eeg_disabled: [P002, P005, P006, P010, P014, P016]
+
+# --- windows (analysis unit = within-condition overlapping windows) ---
+windows:
+  length_seconds: 8.0
+  step_seconds: 4.0
+  baseline_length_seconds: 8.0
+  baseline_step_seconds: 4.0
+  sensitivity_lengths: [4.0]      # extra window lengths for robustness checks
+
+# --- spectral analysis ---
+filter:
+  analytic_band: [1.0, 45.0]
+  broadband_band: [1.0, 100.0]
+  notch_hz: [50.0, 100.0]
+  order: 4
+bands:                            # fixed fallback; alpha also computed IAF-relative
+  delta: [1.0, 4.0]
+  theta: [4.0, 8.0]
+  alpha: [8.0, 13.0]
+  beta: [13.0, 30.0]
+  gamma: [30.0, 45.0]
+emg_band_hz: [20.0, 100.0]        # temporalis EMG / broadband arousal proxy
+slope_fit_hz: [2.0, 40.0]         # aperiodic 1/f fit range (alpha band excluded)
+iaf_search_hz: [7.0, 13.0]
+iaf_half_width_hz: 2.0
+
+# --- artifact rejection (Part B) ---
+artifact:
+  robust_range_uV_max: 350.0      # 95-5 pct range per channel per window
+  mad_k: 5.0                      # window bad if var/kurtosis > median + k*MAD
+  imu_motion_mad_k: 6.0           # gross-motion gate on 500Hz IMU magnitude
+  drop_headset_off: true
+
+# --- HRV horizons that FIT inside a 70s condition (never 120/300s) ---
+hrv:
+  window_seconds: [30.0, 60.0]
+
+# --- modeling / evaluation (Part D) ---
+cv:
+  n_permutations: 500
+  ridge_alphas: [0.1, 1.0, 10.0, 100.0]
+  logreg_C: [0.01, 0.1, 1.0]
+  standardize: true

@@ -1,0 +1,13 @@
+extends: ../base.yaml
+
+run:
+  id: minimal-ridge-v1
+  mode: research
+
+features:
+  video:
+    enabled: false
+
+experiment:
+  kind: minimal_fusion_ridge
+  research_only: true

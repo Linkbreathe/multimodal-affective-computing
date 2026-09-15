@@ -1,0 +1,19 @@
+{
+  "bundle_id": "realtime_multimodal_window_v1",
+  "version": "1.0.0",
+  "adapter_id": "realtime_multimodal_window_v1",
+  "input_schema_version": "realtime-feature-v1",
+  "window_seconds": 10.0,
+  "required_modalities": ["eeg", "ecg", "eye", "head"],
+  "optional_modalities": ["imu"],
+  "target_schema": ["relaxation", "discomfort"],
+  "candidate_prediction_supported": true,
+  "adaptive_control_compatibility": true,
+  "created_at": "2026-06-25T00:00:00Z",
+  "model_files": {
+    "full": {
+      "path": "../../../artifacts/models/realtime_multimodal_window_full.joblib",
+      "sha256": "b44d09aa084f90aca9f99772c29132095f943aee7796371cc5ddcd10ea9aa3bf"
+    }
+  }
+}

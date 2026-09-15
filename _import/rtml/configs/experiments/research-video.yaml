@@ -1,0 +1,16 @@
+extends: ../base.yaml
+
+run:
+  id: video-research-v1
+  mode: research
+
+features:
+  video:
+    enabled: true
+
+modeling:
+  runtime_backend: video_dcnn
+
+experiment:
+  kind: video_fusion
+  research_only: true
