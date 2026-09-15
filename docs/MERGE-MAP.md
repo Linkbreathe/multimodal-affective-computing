@@ -379,6 +379,7 @@ threadpoolctl.py:1099: in _find_libraries_with_enum_process_module_ex
 | 单独跑这个测试 | 通过 |
 | 融合仓库里只跑 RTML 那批测试文件（59 个） | 全部通过 |
 | 融合仓库整套同进程 | 失败 |
+| 融合仓库每个测试文件各起进程（63 个） | 通过，且总数与基线逐项相等 294/278/3/13/7 |
 | 原 `Relax-Model` 整套（两次） | 通过，从不出现 |
 | 原 `Relax-Model` 里先 `import torch` 再跑该测试 | 通过（单纯预加载 torch 不足以复现） |
 | 加 `OMP/MKL/OPENBLAS_NUM_THREADS=1` | 无效 |
@@ -386,8 +387,8 @@ threadpoolctl.py:1099: in _find_libraries_with_enum_process_module_ex
 原因是融合后两套依赖栈（torch + sklearn + mne + cv2 + …）进入同一个进程，
 加载的 DLL 变多，那次枚举更容易撞上竞态。
 
-**规避**：单独跑该文件，或让测试文件各自起进程
-（`pip install pytest-xdist` 后 `pytest -n 4 --dist loadfile`）。
+**规避**：让每个测试文件各起一个进程，已实测可完全消除。
+省事的做法是 `pip install pytest-xdist` 后 `pytest -n 4 --dist loadfile`。
 v2 可以考虑把 `pytest-xdist` 加进 `dev` extra 并在 `addopts` 里默认按文件分发。
 
 ### 待去重的重复实现

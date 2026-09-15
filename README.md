@@ -265,10 +265,12 @@ against the two pre-merge baselines:
 | `Relax-Model` before merge | 96 | 93 | 3 | 0 | 0 |
 | `real-time-vis-physio-fusion` before merge | 198 | 185 | 0 | 13 | 7 |
 | **sum** | **294** | **278** | **3** | **13** | **7** |
-| **merged, one process** | **294** | **277** | **4** | **13** | **7** |
+| **merged, one test file per process** | **294** | **278** | **3** | **13** | **7** |
+| merged, all in one process | 294 | 277 | 4 | 13 | 7 |
 
-Every test is still collected and nothing regressed in the merged code itself, but the
-merged run has **one extra failure** that the separate runs did not:
+With one process per test file the merged suite matches the pre-merge baselines exactly.
+Running everything in a single process costs **one extra failure**, which is a property of
+that process, not of the code:
 
 - **3 failures, unchanged from before the merge** — they read
   `artifacts/cross_project_alignment_2026-07-16/.../contract.json`, a generated artifact
@@ -281,8 +283,9 @@ merged run has **one extra failure** that the separate runs did not:
   enumerates loaded DLLs, not from any assertion. It passes when run alone, and passes when
   only the RTML-origin test files run in this repository. It appears because the merged
   suite now loads both dependency stacks into a single process, which makes that
-  enumeration race more likely. Run the file on its own, or run test files in separate
-  processes (`pip install pytest-xdist` then `pytest -n 4 --dist loadfile`), to avoid it.
+  enumeration race more likely. Giving each test file its own process removes it — that is
+  the first merged row above, measured by running `pytest <file>` for all 63 files. The
+  convenient way is `pip install pytest-xdist` then `pytest -n 4 --dist loadfile`.
 
 Static verification that does not depend on the environment:
 
