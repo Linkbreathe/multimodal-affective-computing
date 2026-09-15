@@ -1,0 +1,257 @@
+# 多模态情感计算
+
+**一条从录制信号到运行中自适应系统的完整管线**：会话接入 → 特征与表征提取 → 多模态融合 →
+被试独立评测 → 录制回放 → 实时推理。
+
+本仓库由两个原本独立的代码库融合而成。融合前它们**已经在互相调用**，只能靠绝对路径和
+`sys.path` 注入拼接：
+
+| 原仓库 | 代码中的称呼 | 提供什么 |
+| --- | --- | --- |
+| `real-time-vis-physio-fusion` | Project B | 预训练编码器、16 种融合架构、EgoEmotion / SEED-V / RELAX 的 LOSO 评测 |
+| `Relax-Model` | Project A | 会话索引、手工特征、经典与时序模型、Shadow 推理、Adaptive Control、Unity 集成 |
+
+现在它们是**同一个可安装包 `mac`**，包内按「模块做什么」而不是「来自哪个项目」组织。
+两份 Git 历史完整保留。融合前写下的任何路径或命令，请对照
+[合并对照表](docs/MERGE-MAP.md) 翻译。
+
+实现了某个工作流只说明它能跑。它不能证明模型对新被试泛化、某个表征测到了内部状态，
+或者自适应控制对人真的有益。
+
+[English overview](README.md) · [合并对照表](docs/MERGE-MAP.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md)
+
+## 研究目的
+
+单一传感器很难推断情绪与放松。视频提供视觉上下文，视线和头动描述行为，PPG / ECG / EEG
+提供生理测量。这些信号在时序、噪声、可得性和表征需求上都不同。
+
+融合后的代码库支持五条研究线：
+
+1. **测量与刻画** —— 生理、视线、头动、视觉上下文如何随条件变化，包括信号质量、缺失和基线效应。
+2. **模态贡献** —— 哪些信号携带可用信息，在同一评测协议下多模态是否优于单模态。
+3. **表征迁移** —— 冻结的预训练表征迁移到情感目标的效果，以及投影 / 压缩 / 微调 / LoRA 各自何时有用。
+4. **被试泛化** —— 在留一被试或显式 split manifest 下，模型能否预测训练中未见的被试。
+5. **自适应** —— 状态估计、不确定性、信号可得性如何转化为推荐，在录制回放和实验性实时控制服务中分别表现如何。
+
+这些是研究目标，不是结论。任何结果都必须在其数据集、目标定义、cohort 和评测协议内解读。
+
+## 包结构
+
+```text
+src/mac/
+  data/            会话索引与 I/O、标签解析、对齐、窗口，
+                   以及 EgoEmotion / SEED-V / RELAX 的数据集与缓存协议
+  preprocessing/   流式预处理管线与质量控制；
+                   PPG / ECG / SEED-V / RELAX 生理信号的分模态预处理
+  features/        手工生理、眼动、头动、视频特征；动态纹理描述子；冻结 VideoMAE v2 嵌入
+  encoders/        预训练编码器封装：EEGPT、REVE、PaPaGei、Pulse-PPG、
+                   ECGFounder、VideoMAE v2、InceptionTime、PatchTST、NeuroRVQ
+  fusion/          early / mid / late、bottleneck、HEALNet、Perceiver IO、Q-Former、
+                   TMC、CGGM、MM-Lego、蒸馏、冻结压缩，以及最小 Ridge / 1D-CNN 融合基准
+  models/          EEG head、LoRA、头动 CNN、经典 condition 模型、时序 1D-CNN、视觉模型
+  tasks/           任务 head、损失、relaxation 回归、condition 控制
+  training/        LOSO 训练器与早停；condition / state / policy / video 训练入口
+  evaluation/      指标、被试折契约、LOPO、安全门
+  experiments/     研究专用的实验编排
+  adaptive/
+    offline/       冻结前缀推理与按时序的录制回放
+    control/       实时控制运行时（与离线回放刻意分开）
+  realtime/        Shadow 时钟、engine、serve、replay、推荐策略
+  reporting/       run 摘要、实验报告、结果注册表
+  config/          分层配置（base → experiment → local）与融合 runner 用的扁平 YAML 加载器
+  utils/           原子写入、哈希、日志、TensorBoard 助手
+  cli.py           `mac` 命令
+```
+
+仓库根的配套目录：`scripts/`（84 个 runner、提取、审计与报告）、`analysis/`（56 个离线分析、
+消融、图表）、`configs/`、`tests/`（65 个模块）、`integrations/unity/`、`data/contracts/`、
+`docs/`、`Auxiliary/`。
+
+`src/real_time_ml/` 和 `src/src/` 是**自动生成的兼容 shim**，把旧 import 路径别名到 `mac`，
+计划在 v2 删除。
+
+## 安装
+
+Python 3.11。
+
+```powershell
+conda env create -f environment.yml
+conda activate mac
+mac --help
+```
+
+或安装进已有的 3.11 环境：
+
+```powershell
+python -m pip install -e ".[dev]"
+```
+
+核心依赖**刻意不含 PyTorch**，这样经典工作流和数据无关的测试不需要 GPU 栈就能装上。
+做预训练编码器和融合研究时，先装好适配平台的 PyTorch，再：
+
+```powershell
+python -m pip install -e ".[dl,viz,ecg,head]"
+```
+
+| Extra | 范围 |
+| --- | --- |
+| `dl` | torch、torchvision、einops、transformers、huggingface-hub、safetensors、timm、h5py |
+| `viz` | matplotlib、seaborn、tqdm、tensorboard |
+| `ecg` / `head` | neurokit2 / ahrs |
+| `dev` | pytest、pytest-cov、ruff |
+
+`environment-videomae2.yml` 仍是**独立环境**：它钉了 `timm` 0.4.12，与编码器栈需要的
+`timm` 1.x 无法共存。`requirements*.txt` 保留了融合研究在 Linux 上验证过的钉版。
+
+## 配置
+
+两套配置系统并存 —— 两边各用一套，第一版没有把任何一套归并掉。
+
+```text
+configs/project.yaml              旧的运行参数                      ─┐
+       ↓                                                             │  分层：
+configs/base.yaml                 共享实验与协议默认值               │  runtime、
+       ↓                                                             │  classical、
+configs/experiments/*.yaml        run ID 与实验设置                  │  analysis
+       ↓                                                             │
+configs/local.yaml                本机数据根目录与设备              ─┘
+
+configs/egoemotion.yaml           扁平 EgoEmotion 融合配置          ─┐  扁平：
+configs/seedv_*.yaml              SEED-V 各协议                      │  融合
+configs/fusion/ ablation/ finetune/   融合、消融、微调              ─┘  研究
+```
+
+`configs/local.yaml` 被 Git 忽略，从 `configs/local.example.yaml` 复制后填
+`paths.raw_root`、`paths.labels_root` 和设备设置。`--experiment`、`--local-config`
+这类全局选项要写在**子命令之前**。
+
+> `configs/egoemotion.yaml` 融合前叫 `configs/base.yaml`。改名是因为分层配置系统需要
+> 在同一位置有自己的 `configs/base.yaml`（`mac/config/__init__.py` 用 `parents[3]` 定位它）。
+
+## 三条执行路径
+
+| 路径 | 入口 | 范围 |
+| --- | --- | --- |
+| 离线研究 | `mac` 的提取 / 训练 / 评测子命令；`scripts/`；`analysis/` | 从录制数据产出特征、模型、比较与报告 |
+| Shadow 推理 | `mac replay`、`mac serve` | 输出状态预测与推荐供记录或显示，要求 `shadow=true` |
+| Adaptive Control | `mac adaptive-model`、`mac adaptive-control` | 独立的实验性服务，自带模型注册表、就绪检查与控制策略；它**会**下发控制指令，不可与 Shadow 桥接混淆 |
+
+研究专用的视觉与融合 checkpoint 不会自动提升为运行时后端。Shadow 与 Adaptive Control
+默认使用相同 UDP 端口：一次会话只跑其中一个，或者改配置分开端口。
+
+### 离线 condition 级工作流
+
+```powershell
+$runArgs = @("--experiment","configs/experiments/runtime-classical.yaml","--local-config","configs/local.yaml")
+mac @runArgs index
+mac @runArgs preprocess
+mac @runArgs extract-features --no-video
+mac @runArgs train-state
+mac @runArgs evaluate
+mac @runArgs report
+```
+
+### EgoEmotion 10 秒片段融合
+
+```bash
+python scripts/run_experiment_10s.py \
+  --config configs/egoemotion.yaml --fusion_config configs/fusion/early.yaml \
+  --embeddings_dir data/embeddings/egoemotion/10s_task_aware \
+  --name ego_10s_early --device cuda
+```
+
+### SEED-V
+
+```bash
+python scripts/run_seedv_experiment.py --config configs/seedv_base.yaml
+```
+
+### RELAX aligned 协议
+
+```bash
+python scripts/run_relax_foundation_probe.py \
+  --embedding-cache /path/to/aligned/condition_embeddings.pt \
+  --cohorts /path/to/cohorts.json --cohort all_135 \
+  --split-manifest /path/to/splits.csv --mask-manifest /path/to/masks.csv \
+  --labels /path/to/labels.csv --windows /path/to/windows.csv \
+  --modalities eeg ecg eye head video --fusion healnet \
+  --seed 20260705 --device cuda --require-cuda --strict \
+  --output-dir artifacts/relax/my_aligned_run
+```
+
+早期的 foundation 协议（`scripts/relax_foundation/run_relax_foundation_probe.py`）
+期望的缓存格式不同，**与 aligned runner 不可互换**，尽管名字相似。
+协议边界见[代码地图](docs/code-map.md)。
+
+### Unity
+
+```powershell
+mac replay --help
+mac serve --help
+mac adaptive-model list
+mac adaptive-control --help
+```
+
+Shadow 默认传输：Unity → Python `127.0.0.1:5055`，Python → Unity `127.0.0.1:5056`。
+见 [协议](integrations/unity/PROTOCOL.md) 与 [C# 桥接](integrations/unity/RtmlShadowUdpBridge.cs)。
+
+## 数据与监督信号
+
+**RELAX condition 级研究**：15 被试 × 9 条件 = 135 个被试–条件观测，每个条件内切成完整不重叠的
+10 秒窗口。目标来自问卷评分 `(rating - 1) / 6`。把一个条件的评分复制到它的各个窗口
+**不会**产生额外的独立观测。
+
+**Windows RQ2 track**：独立锁定的 FMQ-9 契约 —— 9 被试、81 个 condition 标签、567 个源窗口、
+545 个 common-valid 窗口，由 [`mac.windows_rq2_representations`](src/mac/windows_rq2_representations.py)
+校验。`WINDOWS_DONE.json` 只标记该 track 完成。
+
+**EgoEmotion 与 SEED-V** 各有自己的标签、采样单位、缓存格式和 split。
+task 级缓存与 10 秒片段缓存不可互换。
+
+原始录制、问卷和大部分生成产物是外部输入且被 Git 忽略。全新 clone 支持源码检视和数据无关测试；
+复现结果还需要对应的源数据、配置与实验产物。
+
+预训练权重需另行准备：VideoMAE v2（`OpenGVLab/VideoMAEv2-Base`）、PaPaGei / Pulse-PPG
+（默认在同级目录 `papagei-foundation-model/` 和 `pulseppg/`）、EEGPT、REVE、ECGFounder、NeuroRVQ。
+
+## 评测与可复现性
+
+每个实验请记录：commit、runner、完整命令与配置；数据集版本、目标定义、cohort、窗口策略；
+训练 / 验证 / 测试的被试划分；编码器与 checkpoint 身份、预处理、缓存格式、mask；
+随机种子、协议哈希、包版本、硬件；每折输出与聚合方式。
+
+LOSO / LOPO 每折留出一个被试。片段必须跟随被试划分 —— 独立切分相关片段回答的是另一个问题。
+融合要和单模态、condition-only 基线在同一评测规则下比较。不同目标、cohort 或协议的分数不可直接比较。
+
+## 测试
+
+```powershell
+python -m pytest -m "not external and not integration and not slow"
+```
+
+marker 含义：`integration` 读取被试源数据，`slow` 训练模型或做昂贵计算，
+`external` 需要预训练权重、外部模型代码或真实被试数据。
+
+融合后套件在开发机上的实测，与融合前两个基线对比：
+
+| | collected | passed | failed | skipped | 采集错误 |
+| --- | --- | --- | --- | --- | --- |
+| 融合前 `Relax-Model` | 96 | 93 | 3 | 0 | 0 |
+| 融合前 `real-time-vis-physio-fusion` | 198 | 185 | 0 | 13 | 7 |
+| **合计** | **294** | **278** | **3** | **13** | **7** |
+| **融合后** | **294** | **278** | **3** | **13** | **7** |
+
+那 3 个失败和 7 个采集错误与融合前是同一批、同一原因：失败的读取一份从未纳入版本控制的
+跨项目 contract 产物；采集错误是该环境缺 `einops` 和 `huggingface_hub`。装上 `dl` extra
+即可消除采集错误。
+
+## 贡献与扩展
+
+- 可复用实现放进 `src/mac/` 中它所属的管线阶段，实验编排放 `scripts/` 或 `analysis/`，参数放 `configs/`。
+- 源录制保持只读，生成产物不要放进版本化的源码目录。
+- 保持被试–条件的监督关系和声明的 cohort，排除要显式写明。
+- 预处理、特征选择、调参只能在允许的训练数据上拟合。
+- 新的比较用新的配置和新的 run ID。
+- 研究专用表征不要进入运行时模型选择；`adaptive/offline/` 与 `adaptive/control/` 保持分开。
+- 新增编码器时，写明期望形状、时序采样、通道顺序、单位、权重、缺模态行为。
+- 按证据的实际层级描述结论：实现、离线评测、录制回放，还是前瞻性被试研究。
