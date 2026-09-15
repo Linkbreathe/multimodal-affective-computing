@@ -16,23 +16,25 @@ The active implementation remains in `src/mac/` and is organized by pipeline sta
   training, LOPO evaluation and deployment safety gates;
 - `mac.adaptive.offline`, `mac.realtime`, `mac.reporting`, `mac.config`: offline replay,
   Shadow runtime, reports and layered runtime configuration;
-- `scripts/relax_foundation/`, the `scripts/run_relax_*` runners, `scripts/rq2_*`,
-  `analysis/` and `integrations/unity/`: thesis experiments, audits and execution
-  boundaries.
+- `scripts/relax_foundation/`, the `scripts/run_relax_*` runners, `scripts/rq2_*` and
+  `analysis/`: thesis experiments, audits and execution boundaries;
+- `auxiliary/integrations/unity/`: optional external Shadow protocol and Unity bridge
+  material. It supports replay/deployment demonstrations but is not part of the installed
+  Python package.
 
 The encoder and fusion implementations under `src/mac/encoders/` and
 `src/mac/fusion/` stay available as reusable components. Some of them are used by the
 RELAX representation and alignment experiments, so moving them wholesale to an archive
 would break the thesis path.
 
-## Auxiliary benchmark material
+## auxiliary benchmark material
 
 Dataset-specific benchmark material that is not part of the thesis runtime is now under:
 
 ```text
-Auxiliary/benchmarks/egoemotion/
+auxiliary/benchmarks/egoemotion/
   configs/ scripts/ tests/ reports/ figures/
-Auxiliary/benchmarks/seedv/
+auxiliary/benchmarks/seedv/
   configs/ scripts/ tests/
 ```
 
@@ -41,7 +43,7 @@ historical reports. The source adapters that are still imported by the shared `m
 package remain in `src/mac/`; they are implementation support, not thesis datasets.
 
 The experimental Adaptive Control service is archived separately under
-`Auxiliary/adaptive_control/` with its Unity/UDP service, model registry, configuration,
+`auxiliary/adaptive_control/` with its Unity/UDP service, model registry, configuration,
 launchers and dedicated tests. It is intentionally outside the thesis-facing CLI and
 evidence chain.
 
@@ -53,7 +55,7 @@ on those logs.
 ## Boundary rule
 
 The thesis runtime may import `mac`, but active thesis code must not depend on an
-auxiliary benchmark runner or report. Auxiliary runners may import reusable `mac`
+auxiliary benchmark runner or report. auxiliary runners may import reusable `mac`
 components. This keeps the thesis path installable and testable without requiring the
 EgoEmotion/SEED-V datasets.
 

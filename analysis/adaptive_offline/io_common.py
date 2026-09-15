@@ -1,6 +1,6 @@
 """Shared helpers for the offline adaptive (route B + C) deliverables.
 
-This package implements ``Auxiliary/research/adaptive_plan_offline_BC_version_zh.md``.  Every
+This package implements ``auxiliary/research/adaptive_plan_offline_BC_version_zh.md``.  Every
 estimate that is reported as evidence carries a participant-level confidence
 interval and an explicit ``inference_unit`` so that the 946 ten-second windows
 are never silently promoted to independent supervised samples.  The inference

@@ -10,7 +10,7 @@ The repository consolidates the reusable implementation of
 `real-time-vis-physio-fusion` and `Relax-Model` into one installable Python package,
 `mac`. The code is organised by pipeline stage rather than by source repository.
 EgoEmotion, SEED-V, the retired Adaptive Control service and merge-history material remain
-available under `Auxiliary/`, but they are not part of the thesis-facing execution path.
+available under `auxiliary/`, but they are not part of the thesis-facing execution path.
 
 > This repository implements research workflows; it does not by itself establish that a
 > model generalises to unseen people, that a learned representation measures an internal
@@ -22,8 +22,8 @@ available under `Auxiliary/`, but they are not part of the thesis-facing executi
 [Code and protocol map](docs/code-map.md) ·
 [Input contracts](data/contracts/input_tables.md) ·
 [Output contract](data/contracts/outputs.md) ·
-[Unity Shadow protocol](integrations/unity/PROTOCOL.md) ·
-[Auxiliary material](Auxiliary/README.md)
+[Unity Shadow protocol](auxiliary/integrations/unity/PROTOCOL.md) ·
+[auxiliary material](auxiliary/README.md)
 
 ## 1. Purpose and research questions
 
@@ -88,13 +88,14 @@ scripts/                 Thesis experiment runners, cache builders and audits
 analysis/                Statistical analyses, supplementary comparisons and figures
 configs/                 RELAX runtime, experiment and fusion configuration
 data/contracts/          Versioned input, label, feature and output contracts
-integrations/unity/      Shadow UDP protocol and Unity C# bridge
+auxiliary/integrations/unity/
+                         Shadow UDP protocol and Unity C# bridge
 tests/                   Active package and thesis-workflow tests
 docs/                    Current scope, architecture and protocol documentation
 artifacts/               Models/caches/results when present; mostly generated or external
 reports/                 Human-readable report outputs when present
 weights/                 Local pretrained weights; not installed automatically
-Auxiliary/
+auxiliary/
   benchmarks/            EgoEmotion and SEED-V comparison material
   adaptive_control/      Retired experimental closed-loop service and dedicated tests
   merge_history/         Old path maps, branch history, validation records and legacy snapshots
@@ -103,7 +104,7 @@ Auxiliary/
 
 The boundary is intentional: active thesis code may import `mac`, while active code must
 not depend on an auxiliary benchmark runner, archived report or retired control service.
-Auxiliary experiments may reuse public `mac` components.
+auxiliary experiments may reuse public `mac` components.
 
 ### 3.1 The `mac` package
 
@@ -127,7 +128,7 @@ Auxiliary experiments may reuse public `mac` components.
 
 `src/real_time_ml/` and `src/src/` are compatibility shims for pre-merge imports. New code
 must import `mac`. The historical mapping is retained only in
-[`Auxiliary/merge_history/`](Auxiliary/merge_history/README.md).
+[`auxiliary/merge_history/`](auxiliary/merge_history/README.md).
 
 ### 3.2 Modalities and active contracts
 
@@ -154,7 +155,7 @@ Several paths use similar names but answer different questions:
 | Windows RQ2 | Locked FMQ-9 handoff: 9 participants, 81 condition labels, 567 source windows, 545 common-valid windows | Explicit shared-root completion and common-valid masks | `scripts/run_rq2_wsl.py`, `run_rq2_modality_ablation.py` |
 | RELAX foundation sample cache | Samples contain participant, condition, labels, modality windows and masks | Foundation Dataset contract | `scripts/relax_foundation/` |
 | RELAX aligned cache | Parallel participant-condition arrays plus explicit split/label/window/mask manifests | Aligned condition-embedding contract | `scripts/build_relax_alignment_cache.py`, `run_relax_foundation_probe.py` |
-| EgoEmotion / SEED-V | Dataset-specific labels, splits and sampling units | Independent benchmark caches | `Auxiliary/benchmarks/` |
+| EgoEmotion / SEED-V | Dataset-specific labels, splits and sampling units | Independent benchmark caches | `auxiliary/benchmarks/` |
 
 Do not exchange caches between the foundation and aligned runners, compare metrics from
 different cohorts as if they shared a denominator, or treat repeated condition labels across
@@ -207,7 +208,7 @@ python -m pip install -e ".[dl,viz,ecg,head]"
 | `dev` | pytest, coverage and Ruff |
 
 The EgoEmotion VideoMAE environment at
-`Auxiliary/benchmarks/egoemotion/environment-videomae2.yml` is intentionally separate: it
+`auxiliary/benchmarks/egoemotion/environment-videomae2.yml` is intentionally separate: it
 pins `timm` 0.4.12, whereas the shared encoder stack uses `timm` 1.x.
 
 ### 5.3 External resources
@@ -242,7 +243,7 @@ heads can move.
 ### Step 2 — Run source-only verification
 
 ```powershell
-python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
+python -m compileall -q src scripts analysis tests auxiliary/benchmarks auxiliary/adaptive_control
 python -m mac --help
 git diff --check
 ```
@@ -362,9 +363,9 @@ UDP messages. Default transport is Unity to Python at `127.0.0.1:5055`, and Pyth
 at `127.0.0.1:5056`. Keep `policy.shadow: true`; this repository does not present the active
 thesis runtime as a validated closed-loop intervention.
 
-See the [wire protocol](integrations/unity/PROTOCOL.md) and
-[C# bridge](integrations/unity/RtmlShadowUdpBridge.cs). The retired experimental Adaptive
-Control service is isolated under `Auxiliary/adaptive_control/` and is reproduced separately.
+See the [wire protocol](auxiliary/integrations/unity/PROTOCOL.md) and
+[C# bridge](auxiliary/integrations/unity/RtmlShadowUdpBridge.cs). The retired experimental Adaptive
+Control service is isolated under `auxiliary/adaptive_control/` and is reproduced separately.
 
 ## 7. Configuration model
 
@@ -405,16 +406,16 @@ Scores are comparable only when target, cohort, valid-window mask, split policy 
 aggregation match. A high window count does not increase the number of independent
 participant-condition labels.
 
-## 9. Auxiliary and historical material
+## 9. auxiliary and historical material
 
-- `Auxiliary/benchmarks/egoemotion/` and `Auxiliary/benchmarks/seedv/` preserve independent
+- `auxiliary/benchmarks/egoemotion/` and `auxiliary/benchmarks/seedv/` preserve independent
   benchmark runners, configurations, tests and historical reports.
-- `Auxiliary/adaptive_control/` preserves the retired Unity/UDP control experiment outside
+- `auxiliary/adaptive_control/` preserves the retired Unity/UDP control experiment outside
   the active `mac` CLI.
-- `Auxiliary/merge_history/` preserves old-to-new path maps, branch/consolidation records
+- `auxiliary/merge_history/` preserves old-to-new path maps, branch/consolidation records
   and original README/environment snapshots. These documents describe historical states
   and are not current reproduction instructions.
-- `Auxiliary/research-wiki/`, `Auxiliary/research/` and `Auxiliary/plan/` contain research
+- `auxiliary/research-wiki/`, `auxiliary/research/` and `auxiliary/plan/` contain research
   notes and planning material rather than runtime inputs.
 
 ## 10. Development rules

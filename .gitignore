@@ -68,7 +68,7 @@ configs/local.yaml
 
 # --- Reference material not carried in Git ---
 papers/
-Auxiliary/archive/
+auxiliary/archive/
 /src/mac/features.zip
 
 # --- Editors and OS metadata ---

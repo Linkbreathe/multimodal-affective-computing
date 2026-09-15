@@ -13,12 +13,12 @@
 
 现在它们是**同一个可安装包 `mac`**，包内按「模块做什么」而不是「来自哪个项目」组织。
 两份 Git 历史完整保留。融合前写下的任何路径或命令，请对照
-[Auxiliary 中的历史合并对照表](Auxiliary/merge_history/MERGE-MAP.md) 翻译。
+[auxiliary 中的历史合并对照表](auxiliary/merge_history/MERGE-MAP.md) 翻译。
 
 实现了某个工作流只说明它能跑。它不能证明模型对新被试泛化、某个表征测到了内部状态，
 或者自适应控制对人真的有益。
 
-[English overview](README.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md) · [历史合并记录](Auxiliary/merge_history/README.md)
+[English overview](README.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](auxiliary/integrations/unity/PROTOCOL.md) · [历史合并记录](auxiliary/merge_history/README.md)
 
 ## 论文主线
 
@@ -33,7 +33,7 @@
 4. **被试泛化** —— 在留一被试或显式 split manifest 下，模型能否预测训练中未见的被试。
 5. **自适应** —— 状态估计、不确定性、信号可得性如何转化为推荐，在录制回放和非干预式 Shadow 运行时中如何表现。
 
-EgoEmotion 与 SEED-V 仍保留在 `Auxiliary/benchmarks/` 作为辅助基准，不属于论文主线运行路径。
+EgoEmotion 与 SEED-V 仍保留在 `auxiliary/benchmarks/` 作为辅助基准，不属于论文主线运行路径。
 这些是研究目标，不是结论。任何结果都必须在其数据集、目标定义、cohort 和评测协议内解读。
 
 ## 包结构
@@ -64,8 +64,8 @@ src/mac/
 ```
 
 仓库根的配套目录：`scripts/` 与 `analysis/`（论文主线）、`configs/`（运行配置）、
-`tests/`（主线测试）、`integrations/unity/`、`data/contracts/`、`docs/`，以及保存历史和
-辅助基准的 `Auxiliary/`。具体范围见 [论文代码范围](docs/thesis-scope.md)。
+`tests/`（主线测试）、`auxiliary/integrations/unity/`、`data/contracts/`、`docs/`，以及保存历史和
+辅助基准的 `auxiliary/`。具体范围见 [论文代码范围](docs/thesis-scope.md)。
 
 `src/real_time_ml/` 和 `src/src/` 是**自动生成的兼容 shim**，把旧 import 路径别名到 `mac`，
 计划在 v2 删除。
@@ -102,7 +102,7 @@ python -m pip install -e ".[dl,viz,ecg,head]"
 | `ecg` / `head` | neurokit2 / ahrs |
 | `dev` | pytest、pytest-cov、ruff |
 
-`Auxiliary/benchmarks/egoemotion/environment-videomae2.yml` 仍是**独立的基准环境**：
+`auxiliary/benchmarks/egoemotion/environment-videomae2.yml` 仍是**独立的基准环境**：
 它钉了 `timm` 0.4.12，与编码器栈需要的 `timm` 1.x 无法共存。`requirements*.txt`
 保留了融合研究在 Linux 上验证过的钉版。
 
@@ -117,8 +117,8 @@ configs/base.yaml                 RELAX 协议默认值                   │  r
 configs/experiments/*.yaml        论文实验设置                       │  classical
                                                                           ─┘  analysis
 
-Auxiliary/benchmarks/egoemotion/configs/  EgoEmotion 基准配置
-Auxiliary/benchmarks/seedv/configs/       SEED-V 基准配置
+auxiliary/benchmarks/egoemotion/configs/  EgoEmotion 基准配置
+auxiliary/benchmarks/seedv/configs/       SEED-V 基准配置
 ```
 
 `configs/local.yaml` 被 Git 忽略，从 `configs/local.example.yaml` 复制后填
@@ -136,7 +136,7 @@ Auxiliary/benchmarks/seedv/configs/       SEED-V 基准配置
 | Shadow 推理 | `mac replay`、`mac serve` | 输出状态预测与推荐供记录或显示，要求 `shadow=true` |
 
 研究专用的视觉与融合 checkpoint 不会自动提升为运行时后端。暂不需要的 Adaptive Control
-实验代码已归档到 [`Auxiliary/adaptive_control/`](Auxiliary/adaptive_control/)，不属于论文主线。
+实验代码已归档到 [`auxiliary/adaptive_control/`](auxiliary/adaptive_control/)，不属于论文主线。
 
 ### 离线 condition 级工作流
 
@@ -150,7 +150,7 @@ mac @runArgs evaluate
 mac @runArgs report
 ```
 
-EgoEmotion 与 SEED-V 的命令见 [`Auxiliary/benchmarks/README.md`](Auxiliary/benchmarks/README.md)，
+EgoEmotion 与 SEED-V 的命令见 [`auxiliary/benchmarks/README.md`](auxiliary/benchmarks/README.md)，
 它们不再作为论文主线执行路径列出。
 
 ### RELAX aligned 协议
@@ -178,7 +178,7 @@ mac serve --help
 ```
 
 Shadow 默认传输：Unity → Python `127.0.0.1:5055`，Python → Unity `127.0.0.1:5056`。
-见 [协议](integrations/unity/PROTOCOL.md) 与 [C# 桥接](integrations/unity/RtmlShadowUdpBridge.cs)。
+见 [协议](auxiliary/integrations/unity/PROTOCOL.md) 与 [C# 桥接](auxiliary/integrations/unity/RtmlShadowUdpBridge.cs)。
 
 ## 数据与监督信号
 
@@ -211,7 +211,7 @@ LOSO / LOPO 每折留出一个被试。片段必须跟随被试划分 —— 独
 ## 测试
 
 ```powershell
-python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
+python -m compileall -q src scripts analysis tests auxiliary/benchmarks auxiliary/adaptive_control
 python -m mac --help
 git diff --check
 ```
@@ -226,11 +226,11 @@ marker 含义：`integration` 读取被试源数据，`slow` 训练模型或做�
 `external` 需要预训练权重、外部模型代码或真实被试数据。
 
 融合前后的历史测试计数、环境限制和分支验证属于仓库整理证据，已移至
-[`Auxiliary/merge_history/`](Auxiliary/merge_history/README.md)。它们描述特定历史提交，
+[`auxiliary/merge_history/`](auxiliary/merge_history/README.md)。它们描述特定历史提交，
 不应代替当前 checkout 在当前环境中的测试结果。
 
 论文主线的 `scripts/` 与 `analysis/` 入口保持在根目录；数据集专属入口和暂不需要的
-Adaptive Control 运行时位于 `Auxiliary/`，只有在具备相应外部数据、模型依赖或 Unity
+Adaptive Control 运行时位于 `auxiliary/`，只有在具备相应外部数据、模型依赖或 Unity
 安装时单独验证。
 
 ## 贡献与扩展
@@ -241,6 +241,6 @@ Adaptive Control 运行时位于 `Auxiliary/`，只有在具备相应外部数�
 - 预处理、特征选择、调参只能在允许的训练数据上拟合。
 - 新的比较用新的配置和新的 run ID。
 - 研究专用表征不要进入运行时模型选择；`adaptive/offline/` 与归档的
-  `Auxiliary/adaptive_control/` 保持分开。
+  `auxiliary/adaptive_control/` 保持分开。
 - 新增编码器时，写明期望形状、时序采样、通道顺序、单位、权重、缺模态行为。
 - 按证据的实际层级描述结论：实现、离线评测、录制回放，还是前瞻性被试研究。

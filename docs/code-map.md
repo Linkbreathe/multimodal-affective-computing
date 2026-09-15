@@ -1,6 +1,6 @@
 # 代码地图与协议边界
 
-融合后的统一版本。旧路径请对照 [Auxiliary 中的合并对照表](../Auxiliary/merge_history/MERGE-MAP.md)。
+融合后的统一版本。旧路径请对照 [auxiliary 中的合并对照表](../auxiliary/merge_history/MERGE-MAP.md)。
 论文主线与辅助边界见 [论文代码范围](thesis-scope.md)。
 
 ## 公共模块（`src/mac/`）
@@ -30,7 +30,7 @@
 | `realtime/` | Shadow 时钟、缓冲、engine、replay、serve 与推荐策略 |
 | `reporting/`、`config/`、`utils/` | 报告与结果注册表、分层与扁平配置、原子写入与哈希 |
 
-`Auxiliary/benchmarks/egoemotion/scripts/run_experiment.py` 保留 EgoEmotion 历史入口，
+`auxiliary/benchmarks/egoemotion/scripts/run_experiment.py` 保留 EgoEmotion 历史入口，
 直接调用 `mac` 的公共实现；PPG 的 `HybridProjectedFusion` 继承公共包装器，仅增加原始
 信号编码。论文主线不依赖该入口。
 
@@ -51,8 +51,8 @@
 
 | 研究线 | 准备 / 训练 | 检查 / 评估 |
 | --- | --- | --- |
-| EgoEmotion（辅助） | `Auxiliary/benchmarks/egoemotion/scripts/segment_and_extract_10s.py`、`extract_embeddings.py`、`pretrain_*`、`run_experiment*.py`、`run_finetune_ppg.py`、`run_lego_experiment.py` | 同目录下的 `verify_*`、`audit_clip_leakage_ego.py`、历史报告 |
-| SEED-V（辅助） | `Auxiliary/benchmarks/seedv/scripts/extract_seedv*`、`run_seedv_*`：EEGPT、REVE、EEGNet、DE-SVM、眼动、LoRA、微调 | 同目录下的 `run_seedv_ablation*.py` 与各入口输出 |
+| EgoEmotion（辅助） | `auxiliary/benchmarks/egoemotion/scripts/segment_and_extract_10s.py`、`extract_embeddings.py`、`pretrain_*`、`run_experiment*.py`、`run_finetune_ppg.py`、`run_lego_experiment.py` | 同目录下的 `verify_*`、`audit_clip_leakage_ego.py`、历史报告 |
+| SEED-V（辅助） | `auxiliary/benchmarks/seedv/scripts/extract_seedv*`、`run_seedv_*`：EEGPT、REVE、EEGNet、DE-SVM、眼动、LoRA、微调 | 同目录下的 `run_seedv_ablation*.py` 与各入口输出 |
 | RELAX foundation | `relax_foundation/extract_relax_foundation_embeddings.py`、`run_relax_foundation_probe.py`、`run_relax_ablation_suite.py`、`run_relax_claim_validation.py`、`run_relax_attention_video_experiments.py` | 子目录内 `audit_*`、`analyze_*`、`summarize_*`、`generate_*` |
 | RELAX aligned | `build_relax_alignment_cache.py`、`run_relax_foundation_probe.py`、`run_relax_aligned_fusion_matrix.py`、`run_relax_eeg_eligible_ablation_matrix.py` | `audit_relax_foundation_features*.py` |
 | RELAX compression | `build_relax_compression_fusion_preregistration_v2.py`、`run_relax_compression_fusion*.py`、`run_relax_compression_fusion_matrix*.py` | `evaluate_relax_compression_fusion*.py`、`plot_relax_compression_fusion.py`、`build_relax_compression_fusion_final_report.py` |
@@ -69,9 +69,9 @@
 
 ### 归档运行时
 
-`Auxiliary/adaptive_control/` 保存暂不参与论文主线的 Unity/UDP Adaptive Control
+`auxiliary/adaptive_control/` 保存暂不参与论文主线的 Unity/UDP Adaptive Control
 服务、模型注册表、配置、启动器和专用测试。它不再属于 `src/mac/` 的活动包地图；
-需要历史复现时使用 `python -m Auxiliary.adaptive_control.cli`。
+需要历史复现时使用 `python -m auxiliary.adaptive_control.cli`。
 
 ## RELAX 协议边界
 
@@ -96,7 +96,7 @@ aligned cache 由 `build_relax_alignment_cache.py` 构建。
 （`--relax-model-src /home/link/Wei/Models/core/Relax-Model/src`）。现在
 `mac.data.video`、`mac.features.extract`、`mac.features.physio`、`mac.data.condition_data`
 都是包内模块，普通 import 即可。相关 CLI 参数仍保留但已非必需，见
-[合并对照表](../Auxiliary/merge_history/MERGE-MAP.md) 的 v2 待办。
+[合并对照表](../auxiliary/merge_history/MERGE-MAP.md) 的 v2 待办。
 
 RQ2 的文件系统握手（Windows 侧写 `WINDOWS_DONE.json` → `scripts/run_rq2_wsl.py --shared-root` 读取）
 仍按原样工作，两端现在在同一个仓库里。

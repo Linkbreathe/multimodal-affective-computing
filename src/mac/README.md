@@ -3,8 +3,8 @@
 One package, organised by pipeline stage rather than by which of the two merged
 repositories a module came from. The thesis-facing workflow is the RELAX
 condition/state and real-time pipeline. EgoEmotion and SEED-V runners are kept
-under `Auxiliary/benchmarks/`; this package retains only the reusable adapters
-and model components they share with RELAX. See [the archived merge map](../../Auxiliary/merge_history/MERGE-MAP.md)
+under `auxiliary/benchmarks/`; this package retains only the reusable adapters
+and model components they share with RELAX. See [the archived merge map](../../auxiliary/merge_history/MERGE-MAP.md)
 for the old-to-new import table, and [the code map](../../docs/code-map.md) for protocol boundaries.
 
 ## Pipeline stages
@@ -35,7 +35,7 @@ Top-level modules: `cli.py` (the `mac` command), `schema.py` (message validation
 
 **`adaptive.offline` vs the archived Adaptive Control runtime.** The first replays recorded
 sessions through frozen models and never intervenes. The second is retained under
-`Auxiliary/adaptive_control/` for historical Unity/UDP experiments and is not part of the
+`auxiliary/adaptive_control/` for historical Unity/UDP experiments and is not part of the
 active `mac` package or thesis evidence chain.
 
 **`config.load_config` vs `config.simple.load_config`.** Two functions with the same name
@@ -57,4 +57,4 @@ than duplicate classes. They are scheduled for removal; write new code against `
 
 `__pycache__` directories are generated locally and ignored. The former `features.zip` under
 this package was a local source snapshot containing cached bytecode; it lives in
-`Auxiliary/archive/` and is not part of the Python package.
+`auxiliary/archive/` and is not part of the Python package.

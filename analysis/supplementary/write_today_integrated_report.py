@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "artifacts" / "reports" / "today_integrated_multimodal_modeling_report_2026-07-02_zh.md"
 
 SOURCES = [
-    ("原始联合审阅报告", ROOT / "Auxiliary" / "research" / "MODALITY_AND_MODELING_REVIEW_2026-07-02.md"),
+    ("原始联合审阅报告", ROOT / "auxiliary" / "research" / "MODALITY_AND_MODELING_REVIEW_2026-07-02.md"),
     ("逐模态 LOPO 后续探索", ROOT / "artifacts" / "reports" / "modality_lopo_followup_2026-07-02_zh.md"),
     ("个性化校准后的逐模态 LOPO 探索", ROOT / "artifacts" / "reports" / "modality_personalization_followup_2026-07-02_zh.md"),
     ("Physio 家族拆分 LOPO 探索 legacy ECG", ROOT / "artifacts" / "reports" / "physio_family_split_2026-07-02_zh.md"),
@@ -138,7 +138,7 @@ def main() -> None:
         "",
         "## 3. 原始联合审阅的关键结论",
         "",
-        "原始 `Auxiliary/research/MODALITY_AND_MODELING_REVIEW_2026-07-02.md` 给出的主结论是：",
+        "原始 `auxiliary/research/MODALITY_AND_MODELING_REVIEW_2026-07-02.md` 给出的主结论是：",
         "",
         "- 唯一稳健的跨人通用生理起始反应是 HR 下沉。",
         "- eye 只有注视空间范围扩大这一条通用行为信号。",

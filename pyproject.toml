@@ -59,7 +59,7 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 # mac is the real package; real_time_ml and src are generated compatibility
-# shims that alias into it (see Auxiliary/merge_history/MERGE-MAP.md).
+# shims that alias into it (see auxiliary/merge_history/MERGE-MAP.md).
 include = ["mac*", "real_time_ml*", "src*"]
 
 [tool.pytest.ini_options]
