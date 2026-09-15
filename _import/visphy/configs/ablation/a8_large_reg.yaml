@@ -1,0 +1,5 @@
+fusion_type: late
+fusion:
+  d_common: 512
+  dropout: 0.3
+  mode: "weighted"

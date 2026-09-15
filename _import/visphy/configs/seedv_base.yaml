@@ -1,0 +1,38 @@
+seed: 42
+
+data_dir: "data/preprocessed/seedv_preprocessed_uv"
+embeddings_dir: "data/embeddings/seedv/uv"
+ref_data_dir: "/mnt/c/Users/Public/Data/SEED-V/SEED-V"
+
+eegpt_weights: "weights/eegpt/eegpt_mcae_58chs_4s_large4E.ckpt"
+
+modalities:
+  eeg:
+    encoder: EEGPT
+    embed_dim: 2048
+    enabled: true
+
+fusion:
+  type: early
+  d_common: 256
+  dropout: 0.1
+
+training:
+  batch_size: 64
+  lr: 0.0001
+  weight_decay: 0.01
+  max_epochs: 100
+  patience: 10
+  num_workers: 4
+
+num_classes: 5
+emotions:
+  - Disgust
+  - Fear
+  - Sad
+  - Neutral
+  - Happy
+
+eval:
+  primary_metric: "balanced_accuracy"
+  loso: true

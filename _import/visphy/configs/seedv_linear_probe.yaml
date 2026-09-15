@@ -1,0 +1,25 @@
+seed: 42
+num_classes: 5
+emotions:
+  - Disgust
+  - Fear
+  - Sad
+  - Neutral
+  - Happy
+
+probe:
+  input_dim: 2048
+  bottleneck_dim: 16
+  dropout: 0.5
+
+training:
+  batch_size: 64
+  lr: 0.0004            # OneCycleLR max_lr, matching official EEGPT
+  weight_decay: 0.01
+  max_epochs: 100
+  patience: 15
+  pct_start: 0.2        # OneCycleLR warmup fraction
+
+eval:
+  primary_metric: balanced_accuracy
+  loso: true

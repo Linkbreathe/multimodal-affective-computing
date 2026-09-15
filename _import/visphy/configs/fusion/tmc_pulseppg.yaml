@@ -1,0 +1,15 @@
+fusion_type: tmc
+fusion:
+  d_common: 256
+  dropout: 0.1
+  tmc:
+    num_classes: 9
+    annealing_epochs: 10
+modalities:
+  ppg:
+    encoder: pulseppg
+    embed_dim: 512
+    enabled: true
+training:
+  lr: 0.0001
+  max_epochs: 100

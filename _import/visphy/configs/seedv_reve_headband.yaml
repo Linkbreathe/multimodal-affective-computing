@@ -1,0 +1,52 @@
+seed: 42
+num_classes: 5
+emotions: [Disgust, Fear, Sad, Neutral, Happy]
+
+reve_weights: "weights/reve/reve_base.safetensors"
+reve_pos_bank: "weights/reve/reve_positions.safetensors"
+
+# 4-channel consumer-headband layout (M1, TP9, M2, TP10) — frozen REVE linear probe.
+# SEED-V has none of these sites, so signals are sourced from the four nearest
+# SEED-V electrodes (in matched order). REVE still receives the headband
+# coordinates as the channel list, so the model "sees" four headband electrodes
+# whose data come from the closest physical SEED-V sensors.
+headband:
+  reve_channels: ["M1", "TP9", "M2", "TP10"]   # what REVE thinks the channels are
+  data_channels: ["FT7", "TP7", "FT8", "TP8"]  # SEED-V channels actually sliced
+
+data:
+  src_sr: 256
+  tgt_sr: 200
+
+classifier:
+  pooling: "last"          # attention pooling with learnable cls_query_token
+
+# Stage 1: linear probing only — encoder frozen, no LoRA, no fine-tuning
+linear_probing:
+  n_epochs: 30
+  patience: 12
+  warmup_epochs: 3
+  mixup: true
+  dropout: 0.05
+  lr: 5.0e-3
+  weight_decay: 0.01
+  scheduler:
+    factor: 0.5
+    patience: 6
+    mode: max
+
+fine_tuning:
+  enabled: false             # IMPORTANT: linear probe only
+
+lora:
+  use_lora: false
+
+training:
+  batch_size: 16
+  num_workers: 2
+  use_amp: true
+  gradient_clip: 2.0
+
+eval:
+  primary_metric: balanced_accuracy
+  loso: true

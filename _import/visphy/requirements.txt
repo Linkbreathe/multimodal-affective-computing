@@ -1,0 +1,18 @@
+# Core dependencies validated with Python 3.11 on Linux, 2026-09-11.
+# Install a platform-appropriate PyTorch build first if CUDA is required.
+torch==2.10.0
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.15.2
+scikit-learn==1.6.1
+joblib==1.4.2
+PyYAML==6.0.2
+einops==0.8.2
+transformers==5.1.0
+huggingface-hub==1.4.1
+safetensors==0.7.0
+opencv-python==4.11.0.86
+matplotlib==3.10.1
+seaborn==0.13.2
+tqdm==4.67.1
+tensorboard==2.20.0

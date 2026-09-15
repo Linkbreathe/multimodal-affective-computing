@@ -1,0 +1,15 @@
+fusion_type: healnet
+fusion:
+  d_common: 256
+  healnet:
+    memory_size: 16
+    n_layers: 2
+    n_heads: 4
+    dropout: 0.1
+cggm:
+  enabled: true
+  classifier_hidden: 128
+  lambda_mod: 0.1
+training:
+  lr: 0.0001
+  max_epochs: 100

@@ -1,0 +1,60 @@
+seed: 42
+num_classes: 5
+emotions: [Disgust, Fear, Sad, Neutral, Happy]
+
+reve_weights: "weights/reve/reve_base.safetensors"
+reve_pos_bank: "weights/reve/reve_positions.safetensors"
+
+# REVE input is 60-channel SEED-V montage at 200 Hz (resample 256 -> 200 online)
+data:
+  src_sr: 256
+  tgt_sr: 200
+
+classifier:
+  pooling: "last"          # attention pooling with learnable cls_query_token
+
+# Stage 1: linear probing (encoder frozen)
+linear_probing:
+  n_epochs: 20
+  patience: 10
+  warmup_epochs: 3
+  mixup: true
+  dropout: 0.05
+  lr: 5.0e-3
+  weight_decay: 0.01
+  scheduler:
+    factor: 0.5
+    patience: 6
+    mode: max
+
+# Stage 2: LoRA fine-tuning
+fine_tuning:
+  enabled: true
+  n_epochs: 50               # reduced from FACED's 200 (16 SEED-V subjects, less data)
+  patience: 10
+  warmup_epochs: 5
+  mixup: true
+  dropout: 0.1
+  lr: 1.0e-4
+  weight_decay: 0.01
+  scheduler:
+    factor: 0.5
+    patience: 6
+    mode: max
+
+lora:
+  use_lora: true
+  lora_r: 16
+  lora_alpha: 16             # alpha=rank per official config
+  lora_dropout: 0.0
+  lora_target_modules: ['reve_default']  # to_qkv + to_out (== official `attention`)
+
+training:
+  batch_size: 16
+  num_workers: 2
+  use_amp: true
+  gradient_clip: 2.0         # matches official config
+
+eval:
+  primary_metric: balanced_accuracy
+  loso: true

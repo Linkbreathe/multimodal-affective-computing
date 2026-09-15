@@ -1,0 +1,16 @@
+fusion_type: enriched_late
+fusion:
+  d_common: 256
+  dropout: 0.1
+  mode: "weighted"
+  enriched:
+    enriched_modalities: ["ppg", "eye_tracking"]
+    projection_dropout: 0.2
+modalities:
+  ppg:
+    encoder: pulseppg
+    embed_dim: 512
+    enabled: true
+training:
+  lr: 0.0001
+  max_epochs: 100

@@ -1,0 +1,41 @@
+seed: 42
+num_classes: 5
+emotions: [Disgust, Fear, Sad, Neutral, Happy]
+
+eegpt_weights: "weights/eegpt/eegpt_mcae_58chs_4s_large4E.ckpt"
+
+encoder:
+  patch_stride: 32
+  drop_rate: 0.1
+  attn_drop_rate: 0.1
+  drop_path_rate: 0.1
+  window_samples: 2560      # 10s at 256Hz (aligned with EEG-FM-Bench)
+
+head:
+  hidden_dims: [128]
+  dropout: 0.3
+
+lora:
+  use_lora: true
+  lora_r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  lora_target_modules: ['default']
+  lora_lr_scale: 1.0
+
+training:
+  batch_size: 32
+  max_lr: 1.0e-3
+  weight_decay: 0.01
+  max_epochs: 50
+  patience: 15
+  warmup_epochs: 0
+  pct_start: 0.2
+  gradient_clip: 3.0
+  use_amp: true
+  label_smoothing: 0.1
+  lr_schedule: onecycle
+
+eval:
+  primary_metric: balanced_accuracy
+  loso: true
