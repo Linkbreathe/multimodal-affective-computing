@@ -1,28 +1,67 @@
 # Real-time Visual–Physiological Fusion
 
-面向情绪与放松状态研究的多模态实验代码，支持视频、眼动、PPG、EEG、ECG、头部运动的特征提取、融合训练、按被试评估和离线自适应回放。
+A research codebase for studying emotion and relaxation through visual, behavioral, and physiological signals. It combines pretrained feature extraction, multimodal fusion, subject-independent evaluation, and offline adaptive replay across EgoEmotion, SEED-V, and RELAX experiments.
 
-仓库包含多个研究阶段，各自的标签、缓存和划分协议不同。自适应模块基于历史数据离线回放，不能据此视为已验证的在线控制系统。
+The long-term motivation is to understand how complementary sensors can support responsive, personalized affective systems. The implemented adaptive workflows replay recorded sessions offline; they do not establish the effectiveness of a live closed-loop system.
 
-## 选择实验入口
+## Research purpose
 
-| 研究任务 | 入口（相对仓库根目录） | 配置 / 输入 |
+Emotion and relaxation are difficult to infer from a single sensor. Video provides visual context, gaze and head motion describe behavior, and PPG, ECG, and EEG provide physiological measurements. These sources differ in timing, noise, availability, and representation requirements.
+
+This project investigates the following questions:
+
+1. **Modality contribution:** Which signals carry useful information, and does combining them improve prediction over individual modalities under the same evaluation protocol?
+2. **Transfer from pretrained models:** How well do frozen representations transfer to affective tasks, and when are projection, compression, fine-tuning, or LoRA adaptation useful?
+3. **Fusion design:** How do early, intermediate, and late fusion compare with attention-based approaches, HEALNet, and MM-Lego workflows?
+4. **Participant generalization:** Can models predict targets for participants excluded from training, using leave-one-subject-out (LOSO) evaluation or explicit participant split manifests?
+5. **Condition effects and representation quality:** How much predictive information reflects physiology or behavior, and how much relates to experimental conditions or dataset structure?
+6. **Offline adaptation:** How do frozen-model prefix predictions and adaptive controllers behave when replaying recorded sessions?
+
+These are research objectives, not claims that every fusion method improves performance. Interpret results within their dataset, target definition, cohort, and evaluation protocol.
+
+## Intended users
+
+| User | Typical use |
+| --- | --- |
+| Affective computing and multimodal learning researchers | Compare representations, fusion architectures, and modality ablations. |
+| Physiological signal and EEG researchers | Integrate encoders and inspect preprocessing, channels, units, and representation quality. |
+| Human–computer interaction and relaxation researchers | Study recorded behavior and physiology, and explore offline adaptive replay. |
+| Graduate students and research engineers | Reproduce experiments or extend shared data, model, and training components. |
+| Collaborators and reviewers | Trace configurations, input manifests, audits, predictions, and reports. |
+
+Running experiments assumes familiarity with Python, PyTorch, command-line tools, and the selected dataset. Participants are the subjects of the recorded studies; the repository itself is primarily a researcher-facing tool.
+
+## Research tracks
+
+The repository combines several research stages. Their labels, sampling units, cache formats, and splits differ. Choose a protocol before preparing inputs.
+
+| Track | Entry point | Main inputs |
 | --- | --- | --- |
-| EgoEmotion 任务级融合 | `scripts/run_experiment.py` | `configs/base.yaml` + `configs/fusion/` |
-| EgoEmotion 10 秒片段融合 | `scripts/run_experiment_10s.py` | 任务内片段 manifest + embeddings |
-| PPG 微调 / MM-Lego | `scripts/run_finetune_ppg.py` / `scripts/run_lego_experiment.py` | `configs/finetune/` / Lego 预训练权重 |
-| SEED-V EEGPT / REVE / EEG+眼动 | `scripts/run_seedv_experiment.py` / `scripts/run_seedv_reve_experiment.py` / `scripts/run_seedv_eeg_eye_fusion.py` | `configs/seedv*.yaml` |
-| RELAX 早期 foundation probe | `scripts/relax_foundation/run_relax_foundation_probe.py` | `samples` 格式缓存 |
-| RELAX 跨项目对齐融合 | `scripts/run_relax_foundation_probe.py` | 对齐缓存 + 标签、窗口、mask、split manifests |
-| RELAX 冻结特征压缩 | `scripts/run_relax_compression_fusion_v2.py` | 五模态协议、预注册文件、固定 cohort/seeds |
-| RQ2 审计与完整流水线 | `scripts/run_rq2_wsl.py` | 外部 hand-off + 已保存的对齐缓存 |
-| HEALNet 前缀推理 / 回放 | `scripts/run_healnet_prefix_inference.py` / `scripts/run_healnet_adaptive_replay.py` | P009 历史会话与冻结模型 |
+| EgoEmotion task-level fusion | `scripts/run_experiment.py` | `configs/base.yaml`, fusion configuration, task embeddings |
+| EgoEmotion 10-second fusion | `scripts/run_experiment_10s.py` | Task-aware segment manifest and embeddings |
+| PPG adaptation / MM-Lego | `scripts/run_finetune_ppg.py` / `scripts/run_lego_experiment.py` | Fine-tuning configuration / pretrained Lego weights |
+| SEED-V EEG and eye tracking | `scripts/run_seedv_experiment.py`, `scripts/run_seedv_reve_experiment.py`, `scripts/run_seedv_eeg_eye_fusion.py` | Encoder-specific preprocessing, embeddings, and configurations |
+| RELAX foundation probes | `scripts/relax_foundation/run_relax_foundation_probe.py` | Earlier `samples` cache |
+| RELAX aligned fusion | `scripts/run_relax_foundation_probe.py` | Aligned cache, labels, windows, masks, and splits |
+| RELAX frozen-feature compression | `scripts/run_relax_compression_fusion_v2.py` | Five-modality protocol, preregistration, fixed cohorts and seeds |
+| RQ2 audit and pipeline | `scripts/run_rq2_wsl.py` | External hand-off and aligned caches |
+| HEALNet prefix inference / replay | `scripts/run_healnet_prefix_inference.py` / `scripts/run_healnet_adaptive_replay.py` | Recorded P009 sessions and frozen model |
 
-详见 [代码地图与协议边界](docs/code-map.md)、[分支整理记录](docs/branch-history.md)、[验证记录](docs/consolidation-validation.md)。
+Model availability depends on the runner. See the [code map and protocol boundaries](docs/code-map.md) for extraction, ablation, audit, and reporting entry points. Supporting consolidation documents are currently in Chinese.
 
-## 安装
+## Experiment workflow
 
-从仓库根目录执行；整理时使用 Linux、Python 3.11 验证。
+1. **Define the experiment:** Select the dataset, target, participant cohort, sample duration, and evaluation split.
+2. **Prepare data:** Check timestamps, channels, signal units, valid windows, and modality availability.
+3. **Prepare representations:** Extract features or load the cache expected by the selected encoder and runner.
+4. **Train and evaluate:** Apply the protocol's splits, masks, seeds, and fusion configuration.
+5. **Audit and report:** Preserve configurations, input identities, predictions, and evaluation outputs.
+
+Cached-feature training and raw-signal extraction have different resource requirements. Some tracks also require external encoder source repositories, pretrained checkpoints, or a hand-off from another project.
+
+## Installation
+
+Run commands from the repository root. The consolidation was validated on Linux with Python 3.11.
 
 ```bash
 python3.11 -m venv .venv
@@ -30,55 +69,66 @@ source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 ```
 
-也可执行 `conda env create -f environment.yml`，然后 `conda activate visphy`。
+Alternatively:
 
-依赖按用途拆分：`requirements.txt` 为缓存特征训练/评估的核心依赖，`requirements-extraction.txt` 加入原始信号处理与模型提取依赖，`requirements-dev.txt` 再加入测试依赖。需要 CUDA 时，先安装与机器匹配的 PyTorch 2.10.0 构建；验证机器使用 `2.10.0+cu128`。
-
-版本来自已有环境的运行验证，尚未在全新环境中完成完整安装验证。预训练编码器的外部源码和权重需要单独准备。原系统 pip 清单及完整 Conda 导出保留在 [历史环境目录](docs/environments/)，不作为当前安装入口。
-
-## 目录、数据和权重
-
-```text
-configs/                # 基础、融合、消融和数据集配置
-src/
-  data/                 # 数据加载、切片、预处理、缓存协议
-  encoders/             # 编码器包装与注册
-  fusion/               # 融合模型、公共工厂与冻结特征压缩
-  models/               # EEG 分类头、LoRA、头动 CNN
-  tasks/                # 任务 head、loss、条件控制
-  trainer/              # LOSO 训练与 early stopping
-  adaptive/             # 前缀推理、控制器与离线回放
-  utils/                # 配置、指标、日志、报告
-scripts/                # 实验入口、调度、审计与报告
-  relax_foundation/     # 早期 RELAX 协议，独立于 aligned runner
-tests/                  # 标准测试套件
-data/
-  datasets/             # egoemotion_raw、relaxdata 等原始数据
-  preprocessed/         # SEED-V 等预处理输出
-  embeddings/           # EgoEmotion / SEED-V 缓存
-weights/                # 外部模型权重
-checkpoints/            # 本项目训练模型
-artifacts/              # RELAX 缓存、协议文件和实验产物
-wsl_results/            # RQ2 WSL 结果
-combined/               # RQ2 汇总报告
+```bash
+conda env create -f environment.yml
+conda activate visphy
 ```
 
-数据、缓存和新实验产物保留本地，不随源码提交。历史 Git 已包含部分 PaPaGei 权重、报告及 `code.zip`；新增忽略规则不会移除这些历史文件。
+| Dependency file | Scope |
+| --- | --- |
+| `requirements.txt` | Core cached-feature training and evaluation |
+| `requirements-extraction.txt` | Core dependencies plus signal processing and feature extraction |
+| `requirements-dev.txt` | Extraction dependencies plus pytest |
 
-- VideoMAE V2 使用 `OpenGVLab/VideoMAEv2-Base` 的远程模型代码和 safetensors 权重，首次使用需要下载或预先准备 Hugging Face 缓存。
-- PaPaGei / Pulse-PPG 默认查找仓库同级的 `papagei-foundation-model/` / `pulseppg/` 源码。
-- EEGPT、REVE、ECGFounder、眼动编码器需要对应权重；路径以配置、构造参数和 CLI 的 `--help` 为准。
-- NeuroRVQ 适配器接收上游源码目录、checkpoint、模态和通道列表。
+For CUDA, install a platform-compatible PyTorch 2.10.0 build first. The validation environment used `2.10.0+cu128`. Dependency versions were checked in an existing environment; a complete fresh installation has not yet been validated. [Historical environment exports](docs/environments/) are retained for reference.
 
-部分历史实验保留 Windows/WSL 默认路径、固定参与者、seed 和校验和。迁移机器时需要检查参数并准备相同输入，不能用不同缓存替代后直接比较结果。
+## Data and pretrained models
 
-## 运行示例
+Prepare the datasets and weights needed for your selected track separately. Local datasets and newly generated caches and outputs are generally ignored by Git. Some PaPaGei weights, reports, and `code.zip` already exist in Git history; ignore rules do not remove historical files.
 
-以下命令需要预先准备数据和缓存，均从仓库根目录执行。各入口支持的参数请先查看 `--help`。
+- **VideoMAE V2:** Uses `OpenGVLab/VideoMAEv2-Base` remote model code and safetensors weights. Prepare a download or an existing Hugging Face cache.
+- **PaPaGei / Pulse-PPG:** Default source locations are sibling repositories named `papagei-foundation-model/` and `pulseppg/`.
+- **EEGPT, REVE, ECGFounder, and eye-tracking encoders:** Prepare the corresponding weights. Paths are defined by configurations, constructor arguments, and CLI options.
+- **NeuroRVQ:** The adapter accepts an upstream source directory, checkpoint, modality, and channel list.
 
-### EgoEmotion：10 秒片段融合
+Some historical runners retain Windows/WSL paths, fixed participants, seeds, or checksums. Inspect the selected configuration and CLI before running. Replacing a cache or cohort changes the experiment and must be recorded.
 
-通过 `scripts/segment_and_extract_10s.py` 生成任务内片段和缓存，适配 `configs/base.yaml` 中的本机路径后运行：
+## Repository layout
+
+```text
+configs/                Dataset, fusion, fine-tuning, and ablation configurations
+src/
+  data/                 Loading, segmentation, preprocessing, and cache protocols
+  encoders/             Pretrained encoder wrappers and registration
+  fusion/               Fusion models, shared factory, and feature compression
+  models/               EEG heads, LoRA components, and head-motion CNN
+  tasks/                Task heads, losses, and condition controls
+  trainer/              LOSO training and early stopping
+  adaptive/             Prefix inference, controllers, and offline replay
+  utils/                Configuration, metrics, logging, and reporting
+scripts/                Runners, extraction, audits, and reports
+  relax_foundation/     Earlier RELAX foundation protocol
+tests/                  Standard test suite
+data/
+  datasets/             Raw datasets, including EgoEmotion and RELAX
+  preprocessed/         Preprocessed signals, including SEED-V
+  embeddings/           EgoEmotion and SEED-V caches
+weights/                External pretrained weights
+checkpoints/            Models trained by this project
+artifacts/              RELAX caches, protocol artifacts, and experiment outputs
+wsl_results/            RQ2 WSL outputs
+combined/               RQ2 combined reports
+```
+
+## Running experiments
+
+These examples require prepared inputs. Paths beginning with `/path/to/` are placeholders. Run each entry point with `--help` to inspect its supported options.
+
+### EgoEmotion: 10-second segment fusion
+
+Prepare task-aware segments and embeddings with `scripts/segment_and_extract_10s.py`, then update local paths in `configs/base.yaml`.
 
 ```bash
 python scripts/run_experiment_10s.py \
@@ -87,7 +137,7 @@ python scripts/run_experiment_10s.py \
   --name ego_10s_early --device cuda
 ```
 
-任务级缓存与 10 秒片段缓存不能混用。PPG 微调和 MM-Lego 预训练有各自入口。
+Task-level caches and 10-second segment caches are not interchangeable. PPG fine-tuning and MM-Lego have separate entry points. The base configuration specifies encoders, projection width, training parameters, loss weights, and output directories.
 
 ### SEED-V
 
@@ -95,9 +145,9 @@ python scripts/run_experiment_10s.py \
 python scripts/run_seedv_experiment.py --config configs/seedv_base.yaml
 ```
 
-先检查配置中的预处理数据、embedding 和权重路径，确认通道与信号单位。`extract_seedv_embeddings.py` / `extract_seedv_reve_embeddings.py` 对应不同编码器；LoRA、微调与消融使用相应 `run_seedv_*` 入口。
+Check preprocessing, embedding, and checkpoint paths, channel order, and signal units first. `extract_seedv_embeddings.py` and `extract_seedv_reve_embeddings.py` serve different encoders. Use the corresponding `run_seedv_*` scripts for LoRA, fine-tuning, fusion, and ablations.
 
-### RELAX：对齐协议
+### RELAX: aligned protocol
 
 ```bash
 python scripts/run_relax_foundation_probe.py \
@@ -110,7 +160,9 @@ python scripts/run_relax_foundation_probe.py \
   --output-dir artifacts/relax/my_aligned_run
 ```
 
-早期 foundation 实验使用独立入口和 `samples` 缓存，不能传入上述对齐缓存：
+Build aligned caches with `scripts/build_relax_alignment_cache.py`. Labels, windows, splits, and masks must match the cache identity.
+
+### RELAX: earlier foundation protocol
 
 ```bash
 python scripts/relax_foundation/run_relax_foundation_probe.py \
@@ -120,9 +172,11 @@ python scripts/relax_foundation/run_relax_foundation_probe.py \
   --output-dir artifacts/relax/foundation_run
 ```
 
-压缩 v1/v2、condition anchor、embedding ladder 是不同实验协议，保留各自运行与评估脚本；详见 [代码地图](docs/code-map.md)。
+This runner expects a top-level `samples` list and `embedding_dims`. The aligned runner expects parallel participant/condition arrays, targets, embeddings, and masks. The formats and runners are incompatible despite their similar names.
 
-### RQ2：先审计交接
+Compression v1/v2, condition-anchor probes, and embedding-ladder experiments also have distinct protocols. Consult the [code map](docs/code-map.md) before reusing artifacts.
+
+### RQ2: audit the hand-off first
 
 ```bash
 python scripts/run_rq2_wsl.py \
@@ -131,23 +185,67 @@ python scripts/run_rq2_wsl.py \
   --output-root wsl_results --audit-only
 ```
 
-删除 `--audit-only` 才会运行后续流水线。审计检查 contract、标签/窗口、folds、anchors、Windows 完成标记和缓存身份；不通过时退出并写错误报告，不会自动重建输入。完整流水线还会向仓库的 `combined/` 写汇总结果。
+The audit checks the contract, labels and windows, folds, anchors, Windows completion markers, and cache identity. Failure produces an error report and exits without rebuilding inputs. Remove `--audit-only` to run the subsequent pipeline after preparing the hand-off. The full pipeline also writes reports into `combined/`.
 
-## 测试
+### HEALNet offline replay
 
-不依赖真实参与者数据或预训练权重的测试：
+Inspect required session and model inputs:
+
+```bash
+python scripts/run_healnet_prefix_inference.py --help
+python scripts/run_healnet_adaptive_replay.py --help
+```
+
+These workflows study adaptive decisions using recorded prefixes and frozen predictions. Replay metrics describe behavior on historical data. Live sensing latency and prospective participant outcomes require separate evaluation.
+
+## Evaluation and reproducibility
+
+Record the following for each experiment:
+
+- Git commit, runner, complete command, and configuration.
+- Dataset version, target definition, cohort, and window policy.
+- Participant splits for training, validation, and testing.
+- Encoder source and checkpoint identities, preprocessing, cache format, and masks.
+- Seeds, required protocol hashes, package versions, and hardware.
+- Per-fold outputs and the aggregation method used in reports.
+
+LOSO holds out a participant for testing in each fold. Segments must follow participant splits; independently splitting correlated segments answers a different generalization question. Use the selected protocol's leakage audits and split checks. Compare fusion with single-modality and condition baselines using matching evaluation rules.
+
+Metrics and report locations vary by track. For example, the EgoEmotion base configuration selects weighted F1 as its primary metric. Scores from different targets, cohorts, or protocols are not directly comparable.
+
+## Tests and validation status
+
+Run tests that do not require real participant data or external pretrained resources:
 
 ```bash
 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
   HF_HUB_OFFLINE=1 python -m pytest -q -m "not external"
 ```
 
-准备好 PaPaGei 源码/权重、ECGFounder 权重和真实 ECG 后，可以运行 `python -m pytest -q`。`external` 标记区分依赖本机资源的检查。测试仅从 `tests/` 收集，产物目录内的临时检查不属于标准套件。
+With the required PaPaGei source/weights, ECGFounder weights, and real ECG available:
 
-测试和 CLI 检查的具体结果见 [验证记录](docs/consolidation-validation.md)。本轮未重跑完整 LOSO 训练或 GPU 特征提取。
+```bash
+python -m pytest -q
+```
 
-## 维护约定
+`pytest.ini` collects the standard suite from `tests/`. Temporary checks in artifact directories are outside that suite. Tests marked `external` require local resources.
 
-公共实现放在 `src/`，实验调度与报告放在 `scripts/`，参数放在 `configs/`。普通训练、10 秒训练和 PPG 微调共用 `src/fusion/factory.py` 的工厂与池化逻辑。旧 CLI 路径及主要导入仍兼容。
+The recorded consolidation validation on **2026-09-11** reported **261 passing tests**, successful source compilation, and successful `--help` checks for 11 entry points. This is a historical result. Full LOSO training, GPU feature extraction, the real external RQ2 pipeline, and online control were outside that validation. See the [validation record](docs/consolidation-validation.md) for details.
 
-历史说明保留在 `docs/superpowers/`、`research-wiki/`、`reports/`、`refactor/`；它们对应当时的研究状态，当前运行以本 README、代码地图和实际 CLI 为入口。
+## Development and maintenance
+
+Place reusable implementations in `src/`, experiment orchestration and reporting in `scripts/`, and parameters in `configs/`. Standard training, 10-second training, and PPG fine-tuning share fusion construction and pooling through `src/fusion/factory.py`.
+
+For new encoders, document expected shapes, temporal sampling, channel order, units, weights, and missing-modality behavior. Preserve existing cache contracts and use a distinct entry point when changing experimental protocols. Add focused validation for substantive behavior changes.
+
+`main` is the integration branch for the consolidated research code. Earlier stages remain accessible through Git history after obsolete branch references are removed. Branch cleanup does not require deleting local datasets or uncommitted work.
+
+## Further documentation
+
+- [Code map and protocol boundaries](docs/code-map.md)
+- [Branch consolidation history](docs/branch-history.md)
+- [Consolidation validation](docs/consolidation-validation.md)
+- [Historical environments](docs/environments/)
+- [Research wiki](research-wiki/), [reports](reports/), and [design notes](docs/superpowers/)
+
+Historical reports describe the research state when written. Start current runs from this README, the code map, and the selected runner's actual arguments.
