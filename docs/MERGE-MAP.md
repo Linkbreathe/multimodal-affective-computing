@@ -82,11 +82,16 @@ assert a is b          # 已验证通过
 
 ## 包内模块对照
 
+下表 162 行覆盖两个原仓库 `src/` 里的每一个模块，新旧两端都已核对存在于磁盘上。
+只有 `mac.adaptive` 和 `mac.utils` 两个 `__init__.py` 不在表中——它们是融合时新写的，
+没有对应的旧 import。
+
 ### `mac.data`
 
 | 来源 | 旧 import | 新 import |
 | --- | --- | --- |
 | RTML | `real_time_ml.data` | `mac.data` |
+| VisPhy | `src.data` | `mac.data` |
 | RTML | `real_time_ml.data.alignment` | `mac.data.alignment` |
 | RTML | `real_time_ml.data.index` | `mac.data.index` |
 | RTML | `real_time_ml.data.io` | `mac.data.io` |
@@ -139,7 +144,7 @@ assert a is b          # 已验证通过
 
 | 来源 | 旧 import | 新 import |
 | --- | --- | --- |
-| VisPhy | `src` | `mac.encoders` |
+| VisPhy | `src.encoders` | `mac.encoders` |
 | VisPhy | `src.encoders.base` | `mac.encoders.base` |
 | VisPhy | `src.encoders.ecgfounder` | `mac.encoders.ecgfounder` |
 | VisPhy | `src.encoders.ecgfounder_model` | `mac.encoders.ecgfounder_model` |
@@ -164,7 +169,7 @@ assert a is b          # 已验证通过
 | RTML | `real_time_ml.modeling.minimal_fusion` | `mac.fusion.minimal_fusion` |
 | RTML | `real_time_ml.modeling.minimal_fusion_dcnn` | `mac.fusion.minimal_fusion_dcnn` |
 | RTML | `real_time_ml.modeling.minimal_fusion_dcnn_hp` | `mac.fusion.minimal_fusion_dcnn_hp` |
-| VisPhy | `src.data` | `mac.fusion` |
+| VisPhy | `src.fusion` | `mac.fusion` |
 | VisPhy | `src.fusion.base` | `mac.fusion.base` |
 | VisPhy | `src.fusion.bottleneck` | `mac.fusion.bottleneck` |
 | VisPhy | `src.fusion.cggm` | `mac.fusion.cggm` |
@@ -204,7 +209,7 @@ assert a is b          # 已验证通过
 
 | 来源 | 旧 import | 新 import |
 | --- | --- | --- |
-| VisPhy | `src.encoders` | `mac.tasks` |
+| VisPhy | `src.tasks` | `mac.tasks` |
 | VisPhy | `src.tasks.heads` | `mac.tasks.heads` |
 | VisPhy | `src.tasks.losses` | `mac.tasks.losses` |
 | VisPhy | `src.tasks.relax_condition_control` | `mac.tasks.relax_condition_control` |
