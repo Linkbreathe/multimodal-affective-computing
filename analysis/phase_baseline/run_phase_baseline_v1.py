@@ -15,13 +15,13 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-
-from real_time_ml.config import load_config  # noqa: E402
-from real_time_ml.data.alignment import condition_boundaries, load_marker_events  # noqa: E402
-from real_time_ml.data.index import build_index  # noqa: E402
-from real_time_ml.data.io import normalize_condition  # noqa: E402
-from real_time_ml.features.physio import EEGMontage, eeg_features, eeg_quality_coverage  # noqa: E402
-from real_time_ml.modeling.condition_models import apply_condition_baseline, condition_baseline  # noqa: E402
+    sys.path.insert(0, str(SRC / "src"))
+from mac.config import load_config  # noqa: E402
+from mac.data.alignment import condition_boundaries, load_marker_events  # noqa: E402
+from mac.data.index import build_index  # noqa: E402
+from mac.data.io import normalize_condition  # noqa: E402
+from mac.features.physio import EEGMontage, eeg_features, eeg_quality_coverage  # noqa: E402
+from mac.models.condition_models import apply_condition_baseline, condition_baseline  # noqa: E402
 
 
 DEFAULT_PARTICIPANTS = ("P003", "P007", "P008", "P009", "P011", "P013", "P015")

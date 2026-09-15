@@ -7,13 +7,13 @@ from pathlib import Path
 import numpy as np
 import yaml
 
-from real_time_ml.adaptive_control.contracts import AdaptiveReadinessSnapshot, ControlProfile, json_bytes
-from real_time_ml.adaptive_control.models import RealtimeMultimodalWindowAdapter
-from real_time_ml.adaptive_control.physio_monitor import build_physio_snapshot, downsample_values, summarize_values
-from real_time_ml.adaptive_control.policy import ControlEstimate, AdaptiveControlPolicy
-from real_time_ml.cli import build_parser
-from real_time_ml.config import load_config
-from real_time_ml.modeling.realtime_multimodal import (
+from mac.adaptive.control.contracts import AdaptiveReadinessSnapshot, ControlProfile, json_bytes
+from mac.adaptive.control.models import RealtimeMultimodalWindowAdapter
+from mac.adaptive.control.physio_monitor import build_physio_snapshot, downsample_values, summarize_values
+from mac.adaptive.control.policy import ControlEstimate, AdaptiveControlPolicy
+from mac.cli import build_parser
+from mac.config import load_config
+from mac.models.realtime_multimodal import (
     fit_realtime_multimodal_window_model,
     realtime_multimodal_feature_columns,
 )

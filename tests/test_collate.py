@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.data.collate import collate_embeddings
+from mac.data.collate import collate_embeddings
 
 def test_collate_pooled():
     batch = [

@@ -18,8 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
-
-
+    sys.path.insert(0, str(SRC_ROOT / "src"))
 TARGETS = ("relaxation", "discomfort")
 CONDITIONS = tuple(f"C{index}" for index in range(1, 10))
 INFERENCE_UNIT = "participant_condition"

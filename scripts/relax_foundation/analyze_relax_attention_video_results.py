@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from scripts.relax_foundation.analyze_relax_claim_validation import (  # noqa: E402
     KEY_COLUMNS,
@@ -20,8 +21,8 @@ from scripts.relax_foundation.analyze_relax_claim_validation import (  # noqa: E
     participant_cluster_stats,
 )
 from scripts.relax_foundation.run_relax_attention_video_experiments import VARIANT_MODALITIES  # noqa: E402
-from src.data.relax_foundation import RelaxHardFailure, write_json  # noqa: E402
-from src.tasks.relaxation import compute_relax_regression_metrics  # noqa: E402
+from mac.data.relax_foundation import RelaxHardFailure, write_json  # noqa: E402
+from mac.tasks.relaxation import compute_relax_regression_metrics  # noqa: E402
 
 
 MODALITY_VARIANTS = {modalities: variant for variant, modalities in VARIANT_MODALITIES.items()}

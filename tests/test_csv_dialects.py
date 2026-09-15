@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from real_time_ml.data.io import iter_csv, parse_float, sniff_csv
+from mac.data.io import iter_csv, parse_float, sniff_csv
 
 
 def test_sep_comma(tmp_path: Path):

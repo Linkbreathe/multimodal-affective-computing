@@ -29,10 +29,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(PROJECT_ROOT)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
+    sys.path.insert(0, str(PROJECT_ROOT / "src"))
 from scripts.extract_seedv_embeddings import extract_embeddings  # noqa: E402
 from scripts.run_seedv_experiment import load_embeddings, run_loso  # noqa: E402
-from src.data.seedv_preprocessing import preprocess_seedv  # noqa: E402
+from mac.preprocessing.seedv import preprocess_seedv  # noqa: E402
 
 log = logging.getLogger(__name__)
 

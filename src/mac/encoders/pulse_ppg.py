@@ -25,18 +25,19 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from src.encoders.base import BaseEncoder
+from mac.encoders.base import BaseEncoder
 
 log = logging.getLogger(__name__)
 
 # Path to cloned pulseppg repo (sibling of our project's parent)
-_PULSEPPG_REPO = Path(__file__).resolve().parents[3] / "pulseppg"
+_PULSEPPG_REPO = Path(__file__).resolve().parents[4] / "pulseppg"
 
 
 def _load_net_class():
     """Import Net (ResNet1D) from the pulseppg repo."""
     if str(_PULSEPPG_REPO) not in sys.path:
         sys.path.insert(0, str(_PULSEPPG_REPO))
+        sys.path.insert(0, str(_PULSEPPG_REPO / "src"))
     try:
         from pulseppg.nets.ResNet1D.ResNet1D_Net import Net
         return Net

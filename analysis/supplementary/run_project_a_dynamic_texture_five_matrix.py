@@ -21,13 +21,13 @@ sys.path.insert(0, str(ROOT / "src"))
 import pandas as pd
 import yaml
 
-from real_time_ml.config import load_config_layers
-from real_time_ml.evaluation.alignment import file_sha256, validate_alignment_contract
-from real_time_ml.experiments.dynamic_texture_five import (
+from mac.config import load_config_layers
+from mac.evaluation.alignment import file_sha256, validate_alignment_contract
+from mac.experiments.dynamic_texture_five import (
     run_classical_dynamic_texture,
     run_paired_dcnn_dynamic_texture,
 )
-from real_time_ml.utils import write_json
+from mac.utils import write_json
 
 
 MODELS = ("classical", "1dcnn")
@@ -301,10 +301,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "cuda_preflight": cuda,
         "code_sha256": {
             "dynamic_texture.py": file_sha256(
-                ROOT / "src" / "real_time_ml" / "features" / "dynamic_texture.py"
+                ROOT / "src" / "mac" / "features" / "dynamic_texture.py"
             ),
             "dynamic_texture_five.py": file_sha256(
-                ROOT / "src" / "real_time_ml" / "experiments" / "dynamic_texture_five.py"
+                ROOT / "src" / "mac" / "experiments" / "dynamic_texture_five.py"
             ),
             "matrix.py": file_sha256(Path(__file__).resolve()),
         },

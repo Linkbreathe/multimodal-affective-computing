@@ -14,7 +14,7 @@ from math import isfinite
 from statistics import median
 from typing import Any, Mapping
 
-from src.adaptive.condition_grid import (
+from mac.adaptive.offline.condition_grid import (
     action_name,
     adjacent_conditions,
     coordinates,

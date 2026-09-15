@@ -16,8 +16,8 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
-
-from src.data.relax_foundation import (  # noqa: E402
+sys.path.insert(0, str(REPO_ROOT / "src"))
+from mac.data.relax_foundation import (  # noqa: E402
     EEG_DISABLED_PARTICIPANTS,
     RELAX_EEG_RUN_TAG,
     RELAX_EEG_XDF_COLUMNS,
@@ -52,11 +52,11 @@ def rebuild(
     _copy_run_inputs(source_run, destination_run)
     sys.path.insert(0, str(relax_model_src))
 
-    from real_time_ml.data.tables import write_parquet_if_available
-    from real_time_ml.features.extract import _load_physio
-    from real_time_ml.features.physio import eeg_features, eeg_quality_coverage
-    from real_time_ml.modeling.condition_data import aggregate_window_frame
-    from real_time_ml.eeg_contract import (
+    from mac.data.tables import write_parquet_if_available
+    from mac.features.extract import _load_physio
+    from mac.features.physio import eeg_features, eeg_quality_coverage
+    from mac.data.condition_data import aggregate_window_frame
+    from mac.eeg_contract import (
         RELAX_EEG_MONTAGE as MODEL_MONTAGE,
         RELAX_EEG_XDF_COLUMNS as MODEL_XDF_COLUMNS,
         relax_eeg_contract_payload as model_contract_payload,

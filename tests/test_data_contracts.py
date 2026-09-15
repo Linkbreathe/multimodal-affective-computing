@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from real_time_ml.config import load_config
-from real_time_ml.data.io import condition_parameters, normalize_condition, normalize_participant_id, resolve_video_path
-from real_time_ml.data.labels import parse_condition_labels
+from mac.config import load_config
+from mac.data.io import condition_parameters, normalize_condition, normalize_participant_id, resolve_video_path
+from mac.data.labels import parse_condition_labels
 
 
 def test_id_normalization_special_cases():

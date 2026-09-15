@@ -13,9 +13,10 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from src.data.relax_foundation import RelaxHardFailure, write_json  # noqa: E402
-from src.tasks.relaxation import compute_relax_regression_metrics  # noqa: E402
+from mac.data.relax_foundation import RelaxHardFailure, write_json  # noqa: E402
+from mac.tasks.relaxation import compute_relax_regression_metrics  # noqa: E402
 
 
 KEY_COLUMNS = ["participant_id", "condition"]

@@ -19,9 +19,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from scripts.relax_foundation.relax_suite_common import validate_job_output  # noqa: E402
-from src.data.relax_foundation import RELAX_EEG_MONTAGE, RELAX_EEG_RUN_TAG  # noqa: E402
+from mac.data.relax_foundation import RELAX_EEG_MONTAGE, RELAX_EEG_RUN_TAG  # noqa: E402
 
 
 TARGETS = ("relaxation", "discomfort")

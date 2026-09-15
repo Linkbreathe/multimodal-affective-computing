@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.utils import atomic_write_text, write_json
+from mac.config import ProjectConfig
+from mac.utils import atomic_write_text, write_json
 
 
 def _metric(result: dict[str, Any]) -> dict[str, Any]:

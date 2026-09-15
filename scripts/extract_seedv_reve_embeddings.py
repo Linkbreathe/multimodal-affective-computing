@@ -33,7 +33,7 @@ def _build_encoder(
     pos_bank_path: str = "weights/reve/reve_positions.safetensors",
 ):
     """Instantiate frozen ReveEncoder and move to *device*."""
-    from src.encoders.reve import ReveEncoder
+    from mac.encoders.reve import ReveEncoder
 
     encoder = ReveEncoder(
         weights_path=weights_path,

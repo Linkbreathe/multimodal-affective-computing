@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from real_time_ml.cli import build_parser
-from real_time_ml.config import ProjectConfig, load_config
-from real_time_ml.modeling import minimal_fusion_dcnn
-from real_time_ml.modeling.minimal_fusion import COMBINATIONS, FEATURES_PER_MODALITY, MODALITY_ORDER
+from mac.cli import build_parser
+from mac.config import ProjectConfig, load_config
+from mac.models import minimal_fusion_dcnn
+from mac.fusion.minimal_fusion import COMBINATIONS, FEATURES_PER_MODALITY, MODALITY_ORDER
 
 
 torch = pytest.importorskip("torch")

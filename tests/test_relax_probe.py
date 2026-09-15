@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import torch
 
-from src.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset, relax_condition_collate
-from src.models.head_motion_1dcnn import HeadMotion1DCNN
-from src.tasks.relaxation import RelaxFusionRegressor, create_relax_fusion
+from mac.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset, relax_condition_collate
+from mac.models.head_motion_1dcnn import HeadMotion1DCNN
+from mac.tasks.relaxation import RelaxFusionRegressor, create_relax_fusion
 
 
 def test_relax_condition_collate_pads_embedding_and_raw_head_sequences():

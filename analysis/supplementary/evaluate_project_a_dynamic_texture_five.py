@@ -25,16 +25,16 @@ from sklearn.metrics import balanced_accuracy_score, confusion_matrix, f1_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from real_time_ml.evaluation.alignment import file_sha256, validate_alignment_contract
-from real_time_ml.evaluation.dynamic_texture_five import (
+from mac.evaluation.alignment import file_sha256, validate_alignment_contract
+from mac.evaluation.dynamic_texture_five import (
     TARGETS,
     assert_saved_metrics,
     paired_holm_families,
     seed_averaged_participant_errors,
     validate_normalized_oof,
 )
-from real_time_ml.experiments.dynamic_texture_five import project_b_style_metrics
-from real_time_ml.utils import write_json
+from mac.experiments.dynamic_texture_five import project_b_style_metrics
+from mac.utils import write_json
 
 
 SEEDS = (20260705, 20260706, 20260707)
@@ -1738,13 +1738,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "source_hashes": expected_sources,
         "code_sha256": {
             "dynamic_texture_extractor": file_sha256(
-                ROOT / "src" / "real_time_ml" / "features" / "dynamic_texture.py"
+                ROOT / "src" / "mac" / "features" / "dynamic_texture.py"
             ),
             "project_a_models": file_sha256(
-                ROOT / "src" / "real_time_ml" / "experiments" / "dynamic_texture_five.py"
+                ROOT / "src" / "mac" / "experiments" / "dynamic_texture_five.py"
             ),
             "paired_statistics": file_sha256(
-                ROOT / "src" / "real_time_ml" / "evaluation" / "dynamic_texture_five.py"
+                ROOT / "src" / "mac" / "evaluation" / "dynamic_texture_five.py"
             ),
             "matrix_entrypoint": file_sha256(
                 ROOT / "analysis" / "supplementary" / "run_project_a_dynamic_texture_five_matrix.py"

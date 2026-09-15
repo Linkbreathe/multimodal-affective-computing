@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from real_time_ml.data.io import iter_csv, normalize_condition, normalize_participant_id, parse_float, sniff_csv
+from mac.data.io import iter_csv, normalize_condition, normalize_participant_id, parse_float, sniff_csv
 
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -12,7 +12,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 from scripts.run_relax_condition_anchor_probe import (
     CANDIDATES,
     Candidate,

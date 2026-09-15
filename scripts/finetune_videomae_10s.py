@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import cv2
 import numpy as np
@@ -31,14 +32,14 @@ from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from src.data.video_transforms import (
+from mac.data.video_transforms import (
     CLIP_LEN,
     make_consecutive_clips,
     normalize_clip,
     preprocess_frame,
     read_frames,
 )
-from src.utils.metrics import compute_class_weights
+from mac.evaluation.metrics import compute_class_weights
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("finetune")

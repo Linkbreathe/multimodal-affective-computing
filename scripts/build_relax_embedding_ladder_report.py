@@ -10,7 +10,7 @@ from typing import Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import matplotlib
 
 matplotlib.use("Agg")

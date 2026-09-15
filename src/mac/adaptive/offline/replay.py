@@ -7,8 +7,8 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from src.adaptive.condition_grid import level_record
-from src.adaptive.controller import AdaptiveController
+from mac.adaptive.offline.condition_grid import level_record
+from mac.adaptive.offline.controller import AdaptiveController
 
 
 RATING_FIELDS = (

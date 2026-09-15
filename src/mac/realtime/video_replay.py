@@ -6,8 +6,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.realtime.replay import replay
+from mac.config import ProjectConfig
+from mac.realtime.replay import replay
 
 
 def _visual_config(config: ProjectConfig, model_dir: Path, backend: str) -> ProjectConfig:

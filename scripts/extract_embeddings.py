@@ -8,14 +8,15 @@ from pathlib import Path
 
 # Ensure project root is on path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import torch
 import cv2
 
-from src.data.video_transforms import make_consecutive_clips, preprocess_frame, normalize_clip
-from src.encoders.extract import EmbeddingExtractor
-from src.utils.config import load_config, config_hash
+from mac.data.video_transforms import make_consecutive_clips, preprocess_frame, normalize_clip
+from mac.encoders.extract import EmbeddingExtractor
+from mac.config.simple import load_config, config_hash
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ log = logging.getLogger(__name__)
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--config", default="configs/egoemotion.yaml")
     parser.add_argument("--encoder", choices=["video_mae_v2", "patchtst_eye", "papagei_ppg", "all"])
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
@@ -53,7 +54,7 @@ def main() -> None:
 
 
 def _extract_video(extractor: EmbeddingExtractor, device: str) -> None:
-    from src.encoders.video_mae import VideoMAEV2Encoder
+    from mac.encoders.video_mae import VideoMAEV2Encoder
 
     encoder = VideoMAEV2Encoder().to(device)
 
@@ -99,7 +100,7 @@ def _extract_video(extractor: EmbeddingExtractor, device: str) -> None:
 def _extract_eye_tracking(
     extractor: EmbeddingExtractor, cfg: dict, device: str
 ) -> None:
-    from src.encoders.patchtst import PatchTSTEncoder
+    from mac.encoders.patchtst import PatchTSTEncoder
     import os
 
     encoder = PatchTSTEncoder(
@@ -144,7 +145,7 @@ def _extract_eye_tracking(
 
 
 def _extract_ppg(extractor: EmbeddingExtractor, device: str) -> None:
-    from src.encoders.papagei import PapageiEncoder
+    from mac.encoders.papagei import PapageiEncoder
 
     encoder = PapageiEncoder().to(device)
 

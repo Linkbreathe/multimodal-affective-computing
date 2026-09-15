@@ -14,7 +14,7 @@ from typing import Any, Iterable
 import numpy as np
 import pandas as pd
 
-from src.encoders.reve_pos_bank import electrode_list
+from mac.encoders.reve_pos_bank import electrode_list
 
 
 PARTICIPANTS: tuple[str, ...] = tuple(f"P{i:03d}" for i in range(2, 17))
@@ -351,7 +351,7 @@ def validate_phase0_inputs(
         resolved_eeg_pos_bank = None
 
     try:
-        from src.fusion.multimodal_lego import MultimodalLegoFusion  # noqa: F401
+        from mac.fusion.multimodal_lego import MultimodalLegoFusion  # noqa: F401
     except Exception as error:  # pragma: no cover - import error is the audit payload
         errors.append(f"MM-Lego implementation unavailable: {error}")
 

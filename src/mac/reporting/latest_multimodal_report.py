@@ -9,8 +9,8 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.utils import atomic_write_text
+from mac.config import ProjectConfig
+from mac.utils import atomic_write_text
 
 
 REPORT_FILENAME = "latest_multimodal_evidence_zh.md"

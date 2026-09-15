@@ -10,13 +10,13 @@ import pytest
 
 from scripts.relax_foundation.analyze_relax_attention_video_results import _decision, _render_report, assert_prediction_alignment
 from scripts.relax_foundation.run_relax_attention_video_experiments import build_attention_video_jobs
-from src.data.relax_attention_video import (
+from mac.data.relax_attention_video import (
     AttentionVideoConfig,
     RelaxAttentionVideoExtractor,
     apply_gaze_heatmap,
     project_gaze_to_frame,
 )
-from src.data.relax_foundation import DERIVED_MODALITIES, MODALITIES, RelaxHardFailure, assert_relax_modalities
+from mac.data.relax_foundation import DERIVED_MODALITIES, MODALITIES, RelaxHardFailure, assert_relax_modalities
 
 
 def test_attention_video_is_allowed_but_not_default_relax_modality():

@@ -20,9 +20,9 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from real_time_ml.data.video import load_video_index, uniform_clip_frames
-from real_time_ml.evaluation.alignment import load_split_manifest, validate_alignment_contract
-from real_time_ml.modeling.condition_data import aggregate_window_frame
+from mac.data.video import load_video_index, uniform_clip_frames
+from mac.evaluation.alignment import load_split_manifest, validate_alignment_contract
+from mac.data.condition_data import aggregate_window_frame
 
 
 KEYS = ["participant_id", "condition", "condition_window_index"]

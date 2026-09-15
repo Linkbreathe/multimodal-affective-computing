@@ -7,13 +7,13 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.features.eye import eye_features
-from real_time_ml.features.head import head_features
-from real_time_ml.features.physio import EEGMontage, StreamingPhysioProcessor
-from real_time_ml.realtime.cycle import TenSecondCycleClock, TimeBuffer
-from real_time_ml.realtime.engine import InferenceEngine
-from real_time_ml.utils import write_jsonl
+from mac.config import ProjectConfig
+from mac.features.eye import eye_features
+from mac.features.head import head_features
+from mac.features.physio import EEGMontage, StreamingPhysioProcessor
+from mac.realtime.cycle import TenSecondCycleClock, TimeBuffer
+from mac.realtime.engine import InferenceEngine
+from mac.utils import write_jsonl
 
 
 def _make_processor(config: ProjectConfig, participant_id: str | None) -> StreamingPhysioProcessor:

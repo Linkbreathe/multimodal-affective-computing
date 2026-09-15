@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from real_time_ml.data.alignment import ConditionBoundary, make_windows
-from real_time_ml.realtime.cycle import TenSecondCycleClock
-from real_time_ml.schema import ConditionRecommendation, StatePrediction, validate_message
+from mac.data.alignment import ConditionBoundary, make_windows
+from mac.realtime.cycle import TenSecondCycleClock
+from mac.schema import ConditionRecommendation, StatePrediction, validate_message
 
 
 def test_windows_drop_tail_and_weights_sum_one():

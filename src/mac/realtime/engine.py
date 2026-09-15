@@ -3,16 +3,16 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.dcnn import MODEL_KIND, load_dcnn_state_model, predict_dcnn_state
-from real_time_ml.modeling.video_dcnn import VIDEO_MODEL_KIND, load_video_dcnn_model, predict_video_dcnn_state
-from real_time_ml.modeling.video_ridge import VIDEO_RIDGE_KIND
-from real_time_ml.modeling.train import load_state_model, predict_state
-from real_time_ml.modeling.condition_data import aggregate_realtime_history
-from real_time_ml.modeling.condition_train import predict_condition_risk
-from real_time_ml.modeling.safety import deployment_guard
-from real_time_ml.policy.recommender import SafetyPolicy
-from real_time_ml.schema import ConditionRecommendation, StatePrediction
+from mac.config import ProjectConfig
+from mac.models.dcnn import MODEL_KIND, load_dcnn_state_model, predict_dcnn_state
+from mac.models.video_dcnn import VIDEO_MODEL_KIND, load_video_dcnn_model, predict_video_dcnn_state
+from mac.models.video_ridge import VIDEO_RIDGE_KIND
+from mac.training.train import load_state_model, predict_state
+from mac.data.condition_data import aggregate_realtime_history
+from mac.training.condition_train import predict_condition_risk
+from mac.evaluation.safety import deployment_guard
+from mac.realtime.policy.recommender import SafetyPolicy
+from mac.schema import ConditionRecommendation, StatePrediction
 
 
 def _load_runtime_state_model(path, config: ProjectConfig) -> dict[str, Any]:
@@ -117,7 +117,7 @@ class InferenceEngine:
             if bundle.get("model_kind") in {"condition_residual_ensemble_v1", VIDEO_RIDGE_KIND}:
                 static = {"condition": condition}
                 if condition:
-                    from real_time_ml.data.io import condition_parameters
+                    from mac.data.io import condition_parameters
 
                     static.update(condition_parameters(condition, list(self.config.get("conditions.intensities")), list(self.config.get("conditions.frequencies"))))
                 active_features = aggregate_realtime_history(history, bundle["feature_columns"], static)

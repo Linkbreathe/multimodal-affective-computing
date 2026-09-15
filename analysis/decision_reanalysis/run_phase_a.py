@@ -40,8 +40,8 @@ from common import (
     write_text,
 )
 
-from real_time_ml.config import load_config
-from real_time_ml.modeling.condition_train import train_condition_state
+from mac.config import load_config
+from mac.training.condition_train import train_condition_state
 
 
 def parse_args() -> argparse.Namespace:

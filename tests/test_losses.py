@@ -1,6 +1,6 @@
 import pytest
 import torch
-from src.tasks.losses import WeightedCELoss, SoftLabelKLLoss, CCCLoss, MultiTaskLoss
+from mac.tasks.losses import WeightedCELoss, SoftLabelKLLoss, CCCLoss, MultiTaskLoss
 
 
 def test_weighted_ce_loss():
@@ -63,7 +63,7 @@ def test_multitask_loss():
     assert "vad" in breakdown
 
 
-from src.tasks.heads import MultiTaskHead
+from mac.tasks.heads import MultiTaskHead
 
 def test_multitask_head_shapes():
     head = MultiTaskHead(d_fused=256, num_emotions=9, num_vad=3)

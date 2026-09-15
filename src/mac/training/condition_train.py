@@ -8,23 +8,23 @@ from typing import Any
 import numpy as np
 from scipy.stats import spearmanr
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.evaluation.alignment import (
+from mac.config import ProjectConfig
+from mac.evaluation.alignment import (
     indexes_for_fold,
     load_split_manifest,
     validate_alignment_contract,
     write_alignment_manifest,
 )
-from real_time_ml.modeling.condition_data import STATIC_COLUMNS, build_condition_dataset
-from real_time_ml.modeling.condition_models import (
+from mac.data.condition_data import STATIC_COLUMNS, build_condition_dataset
+from mac.models.condition_models import (
     ModelSpec,
     apply_condition_baseline,
     condition_baseline,
     make_regression_pipeline,
     make_risk_pipeline,
 )
-from real_time_ml.modeling.groups import is_model_feature_allowed
-from real_time_ml.utils import write_json
+from mac.models.groups import is_model_feature_allowed
+from mac.utils import write_json
 
 
 TARGETS = ("relaxation", "discomfort")

@@ -1,0 +1,83 @@
+# Merged from both source repositories. Where a rule was anchored to the old
+# repository root it stays anchored here, because both trees now share this root.
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+.pytest-tmp*/
+
+# --- Environments ---
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# --- Local data, caches and generated outputs ---
+/data/datasets/
+/data/preprocessed/
+/data/embeddings/
+runs/
+logs/
+checkpoints/
+/combined/
+/representation_audit/
+/wsl_results/
+/*.zip
+/xaa
+
+# Generated experiment outputs. The few artifacts that are deliberately
+# versioned are re-included below.
+artifacts/*
+**/artifacts/
+!artifacts/.gitkeep
+!artifacts/legacy/
+!artifacts/legacy/README.md
+!artifacts/legacy/manifest.json
+!artifacts/models/
+!artifacts/reports/
+
+# Generated reports, except the curated ones carried over from the merge.
+reports/
+!reports/final_comprehensive_report.md
+!reports/final_comprehensive_report_zh.md
+!reports/pipeline_report.md
+
+# Downloaded pretrained weights stay local, except the PaPaGei checkpoints
+# that were already versioned before the merge.
+weights/
+!weights/papagei/
+
+# --- Configuration that is workstation-specific ---
+configs/local.yaml
+
+# --- Reference material not carried in Git ---
+papers/
+Auxiliary/archive/
+/src/mac/features.zip
+
+# --- Editors and OS metadata ---
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Claude Code local state, except the checked-in commands carried over.
+.claude/
+!.claude/commands/

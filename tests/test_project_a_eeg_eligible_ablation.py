@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from real_time_ml.evaluation.alignment import validate_alignment_contract
-from real_time_ml.modeling.condition_train import _variant_columns as classical_variant_columns
-from real_time_ml.modeling.dcnn import _variant_columns as dcnn_variant_columns
+from mac.evaluation.alignment import validate_alignment_contract
+from mac.training.condition_train import _variant_columns as classical_variant_columns
+from mac.models.dcnn import _variant_columns as dcnn_variant_columns
 
 
 ROOT = Path(__file__).resolve().parents[1]

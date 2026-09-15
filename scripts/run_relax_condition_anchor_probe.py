@@ -23,7 +23,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import joblib
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ from scripts.run_relax_foundation_probe import (
     _metrics,
     file_sha256,
 )
-from src.data.relax_dataset import RelaxConditionEmbeddingDataset
+from mac.data.relax_dataset import RelaxConditionEmbeddingDataset
 
 
 ALLOWED_SEEDS = (20260705, 20260706, 20260707)

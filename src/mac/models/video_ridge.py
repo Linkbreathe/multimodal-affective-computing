@@ -7,10 +7,10 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.condition_data import STATIC_COLUMNS, build_condition_dataset
-from real_time_ml.modeling.safety import deployment_guard
-from real_time_ml.utils import write_json
+from mac.config import ProjectConfig
+from mac.data.condition_data import STATIC_COLUMNS, build_condition_dataset
+from mac.evaluation.safety import deployment_guard
+from mac.utils import write_json
 
 
 VIDEO_RIDGE_KIND = "video_condition_ridge_v1"

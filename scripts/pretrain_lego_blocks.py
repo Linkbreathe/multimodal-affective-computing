@@ -2,16 +2,17 @@
 import sys, argparse, logging
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from src.data.segments import SegmentExtractor
-from src.data.label_builder import build_label_mapping
-from src.fusion.multimodal_lego import LegoBlock
-from src.utils.config import load_config
+from mac.data.segments import SegmentExtractor
+from mac.data.label_builder import build_label_mapping
+from mac.fusion.multimodal_lego import LegoBlock
+from mac.config.simple import load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -194,7 +195,7 @@ def pretrain_one_modality(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--config", default="configs/egoemotion.yaml")
     parser.add_argument("--fusion_config", default="configs/fusion/multimodal_lego.yaml")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--save_dir", default="checkpoints/lego_blocks")
@@ -202,7 +203,7 @@ def main():
 
     cfg = load_config(args.config)
     fcfg = load_config(args.fusion_config)
-    from src.utils.config import merge_configs
+    from mac.config.simple import merge_configs
     cfg = merge_configs(cfg, fcfg)
 
     device = args.device if torch.cuda.is_available() else "cpu"

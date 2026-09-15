@@ -15,7 +15,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 from analysis.supplementary.run_attended_video_preview import (  # noqa: E402
     _current_gaze,
     _estimate_vmax,
@@ -36,9 +36,9 @@ from analysis.supplementary.run_gaze_heatmap_pilot import (  # noqa: E402
     load_viewing_gaze,
 )
 from analysis.supplementary.run_gaze_heatmap_video import _build_formal_timeline  # noqa: E402
-from real_time_ml.features.common import robust_stats, safe_divide  # noqa: E402
-from real_time_ml.modeling import minimal_fusion as fusion  # noqa: E402
-from real_time_ml.data.io import normalize_participant_id  # noqa: E402
+from mac.features.common import robust_stats, safe_divide  # noqa: E402
+from mac.models import minimal_fusion as fusion  # noqa: E402
+from mac.data.io import normalize_participant_id  # noqa: E402
 
 
 DEFAULT_BASE_FEATURES = ROOT / "artifacts" / "features" / "video_ml" / "condition_features.csv"

@@ -4,9 +4,9 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.train import _dependencies
-from real_time_ml.utils import write_json
+from mac.config import ProjectConfig
+from mac.training.train import _dependencies
+from mac.utils import write_json
 
 
 POLICY_FEATURES = [
@@ -42,7 +42,7 @@ def train_policy(config: ProjectConfig) -> dict[str, Any]:
     targets = list(config.get("modeling.targets"))
     frame = make_policy_table(frame.dropna(subset=targets), targets)
     groups = frame["participant_id"].astype(str).to_numpy()
-    estimator, grid = __import__("real_time_ml.modeling.train", fromlist=["_candidate"])._candidate(
+    estimator, grid = __import__("mac.models.train", fromlist=["_candidate"])._candidate(
         "extra_trees", int(config.get("modeling.random_seed")), deps
     )
     splits = min(int(config.get("modeling.inner_cv_splits")), len(np.unique(groups)))

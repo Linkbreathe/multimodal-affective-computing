@@ -1,8 +1,8 @@
 import pytest
-from src.utils.config import load_config, merge_configs, config_hash
+from mac.config.simple import load_config, merge_configs, config_hash
 
 def test_load_base_config():
-    cfg = load_config("configs/base.yaml")
+    cfg = load_config("configs/egoemotion.yaml")
     assert "seed" in cfg
     assert "data_dir" in cfg
     assert "modalities" in cfg

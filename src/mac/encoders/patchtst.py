@@ -10,7 +10,7 @@ import math
 import torch
 import torch.nn as nn
 
-from src.encoders.base import BaseEncoder
+from mac.encoders.base import BaseEncoder
 
 
 class PatchTSTEncoder(BaseEncoder):

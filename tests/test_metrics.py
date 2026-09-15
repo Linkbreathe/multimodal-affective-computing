@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import torch
-from src.utils.metrics import weighted_f1_score, concordance_correlation_coefficient, compute_class_weights
+from mac.evaluation.metrics import weighted_f1_score, concordance_correlation_coefficient, compute_class_weights
 
 def test_weighted_f1_perfect():
     y_true = np.array([0, 1, 2, 0, 1, 2])

@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from real_time_ml.cli import build_parser
-from real_time_ml.config import ProjectConfig, load_config
-from real_time_ml.modeling import minimal_fusion_dcnn, minimal_fusion_dcnn_hp
-from real_time_ml.modeling.latest_multimodal_report import write_latest_multimodal_report
+from mac.cli import build_parser
+from mac.config import ProjectConfig, load_config
+from mac.models import minimal_fusion_dcnn, minimal_fusion_dcnn_hp
+from mac.reporting.latest_multimodal_report import write_latest_multimodal_report
 
 
 torch = pytest.importorskip("torch")

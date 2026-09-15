@@ -1,0 +1,32 @@
+# Merged environment for the classical / runtime core.
+#
+# The pretrained-encoder and fusion stack lives in the `dl` extra. Install a
+# platform-appropriate PyTorch build first, then `pip install -e ".[dl,viz]"`.
+# The VideoMAE v2 research environment stays separate in
+# environment-videomae2.yml: it pins timm 0.4.12, which cannot coexist with the
+# timm 1.x that the encoder stack needs.
+name: mac
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - pyarrow
+  - pyyaml
+  - openpyxl
+  - mne
+  - scikit-learn
+  - joblib
+  - opencv
+  - matplotlib
+  - seaborn
+  - pytest
+  - pip:
+      - pyxdf>=1.16,<2
+      - pylsl>=1.16,<2
+      - neurokit2>=0.2.7,<1
+      - ahrs>=0.3.1,<1
+      - -e .[dev]

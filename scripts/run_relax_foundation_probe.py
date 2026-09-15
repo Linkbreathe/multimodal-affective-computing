@@ -17,14 +17,14 @@ from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 import pandas as pd
 import torch
 
-from src.data.relax_dataset import RelaxConditionEmbeddingDataset
-from src.fusion.late import LateFusion
-from src.fusion.projector import ModalityProjector
+from mac.data.relax_dataset import RelaxConditionEmbeddingDataset
+from mac.fusion.late import LateFusion
+from mac.fusion.projector import ModalityProjector
 
 
 TARGETS = ("relaxation", "discomfort")
@@ -361,7 +361,7 @@ class AlignedLateRegressor(torch.nn.Module):
 
 def _native_fusion(args: argparse.Namespace, modalities: tuple[str, ...]) -> torch.nn.Module:
     if args.fusion == "early":
-        from src.fusion.early import EarlyFusion
+        from mac.fusion.early import EarlyFusion
 
         return EarlyFusion(
             d_common=args.d_common,
@@ -370,7 +370,7 @@ def _native_fusion(args: argparse.Namespace, modalities: tuple[str, ...]) -> tor
             d_out=args.d_common,
         )
     if args.fusion == "mid":
-        from src.fusion.mid import MidFusion
+        from mac.fusion.mid import MidFusion
 
         return MidFusion(
             d_common=args.d_common,
@@ -379,7 +379,7 @@ def _native_fusion(args: argparse.Namespace, modalities: tuple[str, ...]) -> tor
             d_out=args.d_common,
         )
     if args.fusion == "qformer":
-        from src.fusion.qformer import QFormerFusion
+        from mac.fusion.qformer import QFormerFusion
 
         return QFormerFusion(
             d_common=args.d_common,
@@ -391,7 +391,7 @@ def _native_fusion(args: argparse.Namespace, modalities: tuple[str, ...]) -> tor
             dropout=args.dropout,
         )
     if args.fusion == "healnet":
-        from src.fusion.healnet import HEALNetFusion
+        from mac.fusion.healnet import HEALNetFusion
 
         return HEALNetFusion(
             d_common=args.d_common,
@@ -402,7 +402,7 @@ def _native_fusion(args: argparse.Namespace, modalities: tuple[str, ...]) -> tor
             dropout=args.dropout,
         )
     if args.fusion == "mm_lego":
-        from src.fusion.multimodal_lego import MultimodalLegoFusion
+        from mac.fusion.multimodal_lego import MultimodalLegoFusion
 
         return MultimodalLegoFusion(
             d_common=args.d_common,

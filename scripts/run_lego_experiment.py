@@ -11,20 +11,21 @@ Usage:
 import sys, argparse, logging
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from src.data.segments import SegmentExtractor
-from src.data.label_builder import build_label_mapping
-from src.fusion.multimodal_lego import LegoBlock, MultimodalLegoFusion
-from src.utils.config import load_config, merge_configs, config_hash
-from src.utils.metrics import weighted_f1_score, compute_class_weights
-from src.utils.logging_setup import setup_logging
-from src.utils.reporting import generate_report
-from src.utils.registry import ResultsRegistry
+from mac.data.segments import SegmentExtractor
+from mac.data.label_builder import build_label_mapping
+from mac.fusion.multimodal_lego import LegoBlock, MultimodalLegoFusion
+from mac.config.simple import load_config, merge_configs, config_hash
+from mac.evaluation.metrics import weighted_f1_score, compute_class_weights
+from mac.utils.logging_setup import setup_logging
+from mac.reporting.experiment import generate_report
+from mac.reporting.registry import ResultsRegistry
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fusion")
@@ -423,7 +424,7 @@ def _fuse_forward(blocks, embeddings, modality_names, mode):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--config", default="configs/egoemotion.yaml")
     parser.add_argument("--fusion_config", default="configs/fusion/multimodal_lego.yaml")
     parser.add_argument("--mode", required=True,
                        choices=["merge-sum", "merge-product", "merge-mean", "merge-harmonic",

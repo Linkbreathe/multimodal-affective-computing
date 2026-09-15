@@ -21,11 +21,11 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.index import build_index
-from real_time_ml.data.io import iter_csv, parse_float, resolve_video_path, sniff_csv
-from real_time_ml.data.tables import write_rows
-from real_time_ml.utils import file_sha256, write_json
+from mac.config import ProjectConfig
+from mac.data.index import build_index
+from mac.data.io import iter_csv, parse_float, resolve_video_path, sniff_csv
+from mac.data.tables import write_rows
+from mac.utils import file_sha256, write_json
 
 
 FRAME_NAME = re.compile(r"^frame_(\d+)\.jpg$", re.IGNORECASE)

@@ -3,12 +3,12 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.alignment import condition_boundaries, load_marker_events, make_windows, marker_alignment_qc
-from real_time_ml.data.index import build_index
-from real_time_ml.data.labels import parse_condition_labels
-from real_time_ml.data.tables import write_parquet_if_available, write_rows
-from real_time_ml.utils import atomic_write_text, write_json
+from mac.config import ProjectConfig
+from mac.data.alignment import condition_boundaries, load_marker_events, make_windows, marker_alignment_qc
+from mac.data.index import build_index
+from mac.data.labels import parse_condition_labels
+from mac.data.tables import write_parquet_if_available, write_rows
+from mac.utils import atomic_write_text, write_json
 
 
 def preprocess(config: ProjectConfig, participants: list[str] | None = None) -> dict[str, Any]:

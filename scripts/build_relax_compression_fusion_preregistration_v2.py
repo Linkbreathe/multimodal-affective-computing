@@ -16,7 +16,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import pandas as pd
 
 from scripts.run_relax_foundation_probe import file_sha256

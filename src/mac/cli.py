@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.config import load_config, load_config_layers
-from real_time_ml.reporting import write_run_summary
+from mac.config import load_config, load_config_layers
+from mac.reporting import write_run_summary
 
 
 def _participants(value: str | None) -> list[str] | None:
@@ -129,31 +129,31 @@ def main(argv: list[str] | None = None) -> int:
         config = load_config(args.config)
     selected = _participants(getattr(args, "participants", None))
     if args.command == "index":
-        from real_time_ml.data.index import build_index
+        from mac.data.index import build_index
 
         result = {"participants": build_index(config, selected)}
     elif args.command == "preprocess":
-        from real_time_ml.preprocessing.pipeline import preprocess
+        from mac.preprocessing.pipeline import preprocess
 
         result = preprocess(config, selected)
     elif args.command == "extract-features":
-        from real_time_ml.features.extract import extract_features
+        from mac.features.extract import extract_features
 
         result = extract_features(config, selected, include_video=not args.no_video)
     elif args.command == "build-video-mp4":
-        from real_time_ml.data.video import build_video_mp4s
+        from mac.data.video import build_video_mp4s
 
         result = build_video_mp4s(config, selected, force=args.force, ffmpeg=args.ffmpeg)
     elif args.command == "extract-handcrafted-video":
-        from real_time_ml.features.egocentric import extract_handcrafted_egocentric_features
+        from mac.features.egocentric import extract_handcrafted_egocentric_features
 
         result = extract_handcrafted_egocentric_features(config, selected)
     elif args.command == "extract-videomae2":
-        from real_time_ml.features.videomae2 import extract_videomae2_embeddings
+        from mac.features.videomae2 import extract_videomae2_embeddings
 
         result = extract_videomae2_embeddings(config, selected, force=args.force)
     elif args.command == "extract-dynamic-texture":
-        from real_time_ml.features.dynamic_texture import extract_dynamic_texture_features
+        from mac.features.dynamic_texture import extract_dynamic_texture_features
 
         result = extract_dynamic_texture_features(
             config,
@@ -164,47 +164,47 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
         )
     elif args.command == "train-video-ml":
-        from real_time_ml.modeling.video_train import train_handcrafted_video_ml
+        from mac.training.video_train import train_handcrafted_video_ml
 
         result = train_handcrafted_video_ml(config)
     elif args.command == "train-videomae2-dcnn":
-        from real_time_ml.modeling.video_dcnn import train_videomae2_dcnn
+        from mac.models.video_dcnn import train_videomae2_dcnn
 
         result = train_videomae2_dcnn(config)
     elif args.command == "report-video-fusion":
-        from real_time_ml.modeling.video_report import write_egocentric_video_report
+        from mac.reporting.video_report import write_egocentric_video_report
 
         result = write_egocentric_video_report(config)
     elif args.command == "train-video-relaxation-ml":
-        from real_time_ml.modeling.video_train import train_handcrafted_video_relaxation_ml
+        from mac.training.video_train import train_handcrafted_video_relaxation_ml
 
         result = train_handcrafted_video_relaxation_ml(config)
     elif args.command == "train-videomae2-relaxation":
-        from real_time_ml.modeling.video_dcnn import train_videomae2_relaxation
+        from mac.models.video_dcnn import train_videomae2_relaxation
 
         result = train_videomae2_relaxation(config)
     elif args.command == "report-video-relaxation":
-        from real_time_ml.modeling.video_report import write_video_relaxation_report
+        from mac.reporting.video_report import write_video_relaxation_report
 
         result = write_video_relaxation_report(config)
     elif args.command == "train-videomae2-video-encoder-ablation":
-        from real_time_ml.modeling.video_dcnn import train_videomae2_video_encoder_ablation
+        from mac.models.video_dcnn import train_videomae2_video_encoder_ablation
 
         result = train_videomae2_video_encoder_ablation(config)
     elif args.command == "report-videomae2-video-encoder-ablation":
-        from real_time_ml.modeling.video_encoder_report import write_videomae2_video_encoder_ablation_report
+        from mac.reporting.video_encoder_report import write_videomae2_video_encoder_ablation_report
 
         result = write_videomae2_video_encoder_ablation_report(config)
     elif args.command == "benchmark-minimal-fusion":
-        from real_time_ml.experiments import benchmark_minimal_fusion
+        from mac.experiments import benchmark_minimal_fusion
 
         result = benchmark_minimal_fusion(config)
     elif args.command == "benchmark-minimal-fusion-dcnn":
-        from real_time_ml.experiments import benchmark_minimal_fusion_dcnn
+        from mac.experiments import benchmark_minimal_fusion_dcnn
 
         result = benchmark_minimal_fusion_dcnn(config)
     elif args.command == "analyze-minimal-fusion-dcnn-hp":
-        from real_time_ml.experiments import analyze_minimal_fusion_dcnn_hp
+        from mac.experiments import analyze_minimal_fusion_dcnn_hp
 
         audit = analyze_minimal_fusion_dcnn_hp(config)
         result = {
@@ -219,46 +219,46 @@ def main(argv: list[str] | None = None) -> int:
             }
         }
     elif args.command == "report-latest-multimodal":
-        from real_time_ml.modeling.latest_multimodal_report import write_latest_multimodal_report
+        from mac.reporting.latest_multimodal_report import write_latest_multimodal_report
 
         result = write_latest_multimodal_report(config)
     elif args.command == "report":
         result = write_run_summary(config)
     elif args.command == "train-state":
-        from real_time_ml.training import train_state
+        from mac.training import train_state
 
         result = train_state(config)
     elif args.command == "train-realtime-multimodal-window":
-        from real_time_ml.training import train_realtime_multimodal_window_model
+        from mac.training import train_realtime_multimodal_window_model
 
         result = train_realtime_multimodal_window_model(config)
     elif args.command == "train-dcnn-state":
-        from real_time_ml.training import train_dcnn_state
+        from mac.training import train_dcnn_state
 
         result = train_dcnn_state(config)
     elif args.command == "train-policy":
-        from real_time_ml.training import train_policy
+        from mac.training import train_policy
 
         result = train_policy(config)
     elif args.command == "evaluate":
-        from real_time_ml.evaluation import evaluate
+        from mac.evaluation import evaluate
 
         result = evaluate(config)
     elif args.command == "replay":
-        from real_time_ml.realtime.replay import replay
+        from mac.realtime.replay import replay
 
         result = replay(config, selected, args.output)
     elif args.command == "replay-video":
-        from real_time_ml.realtime.video_replay import replay_visual_model
+        from mac.realtime.video_replay import replay_visual_model
 
         result = replay_visual_model(config, args.backend, selected, args.output)
     elif args.command == "serve":
-        from real_time_ml.realtime.serve import serve
+        from mac.realtime.serve import serve
 
         result = serve(config, args.max_cycles)
     elif args.command == "adaptive-control":
-        from real_time_ml.adaptive_control.service import serve_adaptive_control
-        from real_time_ml.adaptive_control.settings import load_adaptive_control_settings
+        from mac.adaptive.control.service import serve_adaptive_control
+        from mac.adaptive.control.settings import load_adaptive_control_settings
 
         control_settings = load_adaptive_control_settings(args.control_config)
         try:
@@ -280,8 +280,8 @@ def main(argv: list[str] | None = None) -> int:
             })
             return 2
     elif args.command == "adaptive-model":
-        from real_time_ml.adaptive_control.service import list_models, verify_model
-        from real_time_ml.adaptive_control.settings import load_adaptive_control_settings
+        from mac.adaptive.control.service import list_models, verify_model
+        from mac.adaptive.control.settings import load_adaptive_control_settings
 
         settings = load_adaptive_control_settings(args.control_config)
         if args.action == "list":
@@ -296,12 +296,12 @@ def main(argv: list[str] | None = None) -> int:
                 "descriptor": report.descriptor.__dict__,
             }
     elif args.command == "run-all":
-        from real_time_ml.data.index import build_index
-        from real_time_ml.features.extract import extract_features
-        from real_time_ml.preprocessing.pipeline import preprocess
-        from real_time_ml.realtime.replay import replay
-        from real_time_ml.training import train_policy, train_state
-        from real_time_ml.evaluation import evaluate
+        from mac.data.index import build_index
+        from mac.features.extract import extract_features
+        from mac.preprocessing.pipeline import preprocess
+        from mac.realtime.replay import replay
+        from mac.training import train_policy, train_state
+        from mac.evaluation import evaluate
 
         steps: dict[str, Any] = {}
         steps["index"] = {"participants": len(build_index(config, selected))}

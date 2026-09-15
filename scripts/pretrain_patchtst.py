@@ -8,12 +8,13 @@ from pathlib import Path
 
 # Ensure project root is on path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from src.encoders.patchtst import PatchTSTEncoder, PatchTSTPreTrainer
+from mac.encoders.patchtst import PatchTSTEncoder, PatchTSTPreTrainer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)

@@ -14,9 +14,9 @@ from scipy import stats
 
 sys.path.insert(0, str(Path("src").resolve()))
 
-from real_time_ml.config import load_config  # noqa: E402
-from real_time_ml.modeling.dcnn import _architecture, _device, _torch, _validation_indexes  # noqa: E402
-from real_time_ml.modeling.minimal_fusion import (  # noqa: E402
+from mac.config import load_config  # noqa: E402
+from mac.models.dcnn import _architecture, _device, _torch, _validation_indexes  # noqa: E402
+from mac.fusion.minimal_fusion import (  # noqa: E402
     FEATURES_PER_MODALITY,
     HIGH_DISCOMFORT_PREDICTION_THRESHOLD,
     HIGH_DISCOMFORT_TRUTH_THRESHOLD,
@@ -25,7 +25,7 @@ from real_time_ml.modeling.minimal_fusion import (  # noqa: E402
     _condition_baseline,
     _history_baseline,
 )
-from real_time_ml.modeling.minimal_fusion_dcnn import (  # noqa: E402
+from mac.fusion.minimal_fusion_dcnn import (  # noqa: E402
     SOURCE_RELATIVE_PATH,
     _combine_selected_features,
     _fit_sequence_scaler,

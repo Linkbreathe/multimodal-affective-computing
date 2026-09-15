@@ -18,12 +18,12 @@ from statsmodels.stats.multitest import multipletests
 
 sys.path.insert(0, str(Path("src").resolve()))
 
-from real_time_ml.config import load_config  # noqa: E402
-from real_time_ml.data.alignment import load_marker_events  # noqa: E402
-from real_time_ml.data.index import build_index  # noqa: E402
-from real_time_ml.data.io import normalize_condition  # noqa: E402
-from real_time_ml.features.extract import extract_features  # noqa: E402
-from real_time_ml.modeling.condition_data import aggregate_window_frame  # noqa: E402
+from mac.config import load_config  # noqa: E402
+from mac.data.alignment import load_marker_events  # noqa: E402
+from mac.data.index import build_index  # noqa: E402
+from mac.data.io import normalize_condition  # noqa: E402
+from mac.features.extract import extract_features  # noqa: E402
+from mac.data.condition_data import aggregate_window_frame  # noqa: E402
 
 
 ROOT = Path(".")

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from scripts.segment_and_extract_10s import resolve_encoder_dirs
-from src.encoders.registry import ModalityRegistry
+from mac.encoders.registry import ModalityRegistry
 
 
 def test_10s_extraction_writes_manifest_hash_to_embedding_payloads():

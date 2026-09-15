@@ -10,12 +10,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from src.tasks.heads import MultiTaskHead
-from src.tasks.losses import DirichletKLLoss, MultiTaskLoss
-from src.fusion.base import BaseFusionModule
-from src.fusion.cggm import CGGMModule
-from src.trainer.early_stopping import EarlyStopping
-from src.utils.metrics import (
+from mac.tasks.heads import MultiTaskHead
+from mac.tasks.losses import DirichletKLLoss, MultiTaskLoss
+from mac.fusion.base import BaseFusionModule
+from mac.fusion.cggm import CGGMModule
+from mac.training.early_stopping import EarlyStopping
+from mac.evaluation.metrics import (
     weighted_f1_score,
     concordance_correlation_coefficient,
     compute_class_weights,

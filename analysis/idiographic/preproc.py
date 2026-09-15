@@ -19,7 +19,7 @@ from typing import Any
 import numpy as np
 from scipy import signal, stats
 
-from real_time_ml.features.common import hjorth, spectral_entropy, safe_divide
+from mac.features.common import hjorth, spectral_entropy, safe_divide
 
 from analysis.idiographic import common as C
 

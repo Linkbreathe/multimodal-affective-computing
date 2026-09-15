@@ -13,16 +13,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.data.io import condition_parameters
-from real_time_ml.modeling.condition_data import aggregate_realtime_history
-from real_time_ml.modeling.realtime_multimodal import (
+from mac.data.io import condition_parameters
+from mac.data.condition_data import aggregate_realtime_history
+from mac.models.realtime_multimodal import (
     ADAPTER_ID as REALTIME_MULTIMODAL_ADAPTER_ID,
     MODEL_KIND as REALTIME_MULTIMODAL_MODEL_KIND,
     SUPERVISION as REALTIME_MULTIMODAL_SUPERVISION,
     feature_modalities,
     validate_realtime_feature_columns,
 )
-from real_time_ml.modeling.train import load_state_model, predict_state
+from mac.training.train import load_state_model, predict_state
 
 from .contracts import ControlProfile
 from .policy import ControlEstimate

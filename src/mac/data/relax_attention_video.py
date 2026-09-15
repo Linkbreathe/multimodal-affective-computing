@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from src.data.relax_foundation import RelaxHardFailure
-from src.data.video_transforms import normalize_clip, preprocess_frame
+from mac.data.relax_foundation import RelaxHardFailure
+from mac.data.video_transforms import normalize_clip, preprocess_frame
 
 
 @dataclass(frozen=True)

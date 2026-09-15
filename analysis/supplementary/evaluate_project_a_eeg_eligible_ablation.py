@@ -29,7 +29,7 @@ from evaluate_aligned_comparison import (
     _seed_metrics,
     _write_forest,
 )
-from real_time_ml.evaluation.alignment import load_split_manifest, validate_alignment_contract
+from mac.evaluation.alignment import load_split_manifest, validate_alignment_contract
 
 
 MODELS = ("classical", "dcnn")

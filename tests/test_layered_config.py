@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from real_time_ml.config import load_config, load_config_layers
-from real_time_ml.cli import main
-from real_time_ml.reporting import write_run_summary
+from mac.config import load_config, load_config_layers
+from mac.cli import main
+from mac.reporting import write_run_summary
 
 
 def _write(path: Path, text: str) -> Path:

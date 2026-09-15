@@ -19,29 +19,29 @@ from typing import Any, Iterable
 import numpy as np
 from scipy.stats import pearsonr, spearmanr
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.evaluation.alignment import (
+from mac.config import ProjectConfig
+from mac.evaluation.alignment import (
     AlignedFold,
     file_sha256,
     indexes_for_fold,
     load_split_manifest,
     validate_alignment_contract,
 )
-from real_time_ml.features.dynamic_texture import DYNAMIC_TEXTURE_COLUMNS
-from real_time_ml.modeling.condition_data import build_condition_dataset
-from real_time_ml.modeling.condition_models import (
+from mac.features.dynamic_texture import DYNAMIC_TEXTURE_COLUMNS
+from mac.data.condition_data import build_condition_dataset
+from mac.models.condition_models import (
     ModelSpec,
     apply_condition_baseline,
     condition_baseline,
 )
-from real_time_ml.modeling.condition_train import (
+from mac.training.condition_train import (
     _feature_columns as classical_feature_columns,
     _fit_target_models,
     _predict_target_models,
     _rank_regression_on_validation,
 )
-from real_time_ml.modeling.dcnn import _variant_columns as native_dcnn_columns
-from real_time_ml.utils import write_json
+from mac.models.dcnn import _variant_columns as native_dcnn_columns
+from mac.utils import write_json
 
 
 TARGETS = ("relaxation", "discomfort")

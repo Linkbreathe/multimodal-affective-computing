@@ -13,11 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
-
-from real_time_ml.config import load_config  # noqa: E402
-from real_time_ml.data.index import build_index  # noqa: E402
-from real_time_ml.features.extract import _load_physio  # noqa: E402
-from real_time_ml.modeling.condition_data import aggregate_window_frame  # noqa: E402
+    sys.path.insert(0, str(SRC / "src"))
+from mac.config import load_config  # noqa: E402
+from mac.data.index import build_index  # noqa: E402
+from mac.features.extract import _load_physio  # noqa: E402
+from mac.data.condition_data import aggregate_window_frame  # noqa: E402
 
 
 OUTPUT_DIR = ROOT / "artifacts" / "features" / "ecg_neurokit"

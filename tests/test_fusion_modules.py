@@ -1,9 +1,9 @@
 import pytest
 import torch
-from src.fusion.base import BaseFusionModule
-from src.fusion.projector import ModalityProjector
-from src.fusion.early import EarlyFusion
-from src.fusion.mid import MidFusion
+from mac.fusion.base import BaseFusionModule
+from mac.fusion.projector import ModalityProjector
+from mac.fusion.early import EarlyFusion
+from mac.fusion.mid import MidFusion
 
 def test_base_fusion_is_abstract():
     with pytest.raises(TypeError):
@@ -69,11 +69,11 @@ def test_mlp_fusions_accept_single_sample_batches_in_train_mode(fusion, embeddin
 # --- Mid Fusion Tests ---
 
 try:
-    from src.fusion.mid import MidFusion
+    from mac.fusion.mid import MidFusion
 except ImportError:
     MidFusion = None
 
-@pytest.mark.skipif(MidFusion is None, reason="src.fusion.mid not yet implemented")
+@pytest.mark.skipif(MidFusion is None, reason="mac.fusion.mid not yet implemented")
 def test_mid_fusion_shape():
     fusion = MidFusion(d_common=256, modality_ids=["video", "eye", "ppg"], dropout=0.1)
     embeddings = [torch.randn(4, 256) for _ in range(3)]
@@ -84,18 +84,18 @@ def test_mid_fusion_shape():
 # --- Late Fusion Tests ---
 
 try:
-    from src.fusion.late import LateFusion
+    from mac.fusion.late import LateFusion
 except ImportError:
     LateFusion = None
 
-@pytest.mark.skipif(LateFusion is None, reason="src.fusion.late not yet implemented")
+@pytest.mark.skipif(LateFusion is None, reason="mac.fusion.late not yet implemented")
 def test_late_fusion_avg():
     fusion = LateFusion(d_common=256, num_modalities=3, mode="average")
     embeddings = [torch.randn(4, 256) for _ in range(3)]
     out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
     assert out.shape == (4, 256)
 
-@pytest.mark.skipif(LateFusion is None, reason="src.fusion.late not yet implemented")
+@pytest.mark.skipif(LateFusion is None, reason="mac.fusion.late not yet implemented")
 def test_late_fusion_weighted():
     fusion = LateFusion(d_common=256, num_modalities=3, mode="weighted")
     embeddings = [torch.randn(4, 256) for _ in range(3)]
@@ -103,7 +103,7 @@ def test_late_fusion_weighted():
     assert out.shape == (4, 256)
 
 
-@pytest.mark.skipif(LateFusion is None, reason="src.fusion.late not yet implemented")
+@pytest.mark.skipif(LateFusion is None, reason="mac.fusion.late not yet implemented")
 def test_late_fusion_branches_follow_modality_names_not_input_order():
     torch.manual_seed(7)
     fusion = LateFusion(
@@ -125,12 +125,12 @@ def test_late_fusion_branches_follow_modality_names_not_input_order():
 # --- TMC Fusion Tests ---
 
 try:
-    from src.fusion.tmc import TMCFusion
+    from mac.fusion.tmc import TMCFusion
 except ImportError:
     TMCFusion = None
 
 
-@pytest.mark.skipif(TMCFusion is None, reason="src.fusion.tmc not yet implemented")
+@pytest.mark.skipif(TMCFusion is None, reason="mac.fusion.tmc not yet implemented")
 def test_tmc_fusion_branches_follow_modality_names_not_input_order():
     torch.manual_seed(11)
     fusion = TMCFusion(
@@ -151,7 +151,7 @@ def test_tmc_fusion_branches_follow_modality_names_not_input_order():
 
 # --- Perceiver IO Fusion Tests ---
 
-from src.fusion.perceiver_io import PerceiverIOFusion
+from mac.fusion.perceiver_io import PerceiverIOFusion
 
 def test_perceiver_io_pooled():
     fusion = PerceiverIOFusion(d_common=256, n_latents=32, n_layers=2, n_heads=4)
@@ -170,18 +170,18 @@ def test_perceiver_io_sequential():
 # --- Q-Former Fusion Tests ---
 
 try:
-    from src.fusion.qformer import QFormerFusion
+    from mac.fusion.qformer import QFormerFusion
 except ImportError:
     QFormerFusion = None
 
-@pytest.mark.skipif(QFormerFusion is None, reason="src.fusion.qformer not yet implemented")
+@pytest.mark.skipif(QFormerFusion is None, reason="mac.fusion.qformer not yet implemented")
 def test_qformer_pooled():
     fusion = QFormerFusion(d_common=256, n_queries=16, n_layers=2, n_heads=4)
     embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
     out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
     assert out.shape == (4, 256)
 
-@pytest.mark.skipif(QFormerFusion is None, reason="src.fusion.qformer not yet implemented")
+@pytest.mark.skipif(QFormerFusion is None, reason="mac.fusion.qformer not yet implemented")
 def test_qformer_sequential():
     fusion = QFormerFusion(d_common=256, n_queries=16, n_layers=2, n_heads=4)
     embeddings = [torch.randn(4, 10, 256), torch.randn(4, 20, 256)]
@@ -193,18 +193,18 @@ def test_qformer_sequential():
 # --- HEALNet Fusion Tests ---
 
 try:
-    from src.fusion.healnet import HEALNetFusion
+    from mac.fusion.healnet import HEALNetFusion
 except ImportError:
     HEALNetFusion = None
 
-@pytest.mark.skipif(HEALNetFusion is None, reason="src.fusion.healnet not yet implemented")
+@pytest.mark.skipif(HEALNetFusion is None, reason="mac.fusion.healnet not yet implemented")
 def test_healnet_pooled():
     fusion = HEALNetFusion(d_common=256, memory_size=16, n_layers=2, n_heads=4, num_modalities=3)
     embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
     out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
     assert out.shape == (4, 256)
 
-@pytest.mark.skipif(HEALNetFusion is None, reason="src.fusion.healnet not yet implemented")
+@pytest.mark.skipif(HEALNetFusion is None, reason="mac.fusion.healnet not yet implemented")
 def test_healnet_missing_modality():
     fusion = HEALNetFusion(d_common=256, memory_size=16, n_layers=2, n_heads=4, num_modalities=3)
     embeddings = [torch.randn(4, 256), torch.randn(4, 256)]
@@ -215,25 +215,25 @@ def test_healnet_missing_modality():
 # --- Custom Topology Fusion Tests (renamed from old MultimodalLegoFusion) ---
 
 try:
-    from src.fusion.multimodal_lego import CustomTopologyFusion
+    from mac.fusion.multimodal_lego import CustomTopologyFusion
 except ImportError:
     CustomTopologyFusion = None
 
-@pytest.mark.skipif(CustomTopologyFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(CustomTopologyFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_custom_topology_pairwise():
     fusion = CustomTopologyFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="pairwise", n_heads=4)
     embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
     out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
     assert out.shape == (4, 256)
 
-@pytest.mark.skipif(CustomTopologyFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(CustomTopologyFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_custom_topology_hierarchical():
     fusion = CustomTopologyFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="hierarchical", n_heads=4)
     embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
     out = fusion(embeddings, modality_ids=["video", "eye", "ppg"])
     assert out.shape == (4, 256)
 
-@pytest.mark.skipif(CustomTopologyFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(CustomTopologyFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_custom_topology_gated():
     fusion = CustomTopologyFusion(d_common=256, modality_ids=["video", "eye", "ppg"], topology="gated", n_heads=4)
     embeddings = [torch.randn(4, 256), torch.randn(4, 256), torch.randn(4, 256)]
@@ -244,7 +244,7 @@ def test_custom_topology_gated():
 # --- Multimodal Lego Fusion Tests (paper-faithful implementation) ---
 
 try:
-    from src.fusion.multimodal_lego import MultimodalLegoFusion
+    from mac.fusion.multimodal_lego import MultimodalLegoFusion
 except ImportError:
     MultimodalLegoFusion = None
 
@@ -254,7 +254,7 @@ LEGO_LC = 32   # latent channels (smaller for tests)
 LEGO_LD = 64   # latent dim
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_merge_sum():
     fusion = MultimodalLegoFusion(
         d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-sum",
@@ -265,7 +265,7 @@ def test_lego_merge_sum():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_merge_product():
     fusion = MultimodalLegoFusion(
         d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-product",
@@ -276,7 +276,7 @@ def test_lego_merge_product():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_merge_mean():
     fusion = MultimodalLegoFusion(
         d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-mean",
@@ -287,7 +287,7 @@ def test_lego_merge_mean():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_merge_harmonic_2mod():
     mods_2 = ["video", "ppg"]
     fusion = MultimodalLegoFusion(
@@ -300,7 +300,7 @@ def test_lego_merge_harmonic_2mod():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_merge_harmonic_3mod():
     fusion = MultimodalLegoFusion(
         d_common=LEGO_D, modality_ids=LEGO_MODS, mode="merge-harmonic",
@@ -311,7 +311,7 @@ def test_lego_merge_harmonic_3mod():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_fuse_stack():
     fusion = MultimodalLegoFusion(
         d_common=LEGO_D, modality_ids=LEGO_MODS, mode="fuse-stack",
@@ -322,7 +322,7 @@ def test_lego_fuse_stack():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_fuse_weave():
     fusion = MultimodalLegoFusion(
         d_common=LEGO_D, modality_ids=LEGO_MODS, mode="fuse-weave",
@@ -333,7 +333,7 @@ def test_lego_fuse_weave():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_sequential_input():
     """Test with sequential (3D) embeddings from encoders."""
     fusion = MultimodalLegoFusion(
@@ -350,7 +350,7 @@ def test_lego_sequential_input():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_no_frequency_domain():
     """Test with frequency_domain=False (spatial-only mode)."""
     fusion = MultimodalLegoFusion(
@@ -363,7 +363,7 @@ def test_lego_no_frequency_domain():
     assert out.shape == (4, LEGO_LD)
 
 
-@pytest.mark.skipif(MultimodalLegoFusion is None, reason="src.fusion.multimodal_lego not yet implemented")
+@pytest.mark.skipif(MultimodalLegoFusion is None, reason="mac.fusion.multimodal_lego not yet implemented")
 def test_lego_gradient_flow():
     """Verify gradients propagate through the fusion module."""
     fusion = MultimodalLegoFusion(

@@ -2,11 +2,11 @@ import pytest
 import torch
 import torch.nn as nn
 from scripts.run_experiment import ProjectedFusion
-from src.trainer.early_stopping import EarlyStopping
-from src.trainer.fusion_trainer import FusionTrainer
-from src.fusion.base import BaseFusionModule
-from src.fusion.projector import ModalityProjector
-from src.tasks.heads import MultiTaskHead
+from mac.training.early_stopping import EarlyStopping
+from mac.training.fusion_trainer import FusionTrainer
+from mac.fusion.base import BaseFusionModule
+from mac.fusion.projector import ModalityProjector
+from mac.tasks.heads import MultiTaskHead
 
 def test_early_stopping_improves():
     es = EarlyStopping(patience=3, mode="max")

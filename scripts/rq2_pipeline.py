@@ -2011,7 +2011,7 @@ def run_pipeline(
 class FrozenHealNetRegressor(nn.Module):
     def __init__(self, input_dimensions: Mapping[str, int], modalities: Sequence[str]) -> None:
         super().__init__()
-        from src.fusion.healnet import HEALNetFusion
+        from mac.fusion.healnet import HEALNetFusion
 
         self.modalities = tuple(modalities)
         self.projectors = nn.ModuleDict({modality: nn.Linear(int(input_dimensions[modality]), 256) for modality in modalities})

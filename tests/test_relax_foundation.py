@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data.relax_foundation import (
+from mac.data.relax_foundation import (
     CONDITIONS,
     EEG_DISABLED_PARTICIPANTS,
     RelaxHardFailure,
@@ -16,7 +16,7 @@ from src.data.relax_foundation import (
     select_high_quality_pilot,
     validate_phase0_inputs,
 )
-from src.tasks.relaxation import random_9_condition_baseline
+from mac.tasks.relaxation import random_9_condition_baseline
 
 
 def _write_relax_tables(root, participants=("P003", "P004", "P015")):

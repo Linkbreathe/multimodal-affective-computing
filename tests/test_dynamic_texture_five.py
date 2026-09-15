@@ -5,7 +5,7 @@ from copy import deepcopy
 import numpy as np
 import pytest
 
-from real_time_ml.experiments.dynamic_texture_five import (
+from mac.experiments.dynamic_texture_five import (
     MODALITIES,
     audit_video_gate,
     make_five_branch_model,

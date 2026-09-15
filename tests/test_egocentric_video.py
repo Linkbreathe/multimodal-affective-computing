@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from real_time_ml.config import ProjectConfig, load_config
-from real_time_ml.data.video import load_video_index, sample_window_frames, uniform_clip_frames
-from real_time_ml.modeling.video_dcnn import (
+from mac.config import ProjectConfig, load_config
+from mac.data.video import load_video_index, sample_window_frames, uniform_clip_frames
+from mac.models.video_dcnn import (
     _fit_scaler,
     _transform,
     build_video_sequences,

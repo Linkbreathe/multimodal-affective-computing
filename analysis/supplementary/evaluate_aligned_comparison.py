@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr, spearmanr
 
-from real_time_ml.evaluation.alignment import load_split_manifest, validate_alignment_contract
+from mac.evaluation.alignment import load_split_manifest, validate_alignment_contract
 
 
 TARGETS = ("relaxation", "discomfort")

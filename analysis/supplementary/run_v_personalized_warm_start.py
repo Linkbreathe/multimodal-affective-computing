@@ -13,8 +13,8 @@ from scipy.stats import pearsonr, spearmanr
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
-from real_time_ml.data.io import normalize_participant_id  # noqa: E402
+sys.path.insert(0, str(ROOT / "src"))
+from mac.data.io import normalize_participant_id  # noqa: E402
 
 
 DEFAULT_BASE_FEATURES = ROOT / "artifacts" / "features" / "ecg_neurokit" / "condition_features.csv"

@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.utils import atomic_write_text
+from mac.config import ProjectConfig
+from mac.utils import atomic_write_text
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:

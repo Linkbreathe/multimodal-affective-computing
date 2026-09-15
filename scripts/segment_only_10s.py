@@ -14,11 +14,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import pandas as pd
 
-from src.utils.config import load_config
+from mac.config.simple import load_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -197,7 +198,7 @@ def validate_boundaries(chunks: list[dict], signal_len_90hz: int) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    cfg = load_config("configs/base.yaml")
+    cfg = load_config("configs/egoemotion.yaml")
     data_dir = Path(cfg["data_dir"])
     output_dir = Path("data/preprocessed/segmentation_10s_task_aware")
 

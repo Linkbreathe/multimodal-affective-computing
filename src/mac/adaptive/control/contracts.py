@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.data.io import normalize_condition
+from mac.data.io import normalize_condition
 
 
 PROTOCOL_VERSION = "adaptive-control-v1"

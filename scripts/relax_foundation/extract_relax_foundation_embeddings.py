@@ -24,8 +24,9 @@ import torch
 import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from src.data.relax_foundation import (  # noqa: E402
+from mac.data.relax_foundation import (  # noqa: E402
     CONDITIONS,
     EEG_DISABLED_PARTICIPANTS,
     MODALITIES,
@@ -43,7 +44,7 @@ from src.data.relax_foundation import (  # noqa: E402
     validate_phase0_inputs,
     write_json,
 )
-from src.data.relax_attention_video import (  # noqa: E402
+from mac.data.relax_attention_video import (  # noqa: E402
     AttentionVideoConfig,
     RelaxAttentionVideoExtractor,
 )
@@ -678,7 +679,7 @@ class RelaxWindowEmbeddingExtractor:
 
     def _load_ecg_encoder(self):
         if self._ecg_encoder is None:
-            from src.encoders.ecgfounder import ECGFounderEncoder
+            from mac.encoders.ecgfounder import ECGFounderEncoder
 
             self._ecg_encoder = ECGFounderEncoder(weights_path=self.ecg_weights).to(self.device)
             self._ecg_encoder.eval()
@@ -686,7 +687,7 @@ class RelaxWindowEmbeddingExtractor:
 
     def _load_eye_encoder(self):
         if self._eye_encoder is None:
-            from src.encoders.inceptiontime import InceptionTimeGazeEncoder
+            from mac.encoders.inceptiontime import InceptionTimeGazeEncoder
 
             encoder = InceptionTimeGazeEncoder().to(self.device)
             weights = Path(self.eye_weights)
@@ -699,7 +700,7 @@ class RelaxWindowEmbeddingExtractor:
 
     def _load_video_encoder(self):
         if self._video_encoder is None:
-            from src.encoders.video_mae import VideoMAEV2Encoder
+            from mac.encoders.video_mae import VideoMAEV2Encoder
 
             encoder = VideoMAEV2Encoder().to(self.device)
             encoder.eval()
@@ -771,7 +772,7 @@ class RelaxWindowEmbeddingExtractor:
 
     def _extract_video_clip(self, paths: list[Path]) -> torch.Tensor:
         import cv2
-        from src.data.video_transforms import normalize_clip, preprocess_frame
+        from mac.data.video_transforms import normalize_clip, preprocess_frame
 
         frames = []
         for path in paths:
@@ -784,8 +785,8 @@ class RelaxWindowEmbeddingExtractor:
         return normalize_clip(np.stack(frames, axis=0))
 
     def run(self) -> dict[str, Any]:
-        import real_time_ml.data.video as relax_video
-        from real_time_ml.features.extract import NUMERIC_FIELDS, _load_log_rows, _load_physio, _slice_rows
+        import mac.data.video as relax_video
+        from mac.features.extract import NUMERIC_FIELDS, _load_log_rows, _load_physio, _slice_rows
 
         _patch_relax_video_iso_parser(relax_video)
         load_video_index = relax_video.load_video_index

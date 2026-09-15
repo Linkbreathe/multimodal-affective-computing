@@ -15,12 +15,13 @@ from pathlib import Path
 # Ensure project root is on sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 os.chdir(PROJECT_ROOT)
 
 import torch
 import torch.nn.functional as F
 
-from src.encoders.inceptiontime import InceptionTimeGazeEncoder
+from mac.encoders.inceptiontime import InceptionTimeGazeEncoder
 
 # ---------------------------------------------------------------------------
 # Helpers

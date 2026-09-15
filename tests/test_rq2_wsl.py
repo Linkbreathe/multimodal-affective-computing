@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 from scripts.run_rq2_wsl import (  # noqa: E402
     AlignmentError,
     AuditState,

@@ -10,8 +10,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
-from src.fusion.frozen_compression import (
+sys.path.insert(0, str(ROOT / "src"))
+from mac.fusion.frozen_compression import (
     FORMAL_METHODS,
     fit_modality_reducers,
     make_compressor,

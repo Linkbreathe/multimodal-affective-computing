@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from real_time_ml.data.video import VideoFrame, VideoIndex, uniform_clip_frames
-from real_time_ml.features.dynamic_texture import (
+from mac.data.video import VideoFrame, VideoIndex, uniform_clip_frames
+from mac.features.dynamic_texture import (
     DYNAMIC_TEXTURE_COLUMNS,
     DynamicTextureSettings,
     dynamic_texture_descriptor,

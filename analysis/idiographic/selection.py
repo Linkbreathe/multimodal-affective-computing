@@ -18,7 +18,7 @@ from typing import Any
 import numpy as np
 from scipy import signal
 
-from real_time_ml.features.physio import detect_r_peaks, ecg_features, peak_f1
+from mac.features.physio import detect_r_peaks, ecg_features, peak_f1
 
 from analysis.idiographic import common as C
 

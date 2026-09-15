@@ -19,19 +19,20 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import pandas as pd
 import torch
 
-from src.encoders.registry import ModalityRegistry
-from src.fusion.projector import ModalityProjector
-from src.tasks.heads import MultiTaskHead
-from src.trainer.fusion_trainer import FusionTrainer
-from src.utils.config import load_config, merge_configs, config_hash
-from src.utils.logging_setup import setup_logging
-from src.utils.registry import ResultsRegistry
-from src.utils.reporting import generate_report
+from mac.encoders.registry import ModalityRegistry
+from mac.fusion.projector import ModalityProjector
+from mac.tasks.heads import MultiTaskHead
+from mac.training.fusion_trainer import FusionTrainer
+from mac.config.simple import load_config, merge_configs, config_hash
+from mac.utils.logging_setup import setup_logging
+from mac.reporting.registry import ResultsRegistry
+from mac.reporting.experiment import generate_report
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fusion")
@@ -40,8 +41,8 @@ CHUNK_LEN_SEC = 10
 FS_PPG = 125
 CHUNK_SAMPLES_PPG = CHUNK_LEN_SEC * FS_PPG  # 1250
 
-from src.data.embedding_shapes import normalize_loaded_embedding
-from src.fusion.factory import ProjectedFusion
+from mac.data.embedding_shapes import normalize_loaded_embedding
+from mac.fusion.factory import ProjectedFusion
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ def build_finetune_model(cfg: dict, enabled: list[str], raw_modalities: list[str
 
     Returns (model, encoder_param_groups, d_out).
     """
-    from src.fusion.factory import build_fusion_model as _build_core
+    from mac.fusion.factory import build_fusion_model as _build_core
 
     registry = ModalityRegistry(cfg["modalities"])
     projector, fusion = _build_core(cfg, registry)
@@ -260,7 +261,7 @@ def load_hybrid_data_by_subject(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fine-tune PPG encoder with fusion")
-    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--config", default="configs/egoemotion.yaml")
     parser.add_argument("--fusion_config", required=True, help="Path to finetune config")
     parser.add_argument("--embeddings_dir", default="data/embeddings/egoemotion/10s_task_aware")
     parser.add_argument("--name", default=None, help="Experiment name")

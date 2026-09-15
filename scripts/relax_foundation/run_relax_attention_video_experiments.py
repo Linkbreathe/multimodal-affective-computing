@@ -10,9 +10,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from scripts.relax_foundation.relax_suite_common import suite_registry, validate_job_output
-from src.data.relax_foundation import RELAX_EEG_RUN_TAG
+from mac.data.relax_foundation import RELAX_EEG_RUN_TAG
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPO_ROOT / "scripts" / "relax_foundation" / "run_relax_foundation_probe.py"

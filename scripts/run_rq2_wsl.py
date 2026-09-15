@@ -29,6 +29,7 @@ import torch
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+    sys.path.insert(0, str(PROJECT_ROOT / "src"))
 SHARED_ROOT = Path("/mnt/c/Users/linki/Wei/Models/rq2_shared")
 CACHE_ROOT = PROJECT_ROOT / "artifacts/relax/aligned_20260716"
 RESULTS_ROOT = PROJECT_ROOT / "wsl_results"

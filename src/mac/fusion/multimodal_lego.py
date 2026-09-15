@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, repeat
 
-from src.fusion.base import BaseFusionModule
+from mac.fusion.base import BaseFusionModule
 
 
 # ---------------------------------------------------------------------------

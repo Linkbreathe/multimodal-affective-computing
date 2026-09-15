@@ -14,7 +14,7 @@ from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 from transformers import AutoConfig, AutoModel
 
-from src.encoders.base import BaseEncoder
+from mac.encoders.base import BaseEncoder
 
 
 class VideoMAEV2Encoder(BaseEncoder):

@@ -11,11 +11,11 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.index import build_index
-from real_time_ml.data.tables import read_rows, write_parquet_if_available, write_rows
-from real_time_ml.data.video import load_video_index, uniform_clip_frames
-from real_time_ml.utils import file_sha256, write_json
+from mac.config import ProjectConfig
+from mac.data.index import build_index
+from mac.data.tables import read_rows, write_parquet_if_available, write_rows
+from mac.data.video import load_video_index, uniform_clip_frames
+from mac.utils import file_sha256, write_json
 
 
 def _setting_path(config: ProjectConfig, dotted: str) -> Path:
@@ -94,6 +94,7 @@ def _load_official_model(config: ProjectConfig):
         )
     _install_timm_compat()
     sys.path.insert(0, str(repo))
+    sys.path.insert(0, str(repo / "src"))
     try:
         module = importlib.import_module("models.modeling_finetune")
         factory = getattr(module, str(config.get("features.video.videomae2.model_name")))

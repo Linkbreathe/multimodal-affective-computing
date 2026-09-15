@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.data.io import condition_parameters, normalize_condition, normalize_participant_id
-from real_time_ml.data.xlsx import read_first_sheet
+from mac.data.io import condition_parameters, normalize_condition, normalize_participant_id
+from mac.data.xlsx import read_first_sheet
 
 
 PAINTING_WORKBOOK = "4. Painting Reflection (Responses).xlsx"

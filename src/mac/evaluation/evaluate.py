@@ -8,9 +8,9 @@ import csv
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.safety import deployment_guard
-from real_time_ml.utils import atomic_write_text, file_sha256, write_json
+from mac.config import ProjectConfig
+from mac.evaluation.safety import deployment_guard
+from mac.utils import atomic_write_text, file_sha256, write_json
 
 
 def evaluate(config: ProjectConfig) -> dict[str, Any]:

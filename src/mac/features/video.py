@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from real_time_ml.features.common import robust_stats
+from mac.features.common import robust_stats
 
 
 def video_features(paths: list[Path]) -> tuple[dict[str, float], dict[str, float | bool]]:

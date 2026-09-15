@@ -13,13 +13,13 @@ from typing import Any, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as torch_functional
 
-from src.data.relax_dataset import RelaxConditionEmbeddingDataset
+from mac.data.relax_dataset import RelaxConditionEmbeddingDataset
 
 
 MODALITIES = ("eeg", "ecg", "eye", "head", "video")

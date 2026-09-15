@@ -20,9 +20,9 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from src.encoders.base import BaseEncoder
-from src.encoders.eegpt_model import CHANNEL_DICT, EEGTransformer
-from src.models.lora import (
+from mac.encoders.base import BaseEncoder
+from mac.encoders.eegpt_model import CHANNEL_DICT, EEGTransformer
+from mac.models.lora import (
     count_lora_parameters,
     get_lora_parameters,
     get_lora_state_dict,

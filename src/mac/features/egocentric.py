@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.index import build_index
-from real_time_ml.features.extract import extract_features
+from mac.config import ProjectConfig
+from mac.data.index import build_index
+from mac.features.extract import extract_features
 
 
 def extract_handcrafted_egocentric_features(

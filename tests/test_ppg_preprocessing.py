@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from src.data.ppg_preprocessing import (
+from mac.preprocessing.ppg import (
     chebyshev_bandpass_filter,
     compute_segment_quality,
     detect_native_sample_rate,

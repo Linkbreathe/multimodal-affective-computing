@@ -19,9 +19,10 @@ from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Subset
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from src.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset, relax_condition_collate  # noqa: E402
-from src.data.relax_foundation import (  # noqa: E402
+from mac.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset, relax_condition_collate  # noqa: E402
+from mac.data.relax_foundation import (  # noqa: E402
     CONDITIONS,
     MODALITIES,
     RELAX_EEG_RUN_TAG,
@@ -29,13 +30,13 @@ from src.data.relax_foundation import (  # noqa: E402
     assert_relax_modalities,
     write_json,
 )
-from src.tasks.relaxation import (  # noqa: E402
+from mac.tasks.relaxation import (  # noqa: E402
     TARGETS,
     RelaxFusionRegressor,
     compute_relax_regression_metrics,
     random_9_condition_baseline,
 )
-from src.tasks.relax_condition_control import FoldConditionResidualizer  # noqa: E402
+from mac.tasks.relax_condition_control import FoldConditionResidualizer  # noqa: E402
 
 
 HANDCRAFTED_RIDGE_ALPHAS: tuple[float, ...] = (0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0)

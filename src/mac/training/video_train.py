@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.tables import write_parquet_if_available
-from real_time_ml.modeling.video_ridge import (
+from mac.config import ProjectConfig
+from mac.data.tables import write_parquet_if_available
+from mac.models.video_ridge import (
     RELAXATION_VIDEO_RIDGE_KIND,
     train_visual_ridge,
 )
-from real_time_ml.utils import atomic_write_text, write_json
+from mac.utils import atomic_write_text, write_json
 
 
 def _without_visual_columns(frame):

@@ -4,8 +4,8 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.features.physio import causal_filter
+from mac.config import ProjectConfig
+from mac.features.physio import causal_filter
 
 from .contracts import AdaptivePhysioChannelSnapshot, AdaptivePhysioSnapshot, AdaptivePhysioStats
 

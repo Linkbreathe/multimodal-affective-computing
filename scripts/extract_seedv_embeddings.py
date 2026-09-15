@@ -32,7 +32,7 @@ def _build_encoder(
     weights_path: str = "weights/eegpt/eegpt_mcae_58chs_4s_large4E.ckpt",
 ):
     """Instantiate frozen EEGPTEncoder and move to *device*."""
-    from src.encoders.eegpt import EEGPTEncoder
+    from mac.encoders.eegpt import EEGPTEncoder
 
     encoder = EEGPTEncoder(
         channels=channels,

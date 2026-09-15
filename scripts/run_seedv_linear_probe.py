@@ -33,7 +33,7 @@ from sklearn.metrics import (
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-from src.models.eegpt_linear_probe import EEGPTLinearProbe
+from mac.models.eegpt_linear_probe import EEGPTLinearProbe
 
 log = logging.getLogger(__name__)
 

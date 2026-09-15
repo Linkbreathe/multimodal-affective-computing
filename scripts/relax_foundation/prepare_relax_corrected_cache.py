@@ -8,9 +8,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from scripts.relax_foundation.extract_relax_foundation_embeddings import copy_non_eeg_window_cache  # noqa: E402
-from src.data.relax_foundation import RELAX_EEG_RUN_TAG, RelaxHardFailure  # noqa: E402
+from mac.data.relax_foundation import RELAX_EEG_RUN_TAG, RelaxHardFailure  # noqa: E402
 
 
 DEFAULT_MODALITIES = ["ecg", "eye", "head", "video", "attention_video"]

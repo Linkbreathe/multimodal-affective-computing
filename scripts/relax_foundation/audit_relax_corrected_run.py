@@ -14,8 +14,9 @@ import torch
 import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from src.data.relax_foundation import (  # noqa: E402
+from mac.data.relax_foundation import (  # noqa: E402
     EEG_DISABLED_PARTICIPANTS,
     RELAX_EEG_MONTAGE,
     RELAX_EEG_RUN_TAG,

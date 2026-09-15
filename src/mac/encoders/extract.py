@@ -8,7 +8,7 @@ from typing import Any
 import torch
 from tqdm import tqdm
 
-from src.data.segments import SegmentExtractor
+from mac.data.segments import SegmentExtractor
 
 log = logging.getLogger(__name__)
 

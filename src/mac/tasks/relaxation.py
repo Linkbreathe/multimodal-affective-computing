@@ -10,15 +10,15 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from src.data.relax_foundation import CONDITIONS, RelaxHardFailure
-from src.fusion.early import EarlyFusion
-from src.fusion.healnet import HEALNetFusion
-from src.fusion.late import LateFusion
-from src.fusion.mid import MidFusion
-from src.fusion.multimodal_lego import MultimodalLegoFusion
-from src.fusion.qformer import QFormerFusion
-from src.models.head_motion_1dcnn import HeadMotion1DCNN
-from src.utils.metrics import concordance_correlation_coefficient
+from mac.data.relax_foundation import CONDITIONS, RelaxHardFailure
+from mac.fusion.early import EarlyFusion
+from mac.fusion.healnet import HEALNetFusion
+from mac.fusion.late import LateFusion
+from mac.fusion.mid import MidFusion
+from mac.fusion.multimodal_lego import MultimodalLegoFusion
+from mac.fusion.qformer import QFormerFusion
+from mac.models.head_motion_1dcnn import HeadMotion1DCNN
+from mac.evaluation.metrics import concordance_correlation_coefficient
 
 
 TARGETS: tuple[str, str] = ("relaxation", "discomfort")

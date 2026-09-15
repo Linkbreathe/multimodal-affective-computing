@@ -5,10 +5,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.tables import read_rows, write_parquet_if_available
-from real_time_ml.realtime.engine import InferenceEngine
-from real_time_ml.utils import atomic_write_text, write_jsonl
+from mac.config import ProjectConfig
+from mac.data.tables import read_rows, write_parquet_if_available
+from mac.realtime.engine import InferenceEngine
+from mac.utils import atomic_write_text, write_jsonl
 
 
 def _float_or_value(value: str) -> Any:

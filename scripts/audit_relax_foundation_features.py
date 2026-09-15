@@ -18,7 +18,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 import pandas as pd
 import torch
@@ -36,7 +36,7 @@ from scripts.run_relax_condition_anchor_probe import (
     cross_fitted_condition_anchors,
     heldout_condition_anchors,
 )
-from src.data.relax_dataset import RelaxConditionEmbeddingDataset
+from mac.data.relax_dataset import RelaxConditionEmbeddingDataset
 
 
 MODALITIES = ("eeg", "ecg", "eye", "head", "video")

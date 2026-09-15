@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from real_time_ml.config import ProjectConfig, load_config
-from real_time_ml.modeling.dcnn import (
+from mac.config import ProjectConfig, load_config
+from mac.models.dcnn import (
     _checkpoint_from_model,
     _fit_scaler,
     _make_model,
@@ -16,8 +16,8 @@ from real_time_ml.modeling.dcnn import (
     load_dcnn_state_model,
     predict_dcnn_state,
 )
-from real_time_ml.modeling import dcnn
-from real_time_ml.realtime.engine import InferenceEngine
+from mac.models import dcnn
+from mac.realtime.engine import InferenceEngine
 
 
 torch = pytest.importorskip("torch")

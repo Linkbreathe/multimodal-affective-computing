@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import signal
 
-from real_time_ml.features.common import robust_stats, spectral_entropy
+from mac.features.common import robust_stats, spectral_entropy
 
 
 def head_features(rows: list[dict[str, float]]) -> tuple[dict[str, float], dict[str, float | bool]]:

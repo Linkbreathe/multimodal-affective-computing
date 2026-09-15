@@ -8,7 +8,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
-from src.data.relax_foundation import CONDITIONS, RelaxHardFailure
+from mac.data.relax_foundation import CONDITIONS, RelaxHardFailure
 
 
 TARGET_COLUMNS: tuple[str, str] = ("relaxation", "discomfort")

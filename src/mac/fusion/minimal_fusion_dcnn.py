@@ -15,15 +15,15 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.dcnn import (
+from mac.config import ProjectConfig
+from mac.models.dcnn import (
     _architecture,
     _device,
     _make_model,
     _torch,
     _validation_indexes,
 )
-from real_time_ml.modeling.minimal_fusion import (
+from mac.fusion.minimal_fusion import (
     COMBINATIONS,
     EXPECTED_LABELS,
     FEATURES_PER_MODALITY,
@@ -44,7 +44,7 @@ from real_time_ml.modeling.minimal_fusion import (
     _wide_random,
     random_uniform_baseline,
 )
-from real_time_ml.utils import atomic_write_text
+from mac.utils import atomic_write_text
 
 
 SOURCE_RELATIVE_PATH = Path("video_ml") / "window_features.csv"

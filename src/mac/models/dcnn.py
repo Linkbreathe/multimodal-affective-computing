@@ -19,16 +19,16 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.io import condition_parameters
-from real_time_ml.evaluation.alignment import (
+from mac.config import ProjectConfig
+from mac.data.io import condition_parameters
+from mac.evaluation.alignment import (
     indexes_for_fold,
     load_split_manifest,
     validate_alignment_contract,
     write_alignment_manifest,
 )
-from real_time_ml.modeling.safety import deployment_guard
-from real_time_ml.utils import atomic_write_text, write_json
+from mac.evaluation.safety import deployment_guard
+from mac.utils import atomic_write_text, write_json
 
 
 MODEL_KIND = "dcnn_condition_regressor_v1"

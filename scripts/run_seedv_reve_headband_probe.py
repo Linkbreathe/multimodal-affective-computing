@@ -36,9 +36,9 @@ import yaml
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-
-from src.encoders.reve import ReveEncoder
-from src.models.reve_classifier import ReveClassifier
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+from mac.encoders.reve import ReveEncoder
+from mac.models.reve_classifier import ReveClassifier
 
 # Reuse everything from the official two-stage script
 from scripts import run_seedv_reve_official_finetune as base

@@ -13,7 +13,7 @@ from scripts.relax_foundation.extract_relax_foundation_embeddings import (
     assemble_condition_cache,
     copy_non_eeg_window_cache,
 )
-from src.data.relax_foundation import (
+from mac.data.relax_foundation import (
     RELAX_EEG_LEFT_INDICES,
     RELAX_EEG_MONTAGE,
     RELAX_EEG_RIGHT_INDICES,

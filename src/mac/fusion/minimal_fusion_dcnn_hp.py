@@ -14,9 +14,9 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.dcnn import _architecture, _device, _validation_indexes
-from real_time_ml.modeling.minimal_fusion import (
+from mac.config import ProjectConfig
+from mac.models.dcnn import _architecture, _device, _validation_indexes
+from mac.fusion.minimal_fusion import (
     EXPECTED_LABELS,
     FEATURES_PER_MODALITY,
     HIGH_DISCOMFORT_TRUTH_THRESHOLD,
@@ -25,7 +25,7 @@ from real_time_ml.modeling.minimal_fusion import (
     _dependencies,
     _point_metrics,
 )
-from real_time_ml.modeling.minimal_fusion_dcnn import (
+from mac.fusion.minimal_fusion_dcnn import (
     MinimalFusionSequences,
     SOURCE_RELATIVE_PATH,
     _fold_seed,
@@ -33,7 +33,7 @@ from real_time_ml.modeling.minimal_fusion_dcnn import (
     _train_residual_model,
     build_minimal_fusion_sequences,
 )
-from real_time_ml.utils import atomic_write_text
+from mac.utils import atomic_write_text
 
 
 OUTPUT_DIRECTORY = "fusion_minimal_dcnn_hp"

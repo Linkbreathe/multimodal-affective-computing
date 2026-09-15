@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import pandas as pd
@@ -30,10 +31,10 @@ import torch
 import cv2
 from tqdm import tqdm
 
-from src.data.egoemotion import compute_manifest_hash
-from src.data.video_transforms import make_consecutive_clips, read_frames
-from src.utils.config import load_config
-from src.encoders.registry import ModalityRegistry
+from mac.data.egoemotion import compute_manifest_hash
+from mac.data.video_transforms import make_consecutive_clips, read_frames
+from mac.config.simple import load_config
+from mac.encoders.registry import ModalityRegistry
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
@@ -218,10 +219,10 @@ def extract_ppg(
         ppg_encoder: Which PPG encoder to use ('papagei' or 'pulseppg').
     """
     if ppg_encoder == "pulseppg":
-        from src.encoders.pulse_ppg import PulsePPGEncoder
+        from mac.encoders.pulse_ppg import PulsePPGEncoder
         encoder = PulsePPGEncoder().to(device)
     else:
-        from src.encoders.papagei import PapageiEncoder
+        from mac.encoders.papagei import PapageiEncoder
         encoder = PapageiEncoder().to(device)
     extracted = 0
 
@@ -284,8 +285,8 @@ def extract_ecg(
     manifest_hash: str | None = None,
 ) -> int:
     """Extract ECGFounder embeddings for each 10s ECG chunk."""
-    from src.data.ecg_preprocessing import preprocess_ecgfounder_segment
-    from src.encoders.ecgfounder import ECGFounderEncoder
+    from mac.preprocessing.ecg import preprocess_ecgfounder_segment
+    from mac.encoders.ecgfounder import ECGFounderEncoder
 
     encoder = ECGFounderEncoder().to(device)
     extracted = 0
@@ -345,7 +346,7 @@ def extract_eye(
     """Extract eye-tracking embeddings for each 10s chunk."""
     import os
     if eye_encoder_key == "patchtst":
-        from src.encoders.patchtst import PatchTSTEncoder
+        from mac.encoders.patchtst import PatchTSTEncoder
 
         encoder = PatchTSTEncoder(
             num_channels=4, patch_len=45, stride=22,
@@ -353,7 +354,7 @@ def extract_eye(
         ).to(device)
         pretrained = "checkpoints/patchtst_pretrained.pt"
     elif eye_encoder_key == "inceptiontime":
-        from src.encoders.inceptiontime import InceptionTimeGazeEncoder
+        from mac.encoders.inceptiontime import InceptionTimeGazeEncoder
 
         encoder = InceptionTimeGazeEncoder().to(device)
         pretrained = "checkpoints/inceptiontime_gaze_pretrained.pt"
@@ -441,7 +442,7 @@ def extract_video(
     resize shortest edge to 224, center crop to 224x224, ImageNet normalize.
     Non-overlapping consecutive 16-frame clips -> [num_clips, 768].
     """
-    from src.encoders.video_mae import VideoMAEV2Encoder
+    from mac.encoders.video_mae import VideoMAEV2Encoder
 
     encoder = VideoMAEV2Encoder().to(device)
     extracted = 0
@@ -502,7 +503,7 @@ def extract_video(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Task-aware 10s segment extraction")
-    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--config", default="configs/egoemotion.yaml")
     parser.add_argument(
         "--encoder",
         choices=["papagei_ppg", "pulseppg_ppg", "patchtst_eye", "inceptiontime", "ecg_founder", "video_mae_v2", "all"],

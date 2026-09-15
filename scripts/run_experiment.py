@@ -14,27 +14,28 @@ from pathlib import Path
 
 # Ensure project root is on path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import torch
 
-from src.data.label_builder import build_label_mapping
-from src.data.segments import SegmentExtractor
-from src.encoders.registry import ModalityRegistry
-from src.fusion.projector import ModalityProjector
-from src.tasks.heads import MultiTaskHead
-from src.trainer.fusion_trainer import FusionTrainer
-from src.utils.config import load_config, merge_configs, config_hash
-from src.utils.logging_setup import setup_logging
-from src.utils.registry import ResultsRegistry
-from src.utils.reporting import generate_report
+from mac.data.label_builder import build_label_mapping
+from mac.data.segments import SegmentExtractor
+from mac.encoders.registry import ModalityRegistry
+from mac.fusion.projector import ModalityProjector
+from mac.tasks.heads import MultiTaskHead
+from mac.training.fusion_trainer import FusionTrainer
+from mac.config.simple import load_config, merge_configs, config_hash
+from mac.utils.logging_setup import setup_logging
+from mac.reporting.registry import ResultsRegistry
+from mac.reporting.experiment import generate_report
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("fusion")
 
 # Re-export for historical script imports and serialized model references.
-from src.data.embedding_shapes import normalize_loaded_embedding
-from src.fusion.factory import ProjectedFusion, build_fusion_model
+from mac.data.embedding_shapes import normalize_loaded_embedding
+from mac.fusion.factory import ProjectedFusion, build_fusion_model
 
 
 def load_data_by_subject(
@@ -98,7 +99,7 @@ def load_data_by_subject(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/base.yaml")
+    parser.add_argument("--config", default="configs/egoemotion.yaml")
     parser.add_argument("--fusion_config", required=True, help="Path to fusion method config")
     parser.add_argument("--name", default=None, help="Experiment name")
     parser.add_argument("--device", default=None, help="Device (cuda/cpu)")

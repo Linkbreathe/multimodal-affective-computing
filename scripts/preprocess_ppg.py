@@ -22,8 +22,9 @@ import yaml
 
 # Allow running from repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from src.data.ppg_preprocessing import (
+from mac.preprocessing.ppg import (
     compute_segment_quality,
     detect_native_sample_rate,
     preprocess_ppg,
@@ -112,7 +113,7 @@ def find_subject_dirs(data_dir: Path) -> list[Path]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--config", default="configs/base.yaml", help="Config file for data paths")
+    parser.add_argument("--config", default="configs/egoemotion.yaml", help="Config file for data paths")
     parser.add_argument("--data-dir", help="Override data directory (default: from config)")
     parser.add_argument("--signals", choices=["ear", "nose", "both"], default="ear")
     parser.add_argument("--force", action="store_true", help="Overwrite existing files")

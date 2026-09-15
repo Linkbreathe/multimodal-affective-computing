@@ -23,7 +23,7 @@ import warnings
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import joblib
 import numpy as np
 import pandas as pd
@@ -44,8 +44,8 @@ from scripts.run_relax_condition_anchor_probe import (
     validate_contract,
 )
 from scripts.run_relax_foundation_probe import TARGETS, Fold, _fold_indexes, _metrics, file_sha256
-from src.data.relax_dataset import RelaxConditionEmbeddingDataset
-from src.fusion import frozen_compression as compression
+from mac.data.relax_dataset import RelaxConditionEmbeddingDataset
+from mac.fusion import frozen_compression as compression
 
 
 FORMAL_MODALITIES = ("ecg", "eye", "head", "video")

@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 import torch
 
-from src.data.egoemotion.manifest import (
+from mac.data.egoemotion.manifest import (
     Ego10sManifestError,
     compute_manifest_hash,
     load_egoemotion_10s_by_subject,

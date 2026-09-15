@@ -24,12 +24,12 @@ from typing import Any, Callable, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 import pandas as pd
 import torch
 
-from src.data.relax_physio_preprocessing import (
+from mac.preprocessing.relax_physio import (
     LINKED_EEG_CHANNELS,
     RAW_EEG_CHANNELS,
     TARGET_SAMPLING_RATE,
@@ -44,7 +44,7 @@ from src.data.relax_physio_preprocessing import (
     session_zscore_clip,
     window_zscore,
 )
-from src.encoders.neurorvq import NeuroRVQFoundationEncoder
+from mac.encoders.neurorvq import NeuroRVQFoundationEncoder
 
 
 KEYS = ("participant_id", "condition", "condition_window_index")

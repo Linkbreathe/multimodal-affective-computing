@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from real_time_ml.config import ProjectConfig, load_config
-from real_time_ml.modeling.video_dcnn import (
+from mac.config import ProjectConfig, load_config
+from mac.models.video_dcnn import (
     RELAXATION_VIDEO_MODEL_KIND,
     VIDEO_ENCODER_ABLATION_DUAL_KIND,
     VIDEO_ENCODER_MASKED_MEAN_MLP,
@@ -17,12 +17,12 @@ from real_time_ml.modeling.video_dcnn import (
     predict_video_dcnn_state,
     train_video_dcnn_model,
 )
-from real_time_ml.modeling.video_ridge import (
+from mac.models.video_ridge import (
     RELAXATION_VIDEO_RIDGE_KIND,
     VIDEO_RIDGE_KIND,
     train_visual_ridge,
 )
-from real_time_ml.realtime.engine import InferenceEngine
+from mac.realtime.engine import InferenceEngine
 
 
 def _config(tmp_path) -> ProjectConfig:

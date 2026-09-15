@@ -1,7 +1,7 @@
 import pytest
 import torch
 from pathlib import Path
-from src.data.dataset import EmbeddingDataset
+from mac.data.dataset import EmbeddingDataset
 
 @pytest.fixture
 def mock_embeddings(tmp_path):

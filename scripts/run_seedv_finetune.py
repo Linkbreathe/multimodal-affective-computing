@@ -38,8 +38,8 @@ from sklearn.metrics import (
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from src.encoders.eegpt import EEGPTEncoder
-from src.models.eegpt_finetune_head import AvgPoolClassificationHead
+from mac.encoders.eegpt import EEGPTEncoder
+from mac.models.eegpt_finetune_head import AvgPoolClassificationHead
 
 log = logging.getLogger(__name__)
 

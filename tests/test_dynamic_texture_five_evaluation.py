@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from real_time_ml.evaluation.dynamic_texture_five import (
+from mac.evaluation.dynamic_texture_five import (
     exact_sign_flip_pvalue,
     holm_adjust,
     paired_holm_families,

@@ -8,17 +8,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.index import build_index
-from real_time_ml.data.io import iter_csv, parse_float, sniff_csv
-from real_time_ml.data.video import load_video_index, sample_window_frames
-from real_time_ml.data.tables import read_rows, write_parquet_if_available, write_rows
-from real_time_ml.features.eye import eye_features
-from real_time_ml.features.head import head_features
-from real_time_ml.features.physio import EEGMontage, StreamingPhysioProcessor, detect_r_peaks, hrv_features
-from real_time_ml.features.video import video_features
-from real_time_ml.modeling.condition_data import aggregate_window_frame
-from real_time_ml.preprocessing.pipeline import preprocess
+from mac.config import ProjectConfig
+from mac.data.index import build_index
+from mac.data.io import iter_csv, parse_float, sniff_csv
+from mac.data.video import load_video_index, sample_window_frames
+from mac.data.tables import read_rows, write_parquet_if_available, write_rows
+from mac.features.eye import eye_features
+from mac.features.head import head_features
+from mac.features.physio import EEGMontage, StreamingPhysioProcessor, detect_r_peaks, hrv_features
+from mac.features.video import video_features
+from mac.data.condition_data import aggregate_window_frame
+from mac.preprocessing.pipeline import preprocess
 
 
 NUMERIC_FIELDS = {

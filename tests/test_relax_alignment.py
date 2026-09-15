@@ -12,7 +12,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 from scripts.run_relax_foundation_probe import (
     AlignedLateRegressor,
     AlignedNativeFusionRegressor,
@@ -21,7 +21,7 @@ from scripts.run_relax_foundation_probe import (
     _modality_variant,
 )
 from scripts.build_relax_alignment_cache import _local_path, _read_logged_csv
-from src.data.relax_dataset import RelaxConditionEmbeddingDataset
+from mac.data.relax_dataset import RelaxConditionEmbeddingDataset
 
 
 def _manifest(path: Path, participants: list[str]) -> None:

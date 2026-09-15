@@ -11,8 +11,8 @@ from pathlib import Path
 
 import torch
 
-from src.encoders.base import BaseEncoder
-from src.encoders.ecgfounder_model import Net1D
+from mac.encoders.base import BaseEncoder
+from mac.encoders.ecgfounder_model import Net1D
 
 log = logging.getLogger(__name__)
 

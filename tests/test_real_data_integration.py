@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from real_time_ml.config import load_config
-from real_time_ml.data.alignment import condition_boundaries, load_marker_events, make_windows, marker_alignment_qc
-from real_time_ml.data.index import build_index
+from mac.config import load_config
+from mac.data.alignment import condition_boundaries, load_marker_events, make_windows, marker_alignment_qc
+from mac.data.index import build_index
 
 
 @pytest.mark.integration

@@ -13,7 +13,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 from analysis.supplementary.run_four_channel_ranking_benchmark import (  # noqa: E402
     A4_PREFIX,
     BINARY_TARGET,
@@ -27,8 +27,8 @@ from analysis.supplementary.run_four_channel_ranking_benchmark import (  # noqa:
     _continuous_metrics,
     _matrix,
 )
-from real_time_ml.data.io import normalize_participant_id  # noqa: E402
-from real_time_ml.modeling import minimal_fusion as old_fusion  # noqa: E402
+from mac.data.io import normalize_participant_id  # noqa: E402
+from mac.models import minimal_fusion as old_fusion  # noqa: E402
 
 
 DEFAULT_A4_FEATURES = FOUR_CHANNEL_OUTPUT_DIR / "a4_condition_features.csv"

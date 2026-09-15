@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from analysis.supplementary.build_alignment_contract import apply_masks_to_window_features
-from real_time_ml.evaluation.alignment import validate_alignment_contract
+from mac.evaluation.alignment import validate_alignment_contract
 
 
 PARTICIPANTS = ("P003", "P004", "P007", "P008", "P009", "P011", "P012", "P013", "P015")

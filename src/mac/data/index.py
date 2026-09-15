@@ -3,10 +3,10 @@ from __future__ import annotations
 import csv
 from typing import Any
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.io import discover_session_dir, select_xdf
-from real_time_ml.data.labels import find_painting_workbook
-from real_time_ml.utils import file_sha256, write_json
+from mac.config import ProjectConfig
+from mac.data.io import discover_session_dir, select_xdf
+from mac.data.labels import find_painting_workbook
+from mac.utils import file_sha256, write_json
 
 
 def build_index(config: ProjectConfig, participants: list[str] | None = None) -> list[dict[str, Any]]:

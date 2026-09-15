@@ -13,9 +13,9 @@ from scripts.relax_foundation.analyze_relax_claim_validation import (
     assert_prediction_alignment,
     participant_cluster_stats,
 )
-from src.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset, relax_condition_collate
-from src.data.relax_foundation import RelaxHardFailure
-from src.tasks.relax_condition_control import FoldConditionResidualizer
+from mac.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset, relax_condition_collate
+from mac.data.relax_foundation import RelaxHardFailure
+from mac.tasks.relax_condition_control import FoldConditionResidualizer
 
 
 def _write_embedding_cache(path):

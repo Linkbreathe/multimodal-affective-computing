@@ -1,7 +1,7 @@
 import pytest
 import torch
-from src.encoders.base import BaseEncoder
-from src.encoders.registry import ModalityRegistry
+from mac.encoders.base import BaseEncoder
+from mac.encoders.registry import ModalityRegistry
 
 
 def test_base_encoder_is_abstract():
@@ -52,7 +52,7 @@ def test_registry_resolves_inceptiontime():
     assert registry.get_embedding_dir_name("eye_tracking") == "inceptiontime"
 
 
-from src.encoders.video_mae import VideoMAEV2Encoder
+from mac.encoders.video_mae import VideoMAEV2Encoder
 
 
 def test_video_mae_loads():
@@ -80,7 +80,7 @@ def test_video_mae_rejects_wrong_layout():
             encoder(wrong)
 
 
-from src.encoders.patchtst import PatchTSTEncoder
+from mac.encoders.patchtst import PatchTSTEncoder
 
 
 def test_patchtst_forward_shape():
@@ -107,7 +107,7 @@ def test_patchtst_mean_pool():
     assert pooled.shape == (2, 128)
 
 
-from src.encoders.inceptiontime import InceptionTimeGazeEncoder
+from mac.encoders.inceptiontime import InceptionTimeGazeEncoder
 
 
 def test_inceptiontime_forward_shape():
@@ -130,7 +130,7 @@ def test_inceptiontime_rejects_wrong_layout():
         encoder(wrong)
 
 
-from src.encoders.papagei import PapageiEncoder
+from mac.encoders.papagei import PapageiEncoder
 
 
 @pytest.mark.external
@@ -149,7 +149,7 @@ def test_papagei_forward_shape():
     assert out.shape == (2, 512)
 
 
-from src.encoders.extract import EmbeddingExtractor
+from mac.encoders.extract import EmbeddingExtractor
 
 
 def test_embedding_cache_structure(tmp_path, ego_data_dir):

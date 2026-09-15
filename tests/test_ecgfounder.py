@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import torch
 
-from src.data.segments import SegmentExtractor
-from src.encoders.registry import ModalityRegistry
+from mac.data.segments import SegmentExtractor
+from mac.encoders.registry import ModalityRegistry
 
 
 def test_registry_resolves_ecgfounder():
@@ -22,7 +22,7 @@ def test_registry_resolves_ecgfounder():
 
 
 def test_preprocess_ecg_90hz_chunk_to_ecgfounder_input():
-    from src.data.ecg_preprocessing import preprocess_ecgfounder_segment
+    from mac.preprocessing.ecg import preprocess_ecgfounder_segment
 
     t = np.linspace(0.0, 10.0, 900, endpoint=False)
     ecg = np.sin(2 * np.pi * 1.3 * t) + 0.05 * np.sin(2 * np.pi * 12.0 * t)
@@ -56,8 +56,8 @@ def test_ecgfounder_loads_real_weights_and_extracts_real_ecg_features():
     if not weights.exists():
         pytest.skip(f"ECGFounder weights not found at {weights}")
 
-    from src.data.ecg_preprocessing import preprocess_ecgfounder_segment
-    from src.encoders.ecgfounder import ECGFounderEncoder
+    from mac.preprocessing.ecg import preprocess_ecgfounder_segment
+    from mac.encoders.ecgfounder import ECGFounderEncoder
 
     raw = np.load("data/datasets/egoemotion_raw/005/ecg_90fps.npy")[:900]
     ecg = preprocess_ecgfounder_segment(raw, source_fs=90, target_fs=500)

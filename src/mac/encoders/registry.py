@@ -9,14 +9,14 @@ class ModalityRegistry:
     """Manages which modalities are enabled and their configurations."""
 
     ENCODER_REGISTRY = {
-        "videomaev2": ("src.encoders.video_mae", "VideoMAEV2Encoder"),
-        "patchtst": ("src.encoders.patchtst", "PatchTSTEncoder"),
-        "inceptiontime": ("src.encoders.inceptiontime", "InceptionTimeGazeEncoder"),
-        "papagei": ("src.encoders.papagei", "PapageiEncoder"),
-        "pulseppg": ("src.encoders.pulse_ppg", "PulsePPGEncoder"),
-        "eegpt": ("src.encoders.eegpt", "EEGPTEncoder"),
-        "reve": ("src.encoders.reve", "ReveEncoder"),
-        "ecgfounder": ("src.encoders.ecgfounder", "ECGFounderEncoder"),
+        "videomaev2": ("mac.encoders.video_mae", "VideoMAEV2Encoder"),
+        "patchtst": ("mac.encoders.patchtst", "PatchTSTEncoder"),
+        "inceptiontime": ("mac.encoders.inceptiontime", "InceptionTimeGazeEncoder"),
+        "papagei": ("mac.encoders.papagei", "PapageiEncoder"),
+        "pulseppg": ("mac.encoders.pulse_ppg", "PulsePPGEncoder"),
+        "eegpt": ("mac.encoders.eegpt", "EEGPTEncoder"),
+        "reve": ("mac.encoders.reve", "ReveEncoder"),
+        "ecgfounder": ("mac.encoders.ecgfounder", "ECGFounderEncoder"),
     }
     EMBEDDING_DIR_REGISTRY = {
         ("video", "videomaev2"): "video_mae_v2",

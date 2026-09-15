@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 import torch
 
-from src.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset
-from src.data.relax_foundation import RelaxHardFailure
+from mac.data.relax_foundation_dataset import RelaxConditionEmbeddingDataset
+from mac.data.relax_foundation import RelaxHardFailure
 
 
 @dataclass(frozen=True)

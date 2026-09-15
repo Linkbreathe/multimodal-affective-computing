@@ -6,10 +6,10 @@ from typing import Any
 import numpy as np
 from scipy.stats import spearmanr
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.groups import TARGETS, columns_for_group
-from real_time_ml.modeling.safety import deployment_guard
-from real_time_ml.utils import write_json
+from mac.config import ProjectConfig
+from mac.models.groups import TARGETS, columns_for_group
+from mac.evaluation.safety import deployment_guard
+from mac.utils import write_json
 
 
 def _dependencies():
@@ -307,12 +307,12 @@ def load_state_model(path: Path):
 
 def predict_state(bundle: dict[str, Any], features: dict[str, Any], condition: str | None = None) -> dict[str, float]:
     if bundle.get("model_kind") == "condition_residual_ensemble_v1":
-        from real_time_ml.modeling.condition_train import predict_condition_bundle
+        from mac.training.condition_train import predict_condition_bundle
 
         deps = _dependencies()
         return predict_condition_bundle(bundle, features, condition, deps["pd"])
     if bundle.get("model_kind") == "video_condition_ridge_v1":
-        from real_time_ml.modeling.video_ridge import predict_video_ridge_bundle
+        from mac.models.video_ridge import predict_video_ridge_bundle
 
         deps = _dependencies()
         return predict_video_ridge_bundle(bundle, features, condition, deps["pd"])
@@ -330,6 +330,6 @@ def train_state(config: ProjectConfig) -> dict[str, Any]:
     The window-level function retained above is legacy audit code and is deliberately no
     longer callable from the CLI, because inherited 10-second labels are not independent.
     """
-    from real_time_ml.modeling.condition_train import train_condition_state
+    from mac.training.condition_train import train_condition_state
 
     return train_condition_state(config)

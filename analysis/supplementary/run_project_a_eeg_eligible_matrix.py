@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 import pandas as pd
 import yaml
 
-from real_time_ml.evaluation.alignment import validate_alignment_contract
+from mac.evaluation.alignment import validate_alignment_contract
 
 
 MODELS = ("classical", "dcnn")
@@ -282,9 +282,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     args.config_root.mkdir(parents=True, exist_ok=True)
     status_path = args.output_root.parent / "eeg9_project_a_matrix_status.json"
     code_files = [
-        ROOT / "src" / "real_time_ml" / "evaluation" / "alignment.py",
-        ROOT / "src" / "real_time_ml" / "modeling" / "condition_train.py",
-        ROOT / "src" / "real_time_ml" / "modeling" / "dcnn.py",
+        ROOT / "src" / "mac" / "evaluation" / "alignment.py",
+        ROOT / "src" / "mac" / "training" / "condition_train.py",
+        ROOT / "src" / "mac" / "models" / "dcnn.py",
         Path(__file__).resolve(),
     ]
     status: dict[str, Any] = {
@@ -324,7 +324,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 command = [
                     sys.executable,
                     "-m",
-                    "real_time_ml.cli",
+                    "mac.cli",
                     "--experiment",
                     str(config_path.resolve()),
                     "train-state" if model == "classical" else "train-dcnn-state",

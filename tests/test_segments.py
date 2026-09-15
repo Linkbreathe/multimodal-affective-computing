@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from src.data.segments import SegmentExtractor
+from mac.data.segments import SegmentExtractor
 
 @pytest.fixture
 def extractor(ego_data_dir):
@@ -89,7 +89,7 @@ def test_get_segment_data_ppg(extractor):
     assert ppg.shape[1] == 1
 
 
-from src.data.segments import LabelLoader
+from mac.data.segments import LabelLoader
 import pandas as pd
 
 @pytest.fixture
@@ -132,7 +132,7 @@ def test_load_vad_labels(label_loader):
     assert manifest.iloc[0].tolist() == [0.5, 0.4, 0.6]
 
 
-from src.data.label_builder import build_label_mapping
+from mac.data.label_builder import build_label_mapping
 
 def test_build_label_mapping(ego_data_dir):
     mapping = build_label_mapping(

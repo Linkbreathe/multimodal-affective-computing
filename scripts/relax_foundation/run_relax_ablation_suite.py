@@ -9,9 +9,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from scripts.relax_foundation.relax_suite_common import result_paths, suite_registry, validate_job_output  # noqa: E402
-from src.data.relax_foundation import RELAX_EEG_RUN_TAG, assert_relax_modalities  # noqa: E402
+from mac.data.relax_foundation import RELAX_EEG_RUN_TAG, assert_relax_modalities  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

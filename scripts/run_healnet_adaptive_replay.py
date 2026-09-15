@@ -15,7 +15,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import matplotlib
 
 matplotlib.use("Agg")
@@ -24,10 +24,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from src.adaptive.controller import AdaptiveController, ControllerConfig
-from src.adaptive.healnet_prefix import file_sha256
-from src.adaptive.metrics import build_all_metrics
-from src.adaptive.replay import ratings_from_labels, run_chronological_replay
+from mac.adaptive.offline.controller import AdaptiveController, ControllerConfig
+from mac.adaptive.offline.healnet_prefix import file_sha256
+from mac.adaptive.offline.metrics import build_all_metrics
+from mac.adaptive.offline.replay import ratings_from_labels, run_chronological_replay
 
 
 DEFAULT_OUTPUT = ROOT / "artifacts/healnet_adaptive_replay/p009_healnet_frozen_prefix_v1"

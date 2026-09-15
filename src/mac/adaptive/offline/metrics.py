@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
 
-from src.adaptive.condition_grid import is_legal_transition, load, transition_axis
+from mac.adaptive.offline.condition_grid import is_legal_transition, load, transition_axis
 
 
 TARGETS = ("relaxation", "discomfort")

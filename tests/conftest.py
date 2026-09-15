@@ -16,8 +16,7 @@ import pytest
 _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
-
-
+    sys.path.insert(0, str(_SRC / "src"))
 @pytest.fixture
 def ego_data_dir(tmp_path):
     root = tmp_path / "egoemotion"

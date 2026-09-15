@@ -15,17 +15,17 @@ from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import cv2
 import numpy as np
 import pandas as pd
 from scipy.signal import resample
 import torch
 
-from src.data.video_transforms import normalize_clip, preprocess_frame
-from src.encoders.ecgfounder import ECGFounderEncoder
-from src.encoders.inceptiontime import InceptionTimeGazeEncoder
-from src.encoders.video_mae import VideoMAEV2Encoder
+from mac.data.video_transforms import normalize_clip, preprocess_frame
+from mac.encoders.ecgfounder import ECGFounderEncoder
+from mac.encoders.inceptiontime import InceptionTimeGazeEncoder
+from mac.encoders.video_mae import VideoMAEV2Encoder
 
 
 KEYS = ["participant_id", "condition", "condition_window_index"]

@@ -8,7 +8,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 from scripts import run_relax_compression_fusion_v2 as runner
 from scripts.run_relax_foundation_probe import Fold
 

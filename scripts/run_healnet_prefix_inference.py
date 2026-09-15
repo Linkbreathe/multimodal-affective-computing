@@ -15,13 +15,13 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 import pandas as pd
 import torch
 
-from src.adaptive.baseline import extract_baseline_embeddings
-from src.adaptive.healnet_prefix import EXPECTED_MODALITIES, FrozenHealNetEnsemble, file_sha256
+from mac.adaptive.offline.baseline import extract_baseline_embeddings
+from mac.adaptive.offline.healnet_prefix import EXPECTED_MODALITIES, FrozenHealNetEnsemble, file_sha256
 
 
 EXTERNAL_ROOT = Path(

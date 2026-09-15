@@ -27,7 +27,7 @@ from statsmodels.stats.multitest import multipletests
 
 sys.path.insert(0, str(Path("src").resolve()))
 
-from real_time_ml.modeling.minimal_fusion import (  # noqa: E402
+from mac.fusion.minimal_fusion import (  # noqa: E402
     HIGH_DISCOMFORT_PREDICTION_THRESHOLD,
     HIGH_DISCOMFORT_TRUTH_THRESHOLD,
     MODALITY_ORDER,

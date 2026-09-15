@@ -23,16 +23,17 @@ import torch.nn as nn
 
 log = logging.getLogger(__name__)
 
-from src.encoders.base import BaseEncoder
+from mac.encoders.base import BaseEncoder
 
 # Add papagei repo to path for model imports
-_PAPAGEI_REPO = Path(__file__).resolve().parents[3] / "papagei-foundation-model"
+_PAPAGEI_REPO = Path(__file__).resolve().parents[4] / "papagei-foundation-model"
 
 
 def _load_resnet1d_moe():
     """Import ResNet1DMoE from the papagei repo."""
     if str(_PAPAGEI_REPO) not in sys.path:
         sys.path.insert(0, str(_PAPAGEI_REPO))
+        sys.path.insert(0, str(_PAPAGEI_REPO / "src"))
     from models.resnet import ResNet1DMoE
     return ResNet1DMoE
 

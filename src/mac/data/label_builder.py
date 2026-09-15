@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from src.data.segments import SegmentExtractor
+from mac.data.segments import SegmentExtractor
 
 log = logging.getLogger(__name__)
 

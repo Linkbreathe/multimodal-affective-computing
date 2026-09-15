@@ -25,7 +25,7 @@ from tqdm import tqdm
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
 from scripts.run_seedv_finetune import (
     SegmentDataset,
     build_encoder as build_base_encoder,

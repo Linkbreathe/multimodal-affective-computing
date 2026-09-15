@@ -17,13 +17,13 @@ import numpy as np
 import yaml
 from scipy import signal
 
-from real_time_ml.data.alignment import (
+from mac.data.alignment import (
     ConditionBoundary,
     condition_boundaries,
     load_marker_events,
     marker_alignment_qc,
 )
-from real_time_ml.data.io import condition_parameters, iter_csv, normalize_condition, parse_float, sniff_csv
+from mac.data.io import condition_parameters, iter_csv, normalize_condition, parse_float, sniff_csv
 
 IDIO_DIR = Path(__file__).resolve().parent
 REPO_ROOT = IDIO_DIR.parents[1]  # analysis/idiographic -> analysis -> real_time_inference

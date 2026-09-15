@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from real_time_ml.features.physio import (
+from mac.features.physio import (
     EEGMontage,
     StreamingPhysioProcessor,
     apply_reference,
     eeg_features,
     peak_f1,
 )
-from real_time_ml.modeling.train import predict_state
-from real_time_ml.policy.recommender import SafetyPolicy, adjacent_conditions
+from mac.training.train import predict_state
+from mac.realtime.policy.recommender import SafetyPolicy, adjacent_conditions
 
 
 def synthetic_physio(sample_rate: float = 500.0) -> np.ndarray:

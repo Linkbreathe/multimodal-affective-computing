@@ -5,8 +5,8 @@ from typing import Any, Callable
 
 import numpy as np
 
-from real_time_ml.data.io import condition_parameters, normalize_condition
-from real_time_ml.schema import ConditionRecommendation
+from mac.data.io import condition_parameters, normalize_condition
+from mac.schema import ConditionRecommendation
 
 
 def adjacent_conditions(current: str) -> list[str]:

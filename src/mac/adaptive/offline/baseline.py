@@ -21,7 +21,7 @@ from scripts.build_relax_alignment_cache import (
     _video_index,
     _video_window,
 )
-from src.adaptive.healnet_prefix import EXPECTED_MODALITIES
+from mac.adaptive.offline.healnet_prefix import EXPECTED_MODALITIES
 
 
 HEAD_COLUMNS = (

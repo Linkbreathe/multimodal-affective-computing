@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.features.physio import counter_qc
+from mac.features.physio import counter_qc
 
 
 def infer_microvolt_scale(eeg: np.ndarray) -> tuple[np.ndarray, str]:

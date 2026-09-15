@@ -30,20 +30,20 @@ import zipfile
 import numpy as np
 import pandas as pd
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.index import build_index
-from real_time_ml.data.io import discover_session_dir
-from real_time_ml.data.labels import parse_condition_labels
-from real_time_ml.data.video import load_video_index, uniform_clip_frames
-from real_time_ml.evaluation.alignment import file_sha256
-from real_time_ml.features.dynamic_texture import (
+from mac.config import ProjectConfig
+from mac.data.index import build_index
+from mac.data.io import discover_session_dir
+from mac.data.labels import parse_condition_labels
+from mac.data.video import load_video_index, uniform_clip_frames
+from mac.evaluation.alignment import file_sha256
+from mac.features.dynamic_texture import (
     DYNAMIC_TEXTURE_COLUMNS,
     DYNAMIC_TEXTURE_VERSION,
     DynamicTextureSettings,
     dynamic_texture_descriptor,
     load_analysis_clip,
 )
-from real_time_ml.modeling.condition_data import aggregate_window_frame
+from mac.data.condition_data import aggregate_window_frame
 
 
 PARTICIPANTS = (

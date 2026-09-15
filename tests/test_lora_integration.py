@@ -4,9 +4,9 @@ from pathlib import Path
 
 import torch
 
-from src.encoders.eegpt import EEGPTEncoder
-from src.models.eegpt_finetune_head import AvgPoolClassificationHead
-from src.models.lora import LoRALinear
+from mac.encoders.eegpt import EEGPTEncoder
+from mac.models.eegpt_finetune_head import AvgPoolClassificationHead
+from mac.models.lora import LoRALinear
 
 
 class _DummyAttention(torch.nn.Module):
@@ -80,7 +80,7 @@ class _DummyEEGTransformer(torch.nn.Module):
 
 
 def _build_encoder(monkeypatch) -> EEGPTEncoder:
-    monkeypatch.setattr("src.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
+    monkeypatch.setattr("mac.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
     return EEGPTEncoder(
         channels=["FP1", "FP2"],
         window_samples=128,

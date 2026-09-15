@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 from scipy import signal
 
-from real_time_ml.features.common import hjorth, safe_divide, spectral_entropy
+from mac.features.common import hjorth, safe_divide, spectral_entropy
 
 
 def _sos_bandpass(low: float, high: float, sample_rate: float, order: int = 4) -> np.ndarray:

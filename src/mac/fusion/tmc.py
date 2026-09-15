@@ -29,7 +29,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.fusion.base import BaseFusionModule
+from mac.fusion.base import BaseFusionModule
 
 
 class EvidenceBranch(nn.Module):

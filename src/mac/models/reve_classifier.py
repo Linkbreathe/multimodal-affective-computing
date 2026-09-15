@@ -16,7 +16,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 
-from src.encoders.reve import ReveEncoder
+from mac.encoders.reve import ReveEncoder
 
 
 class RMSNorm(nn.Module):

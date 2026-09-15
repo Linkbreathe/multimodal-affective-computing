@@ -8,7 +8,7 @@ from typing import Any, Iterable
 import numpy as np
 import pandas as pd
 
-from real_time_ml.experiments.dynamic_texture_five import project_b_style_metrics
+from mac.experiments.dynamic_texture_five import project_b_style_metrics
 
 
 TARGETS = ("relaxation", "discomfort")

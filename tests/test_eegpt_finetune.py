@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 import torch
 
-from src.encoders.eegpt import EEGPTEncoder
-from src.encoders.base import BaseEncoder
+from mac.encoders.eegpt import EEGPTEncoder
+from mac.encoders.base import BaseEncoder
 
 
 class _DummyEEGTransformer(torch.nn.Module):
@@ -60,7 +60,7 @@ class _DummyTokenEncoder(BaseEncoder):
 
 
 def test_eegpt_encoder_requires_checkpoint_unless_random_init(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr("src.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
+    monkeypatch.setattr("mac.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
 
     missing_ckpt = tmp_path / "missing-eegpt.ckpt"
 
@@ -73,7 +73,7 @@ def test_eegpt_encoder_requires_checkpoint_unless_random_init(monkeypatch, tmp_p
 
 
 def test_eegpt_encoder_exposes_patch_features_and_random_init_override(monkeypatch):
-    monkeypatch.setattr("src.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
+    monkeypatch.setattr("mac.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
 
     encoder = EEGPTEncoder(
         channels=["FP1", "FP2"],
@@ -93,7 +93,7 @@ def test_eegpt_encoder_exposes_patch_features_and_random_init_override(monkeypat
 
 
 def test_eegpt_encoder_selective_train_keeps_transformer_in_train_mode(monkeypatch):
-    monkeypatch.setattr("src.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
+    monkeypatch.setattr("mac.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
 
     encoder = EEGPTEncoder(
         channels=["FP1", "FP2"],
@@ -113,7 +113,7 @@ def test_eegpt_encoder_selective_train_keeps_transformer_in_train_mode(monkeypat
 
 def test_finetune_head_forward_shape():
     """AvgPoolClassificationHead produces correct output shape."""
-    from src.models.eegpt_finetune_head import AvgPoolClassificationHead
+    from mac.models.eegpt_finetune_head import AvgPoolClassificationHead
 
     head = AvgPoolClassificationHead(
         input_dim=2048,
@@ -129,8 +129,8 @@ def test_finetune_head_forward_shape():
 
 def test_finetune_encoder_head_end_to_end(monkeypatch):
     """Encoder + head produce correct logits shape end-to-end."""
-    monkeypatch.setattr("src.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
-    from src.models.eegpt_finetune_head import AvgPoolClassificationHead
+    monkeypatch.setattr("mac.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
+    from mac.models.eegpt_finetune_head import AvgPoolClassificationHead
 
     encoder = EEGPTEncoder(
         channels=["FP1", "FP2"],
@@ -149,7 +149,7 @@ def test_finetune_encoder_head_end_to_end(monkeypatch):
 
 def test_finetune_layer_groups_have_correct_structure(monkeypatch):
     """get_layer_groups() returns proper param groups for optimizer."""
-    monkeypatch.setattr("src.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
+    monkeypatch.setattr("mac.encoders.eegpt.EEGTransformer", _DummyEEGTransformer)
 
     encoder = EEGPTEncoder(
         channels=["FP1", "FP2"],

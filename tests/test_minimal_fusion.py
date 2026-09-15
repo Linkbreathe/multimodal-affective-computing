@@ -5,9 +5,9 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
-from real_time_ml.cli import build_parser
-from real_time_ml.config import ProjectConfig, load_config
-from real_time_ml.modeling.minimal_fusion import (
+from mac.cli import build_parser
+from mac.config import ProjectConfig, load_config
+from mac.fusion.minimal_fusion import (
     COMBINATIONS,
     FEATURES_PER_MODALITY,
     MODALITY_ORDER,

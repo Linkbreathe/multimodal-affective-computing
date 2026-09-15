@@ -11,7 +11,7 @@ if _PROJECT_ROOT not in sys.path:
 
 import pandas as pd
 
-from src.utils.registry import ResultsRegistry
+from mac.reporting.registry import ResultsRegistry
 
 
 def main() -> None:

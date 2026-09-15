@@ -2,8 +2,8 @@
 
 import torch
 
-from src.encoders.registry import ModalityRegistry
-from src.fusion.projector import ModalityProjector
+from mac.encoders.registry import ModalityRegistry
+from mac.fusion.projector import ModalityProjector
 
 
 def build_fusion_model(cfg: dict, registry: ModalityRegistry):
@@ -19,15 +19,15 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
 
     # Build fusion module
     if fusion_type == "early":
-        from src.fusion.early import EarlyFusion
+        from mac.fusion.early import EarlyFusion
         fusion = EarlyFusion(d_common=d_common, num_modalities=len(enabled), dropout=dropout)
 
     elif fusion_type == "mid":
-        from src.fusion.mid import MidFusion
+        from mac.fusion.mid import MidFusion
         fusion = MidFusion(d_common=d_common, modality_ids=enabled, dropout=dropout)
 
     elif fusion_type == "late":
-        from src.fusion.late import LateFusion
+        from mac.fusion.late import LateFusion
         mode = cfg["fusion"].get("mode", "weighted")
         fusion = LateFusion(
             d_common=d_common,
@@ -38,7 +38,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         )
 
     elif fusion_type == "perceiver_io":
-        from src.fusion.perceiver_io import PerceiverIOFusion
+        from mac.fusion.perceiver_io import PerceiverIOFusion
         pcfg = cfg["fusion"].get("perceiver", {})
         fusion = PerceiverIOFusion(
             d_common=d_common,
@@ -50,7 +50,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         )
 
     elif fusion_type == "qformer":
-        from src.fusion.qformer import QFormerFusion
+        from mac.fusion.qformer import QFormerFusion
         qcfg = cfg["fusion"].get("qformer", {})
         fusion = QFormerFusion(
             d_common=d_common,
@@ -63,7 +63,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         )
 
     elif fusion_type == "healnet":
-        from src.fusion.healnet import HEALNetFusion
+        from mac.fusion.healnet import HEALNetFusion
         hcfg = cfg["fusion"].get("healnet", {})
         fusion = HEALNetFusion(
             d_common=d_common,
@@ -75,7 +75,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         )
 
     elif fusion_type == "multimodal_lego":
-        from src.fusion.multimodal_lego import MultimodalLegoFusion
+        from mac.fusion.multimodal_lego import MultimodalLegoFusion
         lcfg = cfg["fusion"].get("lego", {})
         fusion = MultimodalLegoFusion(
             d_common=d_common,
@@ -96,7 +96,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         )
 
     elif fusion_type == "bottleneck":
-        from src.fusion.bottleneck import BottleneckFusion
+        from mac.fusion.bottleneck import BottleneckFusion
         bcfg = cfg["fusion"].get("bottleneck", {})
         fusion = BottleneckFusion(
             d_common=d_common,
@@ -106,7 +106,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         )
 
     elif fusion_type == "tmc":
-        from src.fusion.tmc import TMCFusion
+        from mac.fusion.tmc import TMCFusion
         tcfg = cfg["fusion"].get("tmc", {})
         fusion = TMCFusion(
             d_common=d_common,
@@ -117,7 +117,7 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         )
 
     elif fusion_type == "distill_late":
-        from src.fusion.distill_late import DistillLateFusion, EnrichedModalityProjector
+        from mac.fusion.distill_late import DistillLateFusion, EnrichedModalityProjector
         dcfg = cfg["fusion"].get("distill", {})
         enriched_mods = dcfg.get("enriched_modalities", [])
         # Override projector with enriched version
@@ -138,8 +138,8 @@ def build_fusion_model(cfg: dict, registry: ModalityRegistry):
         fusion.register_modality_classifiers(enabled)
 
     elif fusion_type == "enriched_late":
-        from src.fusion.distill_late import EnrichedModalityProjector
-        from src.fusion.late import LateFusion
+        from mac.fusion.distill_late import EnrichedModalityProjector
+        from mac.fusion.late import LateFusion
         ecfg = cfg["fusion"].get("enriched", {})
         enriched_mods = ecfg.get("enriched_modalities", [])
         proj_dropout = ecfg.get("projection_dropout", 0.0)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from real_time_ml.features.common import robust_stats, spectral_entropy
+from mac.features.common import robust_stats, spectral_entropy
 
 
 def eye_features(rows: list[dict[str, float]], velocity_threshold_deg_s: float = 100.0) -> tuple[dict[str, float], dict[str, float | bool]]:

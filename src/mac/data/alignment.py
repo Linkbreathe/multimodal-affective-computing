@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.data.io import normalize_condition
+from mac.data.io import normalize_condition
 
 
 @dataclass(frozen=True)

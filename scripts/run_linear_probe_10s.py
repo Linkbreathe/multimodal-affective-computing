@@ -17,6 +17,7 @@ from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import pandas as pd
@@ -25,7 +26,7 @@ import torch.nn as nn
 from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.utils.metrics import compute_class_weights
+from mac.evaluation.metrics import compute_class_weights
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("linear_probe")

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from src.utils.reporting import generate_report
+from mac.reporting.experiment import generate_report
 
 
 def test_generate_report_includes_fold_subject_metadata(tmp_path):

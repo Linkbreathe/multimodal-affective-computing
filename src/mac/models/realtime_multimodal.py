@@ -5,9 +5,9 @@ from typing import Any
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.modeling.groups import TARGETS
-from real_time_ml.utils import write_json
+from mac.config import ProjectConfig
+from mac.models.groups import TARGETS
+from mac.utils import write_json
 
 
 MODEL_KIND = "realtime_multimodal_window_v1"

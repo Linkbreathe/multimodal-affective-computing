@@ -7,10 +7,10 @@ import pandas as pd
 import pytest
 
 from analysis.supplementary.build_alignment_contract import apply_masks_to_window_features
-from real_time_ml.config import ProjectConfig, load_config
-from real_time_ml.evaluation.alignment import indexes_for_fold, load_split_manifest
-from real_time_ml.modeling.condition_models import ModelSpec
-from real_time_ml.modeling.condition_train import _rank_regression_on_validation
+from mac.config import ProjectConfig, load_config
+from mac.evaluation.alignment import indexes_for_fold, load_split_manifest
+from mac.models.condition_models import ModelSpec
+from mac.training.condition_train import _rank_regression_on_validation
 
 
 def _write_manifest(path, participants: list[str]) -> None:

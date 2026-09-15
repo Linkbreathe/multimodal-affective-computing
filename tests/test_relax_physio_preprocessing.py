@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.data.relax_physio_preprocessing import (
+from mac.preprocessing.relax_physio import (
     crop_indexes_with_context,
     exact_resample,
     linked_mastoid_reference,

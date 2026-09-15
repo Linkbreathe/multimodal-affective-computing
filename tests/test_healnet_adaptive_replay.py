@@ -5,16 +5,16 @@ import pandas as pd
 import pytest
 import torch
 
-from src.adaptive.condition_grid import (
+from mac.adaptive.offline.condition_grid import (
     CONDITION_GRID,
     adjacent_conditions,
     coordinates,
     is_legal_transition,
     transition_axis,
 )
-from src.adaptive.controller import AdaptiveController, ControllerConfig
-from src.adaptive.healnet_prefix import EXPECTED_MODALITIES, FrozenHealNetEnsemble
-from src.adaptive.replay import run_chronological_replay
+from mac.adaptive.offline.controller import AdaptiveController, ControllerConfig
+from mac.adaptive.offline.healnet_prefix import EXPECTED_MODALITIES, FrozenHealNetEnsemble
+from mac.adaptive.offline.replay import run_chronological_replay
 
 
 def _config() -> ControllerConfig:

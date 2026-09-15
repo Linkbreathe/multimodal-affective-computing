@@ -11,7 +11,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 from analysis.supplementary.run_gaze_heatmap_pilot import (  # noqa: E402
     DEFAULT_MANIFEST,
     DEFAULT_OUTPUT,
@@ -22,7 +22,7 @@ from analysis.supplementary.run_gaze_heatmap_pilot import (  # noqa: E402
     coordinate_bounds,
     load_viewing_gaze,
 )
-from real_time_ml.data.io import normalize_participant_id  # noqa: E402
+from mac.data.io import normalize_participant_id  # noqa: E402
 
 
 DEFAULT_REPORT = ROOT / "artifacts" / "reports" / "gaze_heatmap_video_zh.md"

@@ -96,7 +96,7 @@ def test_pool_clips_collapses_video_only(tmp_path):
 
 def test_pooled_video_batches_without_masks(tmp_path):
     """Pooled video enters as [B, 768] with no sequence padding or masks."""
-    from src.fusion.base import BaseFusionModule
+    from mac.fusion.base import BaseFusionModule
 
     class RecordingFusion(BaseFusionModule):
         """Records inputs for inspection."""
@@ -139,7 +139,7 @@ def test_pooled_video_batches_without_masks(tmp_path):
         assert s["embeddings"][0].shape == (768,)
 
     # Batch them via the trainer's collation
-    from src.fusion.projector import ModalityProjector
+    from mac.fusion.projector import ModalityProjector
     projector = ModalityProjector({"video": 768}, d_common=32)
     fusion = RecordingFusion()
 

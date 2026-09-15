@@ -23,7 +23,7 @@ from typing import Any, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
+sys.path.insert(0, str(ROOT / "src"))
 import joblib
 import numpy as np
 import pandas as pd
@@ -32,8 +32,8 @@ import torch
 import scripts.run_relax_compression_fusion_v2 as fusion_runner
 import scripts.run_relax_foundation_probe as foundation_probe
 from scripts.run_relax_foundation_probe import file_sha256
-from src.data.relax_dataset import RelaxConditionEmbeddingDataset
-from src.fusion.frozen_compression_v2 import (
+from mac.data.relax_dataset import RelaxConditionEmbeddingDataset
+from mac.fusion.frozen_compression_v2 import (
     FIVE_MODALITIES,
     ModalityWindowPCABank,
     RankAllocation,

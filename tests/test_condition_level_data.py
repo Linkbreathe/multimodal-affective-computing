@@ -4,11 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from real_time_ml.config import load_config
-from real_time_ml.modeling.condition_data import aggregate_window_frame, build_condition_dataset
-from real_time_ml.modeling.condition_train import _feature_columns
-from real_time_ml.modeling.groups import columns_for_group
-from real_time_ml.modeling.safety import deployment_guard
+from mac.config import load_config
+from mac.data.condition_data import aggregate_window_frame, build_condition_dataset
+from mac.training.condition_train import _feature_columns
+from mac.models.groups import columns_for_group
+from mac.evaluation.safety import deployment_guard
 
 
 def test_window_features_become_one_condition_label_with_full_summary_statistics():

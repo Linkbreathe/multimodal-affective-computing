@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import torch
 
-from src.data.video_transforms import (
+from mac.data.video_transforms import (
     CLIP_LEN,
     IMAGENET_MEAN,
     IMAGENET_STD,

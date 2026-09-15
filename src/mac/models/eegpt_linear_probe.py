@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import torch.nn as nn
 
-from src.models.constrained_layers import LinearWithConstraint
+from mac.models.constrained_layers import LinearWithConstraint
 
 
 class EEGPTLinearProbe(nn.Module):

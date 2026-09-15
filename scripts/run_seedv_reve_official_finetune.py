@@ -44,9 +44,9 @@ from tqdm import tqdm
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-
-from src.encoders.reve import ReveEncoder
-from src.models.reve_classifier import (
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+from mac.encoders.reve import ReveEncoder
+from mac.models.reve_classifier import (
     ReveClassifier,
     freeze_for_linear_probe,
     unfreeze_all,

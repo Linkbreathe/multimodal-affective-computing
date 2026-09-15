@@ -17,12 +17,12 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from real_time_ml.config import ProjectConfig
-from real_time_ml.data.io import discover_session_dir
-from real_time_ml.data.video import VideoFrame, load_video_index, uniform_clip_frames
-from real_time_ml.evaluation.alignment import file_sha256, validate_alignment_contract
-from real_time_ml.modeling.condition_data import aggregate_window_frame
-from real_time_ml.utils import write_json
+from mac.config import ProjectConfig
+from mac.data.io import discover_session_dir
+from mac.data.video import VideoFrame, load_video_index, uniform_clip_frames
+from mac.evaluation.alignment import file_sha256, validate_alignment_contract
+from mac.data.condition_data import aggregate_window_frame
+from mac.utils import write_json
 
 
 DYNAMIC_TEXTURE_VERSION = "dynamic_texture_v1"
