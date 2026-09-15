@@ -1,15 +1,18 @@
 # `mac` package map
 
 One package, organised by pipeline stage rather than by which of the two merged
-repositories a module came from. See [the merge map](../../docs/MERGE-MAP.md) for the
-old-to-new import table, and [the code map](../../docs/code-map.md) for protocol boundaries.
+repositories a module came from. The thesis-facing workflow is the RELAX
+condition/state and real-time pipeline. EgoEmotion and SEED-V runners are kept
+under `Auxiliary/benchmarks/`; this package retains only the reusable adapters
+and model components they share with RELAX. See [the merge map](../../docs/MERGE-MAP.md)
+for the old-to-new import table, and [the code map](../../docs/code-map.md) for protocol boundaries.
 
 ## Pipeline stages
 
 | Subpackage | Responsibility | Merged from |
 | --- | --- | --- |
-| `data` | Source indexing, labels, tables, video metadata, alignment and window construction; dataset and cache protocols for EgoEmotion, SEED-V and RELAX | both |
-| `preprocessing` | Marker alignment, condition boundaries, windows and MNE quality audits; per-modality preprocessing for PPG, ECG, SEED-V and RELAX physiology | both |
+| `data` | RELAX source indexing, labels, tables, video metadata, alignment and window construction; compatibility adapters for benchmark caches | both |
+| `preprocessing` | Marker alignment, condition boundaries, windows and MNE quality audits; PPG, ECG and RELAX physiology preprocessing | both |
 | `features` | Handcrafted EEG/ECG, eye, head and video features; dynamic-texture descriptors; frozen VideoMAE v2 embeddings | RTML |
 | `encoders` | Pretrained encoder wrappers and the config-driven modality registry | VisPhy |
 | `fusion` | Fusion architectures, the shared factory, projection and mask-aware pooling, frozen-feature compression, and the minimal Ridge / 1D-CNN benchmarks | both |
@@ -19,7 +22,6 @@ old-to-new import table, and [the code map](../../docs/code-map.md) for protocol
 | `evaluation` | Metrics, participant-fold contracts, LOPO, dynamic-texture statistics, deployment safety gates | both |
 | `experiments` | Research-only experiment orchestration, isolated from runtime training | RTML |
 | `adaptive.offline` | Frozen-checkpoint prefix inference and chronological, non-interventional recorded replay | VisPhy |
-| `adaptive.control` | The separate experimental Adaptive Control service: model registry, policy, readiness logic | RTML |
 | `realtime` | Shadow clock, buffers, inference engine, replay and serving; the Shadow recommendation policy | RTML |
 | `runtime` | Compatibility facades re-exporting `realtime`, from an earlier intra-RTML namespace migration | RTML |
 | `reporting` | Run summaries, experiment reports, results registry, video and multimodal report builders | both |
@@ -31,10 +33,10 @@ Top-level modules: `cli.py` (the `mac` command), `schema.py` (message validation
 
 ## Two things that must not be confused
 
-**`adaptive.offline` vs `adaptive.control`.** The first replays recorded sessions through
-frozen models and never intervenes. The second is a live service that can issue control
-commands to Unity, with its own configuration and compatibility checks; it does not inherit
-the Shadow path's policy restrictions.
+**`adaptive.offline` vs the archived Adaptive Control runtime.** The first replays recorded
+sessions through frozen models and never intervenes. The second is retained under
+`Auxiliary/adaptive_control/` for historical Unity/UDP experiments and is not part of the
+active `mac` package or thesis evidence chain.
 
 **`config.load_config` vs `config.simple.load_config`.** Two functions with the same name
 and different contracts, one from each merged repository:

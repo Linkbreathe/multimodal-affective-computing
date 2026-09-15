@@ -7,8 +7,8 @@ exchanging data through the filesystem and machine-specific paths:
 
 | Merged from | Called in the code | Supplies |
 | --- | --- | --- |
-| `real-time-vis-physio-fusion` | Project B | Pretrained encoders, 16 fusion architectures, LOSO evaluation over EgoEmotion, SEED-V and RELAX |
-| `Relax-Model` | Project A | Session indexing, handcrafted features, classical and temporal models, Shadow inference, Adaptive Control, Unity integration |
+| `real-time-vis-physio-fusion` | Project B | Reusable pretrained encoders and fusion architectures; EgoEmotion/SEED-V comparisons are auxiliary |
+| `Relax-Model` | Project A | Thesis-facing session indexing, handcrafted features, classical and temporal models, Shadow inference, Unity integration |
 
 They are now one installable package, `mac`, organised by **what each module does**
 rather than by which project it came from. Both Git histories are preserved; see
@@ -18,15 +18,15 @@ The presence of an implemented workflow demonstrates that it runs. It does not e
 that a model generalises to new participants, that a representation measures an internal
 state, or that adaptive control improves anything for a person.
 
-[中文总览](README_zh.md) · [合并对照表](docs/MERGE-MAP.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md)
+[中文总览](README_zh.md) · [合并对照表](docs/MERGE-MAP.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md)
 
-## Research purpose
+## Thesis purpose
 
 Emotion and relaxation are hard to infer from any single sensor. Video carries visual
 context, gaze and head motion describe behaviour, and PPG, ECG and EEG measure physiology.
 These sources differ in timing, noise, availability and representation requirements.
 
-The merged codebase supports five related lines of investigation:
+The primary workflow is the RELAX-based thesis pipeline:
 
 1. **Measurement and characterisation** — how physiology, gaze, head movement and visual
    context vary across conditions, including signal quality, missingness and baseline effects.
@@ -37,22 +37,24 @@ The merged codebase supports five related lines of investigation:
 4. **Participant generalisation** — whether models predict for participants excluded from
    training, under leave-one-participant-out or explicit split manifests.
 5. **Adaptation** — how state estimates, uncertainty and availability translate into
-   recommendations, in recorded replay and in the experimental live control service.
+   recommendations, in recorded replay and the non-interventional Shadow runtime.
 
-These are objectives, not claims. Interpret every result within its dataset, target
-definition, cohort and evaluation protocol.
+EgoEmotion and SEED-V remain available as auxiliary benchmarks under
+`Auxiliary/benchmarks/`; they are not part of the thesis runtime surface. These are
+objectives, not claims. Interpret every result within its dataset, target definition,
+cohort and evaluation protocol.
 
 ## The package
 
 ```text
 src/mac/
-  data/            Session indexing and I/O, label parsing, alignment, windows,
-                   dataset and cache protocols for EgoEmotion / SEED-V / RELAX
+  data/            RELAX session indexing and I/O, label parsing, alignment, windows,
+                   condition data and cache protocols; compatibility adapters for benchmarks
   preprocessing/   Streaming-compatible pipeline and quality control;
-                   per-modality preprocessing for PPG, ECG, SEED-V, RELAX physio
+                   per-modality preprocessing for PPG, ECG and RELAX physiology
   features/        Handcrafted physiological, eye, head and video features;
                    dynamic texture descriptors; frozen VideoMAE v2 embeddings
-  encoders/        Pretrained encoder wrappers: EEGPT, REVE, PaPaGei, Pulse-PPG,
+  encoders/        Reusable pretrained encoder wrappers: EEGPT, REVE, PaPaGei, Pulse-PPG,
                    ECGFounder, VideoMAE v2, InceptionTime, PatchTST, NeuroRVQ
   fusion/          Early / mid / late, bottleneck, HEALNet, Perceiver IO, Q-Former,
                    TMC, CGGM, MM-Lego, distillation, frozen compression,
@@ -66,7 +68,6 @@ src/mac/
   experiments/     Research-only experiment orchestration
   adaptive/
     offline/       Frozen-prefix inference and chronological recorded replay
-    control/       Live control runtime (separate from offline replay by design)
   realtime/        Shadow clock, engine, serve, replay, recommendation policy
   reporting/       Run summaries, experiment reports, results registry
   config/          Layered configuration (base -> experiment -> local) and the
@@ -75,9 +76,10 @@ src/mac/
   cli.py           The `mac` command
 ```
 
-Supporting trees at the repository root: `scripts/` (84 runners, extraction, audits and
-reports), `analysis/` (56 offline analyses, ablations, figures), `configs/`, `tests/` (65
-modules), `integrations/unity/`, `data/contracts/`, `docs/`, `Auxiliary/`.
+Supporting trees at the repository root: `scripts/` and `analysis/` for thesis workflows,
+`configs/` for runtime configuration, `tests/` for the active suite,
+`integrations/unity/`, `data/contracts/`, `docs/`, and `Auxiliary/` for historical and
+auxiliary benchmark material. See [论文代码范围](docs/thesis-scope.md).
 
 `src/real_time_ml/` and `src/src/` are generated compatibility shims that alias the old
 import paths onto `mac`. They are scheduled for removal.
@@ -113,8 +115,9 @@ python -m pip install -e ".[dl,viz,ecg,head]"
 | `ecg` / `head` | neurokit2 / ahrs |
 | `dev` | pytest, pytest-cov, ruff |
 
-`environment-videomae2.yml` stays a **separate** environment: it pins `timm` 0.4.12, which
-cannot coexist with the `timm` 1.x the encoder stack needs. `requirements.txt`,
+`Auxiliary/benchmarks/egoemotion/environment-videomae2.yml` stays a **separate** benchmark
+environment: it pins `timm` 0.4.12, which cannot coexist with the `timm` 1.x the encoder
+stack needs. `requirements.txt`,
 `requirements-extraction.txt` and `requirements-dev.txt` carry the pinned versions that
 were validated for the fusion research on Linux.
 
@@ -124,25 +127,23 @@ Two configuration systems coexist, because the two halves used different ones an
 was reduced to the other in this first merged version.
 
 ```text
-configs/project.yaml              Legacy operational defaults          -+
-       |                                                               |  layered:
-configs/base.yaml                 Shared experiment/protocol defaults  |  runtime,
-       |                                                               |  classical,
-configs/experiments/*.yaml        Run ID and experiment settings       |  analysis
-       |                                                               |
-configs/local.yaml                Local data roots and device          -+
+configs/fusion/                  Shared fusion model templates
+configs/project.yaml              RELAX operational defaults          -+  layered:
+configs/base.yaml                 RELAX protocol defaults              |  runtime,
+configs/experiments/*.yaml        Thesis experiment settings            |  classical
+                                                                          -+  analysis
 
-configs/egoemotion.yaml           Flat EgoEmotion fusion config        -+  flat:
-configs/seedv_*.yaml              SEED-V protocols                      |  fusion
-configs/fusion/ ablation/ finetune/   Fusion, ablation, fine-tuning    -+  research
+Auxiliary/benchmarks/egoemotion/configs/  EgoEmotion benchmark configs
+Auxiliary/benchmarks/seedv/configs/       SEED-V benchmark configs
 ```
 
 `configs/local.yaml` is ignored by Git; copy it from `configs/local.example.yaml` and set
 `paths.raw_root`, `paths.labels_root` and device settings. Global CLI options such as
 `--experiment` and `--local-config` come **before** the subcommand.
 
-> `configs/egoemotion.yaml` was `configs/base.yaml` before the merge. It was renamed because
-> the layered system needs its own `configs/base.yaml` at that exact location.
+The benchmark configurations are intentionally outside the thesis-facing `configs/`
+surface. The layered RELAX system uses `project.yaml -> base.yaml -> experiments/ ->
+local.yaml`.
 
 ## Execution paths
 
@@ -150,11 +151,11 @@ configs/fusion/ ablation/ finetune/   Fusion, ablation, fine-tuning    -+  resea
 | --- | --- | --- |
 | Offline research | `mac` extraction / training / evaluation commands; `scripts/`; `analysis/` | Features, models, comparisons and reports from recorded data |
 | Shadow inference | `mac replay`, `mac serve` | State predictions and recommendations for logging or display; requires `shadow=true` |
-| Adaptive Control | `mac adaptive-model`, `mac adaptive-control` | Separate experimental service with its own registry, readiness checks and control policy; it **can** issue commands and must not be confused with the Shadow bridge |
 
 Research-only visual and fusion checkpoints are not automatically promoted to runtime
-backends. Shadow and Adaptive Control default to the same UDP ports: run one per session,
-or configure separate ports.
+backends. The retired Adaptive Control experiment is archived under
+[`Auxiliary/adaptive_control/`](Auxiliary/adaptive_control/); it is not part of the thesis
+execution surface.
 
 ### Offline, condition-level workflow
 
@@ -168,20 +169,9 @@ mac @runArgs evaluate
 mac @runArgs report
 ```
 
-### EgoEmotion 10-second segment fusion
-
-```bash
-python scripts/run_experiment_10s.py \
-  --config configs/egoemotion.yaml --fusion_config configs/fusion/early.yaml \
-  --embeddings_dir data/embeddings/egoemotion/10s_task_aware \
-  --name ego_10s_early --device cuda
-```
-
-### SEED-V
-
-```bash
-python scripts/run_seedv_experiment.py --config configs/seedv_base.yaml
-```
+EgoEmotion and SEED-V benchmark commands are documented in
+[`Auxiliary/benchmarks/README.md`](Auxiliary/benchmarks/README.md); they are deliberately
+not listed as thesis execution paths.
 
 ### RELAX aligned protocol
 
@@ -205,8 +195,6 @@ despite the similar name. See [the code map](docs/code-map.md) for protocol boun
 ```powershell
 mac replay --help
 mac serve --help
-mac adaptive-model list
-mac adaptive-control --help
 ```
 
 Default Shadow transport: Unity to Python `127.0.0.1:5055`, Python to Unity `127.0.0.1:5056`.
@@ -224,8 +212,9 @@ labels, 567 source windows, 545 common-valid windows — validated by
 [`mac.windows_rq2_representations`](src/mac/windows_rq2_representations.py). `WINDOWS_DONE.json`
 marks completion of that track only.
 
-**EgoEmotion and SEED-V** have their own labels, sampling units, cache formats and splits.
-Task-level and 10-second caches are not interchangeable.
+**Auxiliary EgoEmotion and SEED-V benchmarks** have their own labels, sampling units,
+cache formats and splits. Task-level and 10-second caches are not interchangeable with
+the RELAX condition-level pipeline.
 
 Raw recordings, questionnaires and most generated outputs are external and Git-ignored. A
 fresh clone supports source inspection and data-independent tests; reproducing results also
@@ -292,11 +281,13 @@ Static verification that does not depend on the environment:
 ```powershell
 # every module in the package and both shim trees imports without error
 python -c "import pkgutil,importlib,mac; [importlib.import_module(m.name) for m in pkgutil.walk_packages(mac.__path__,'mac.')]"
-python -m compileall -q src scripts analysis tests
+python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
 ```
 
-All 135 `scripts/` and `analysis/` entry points answer `--help` with the same exit code as
-before the merge (133 identical, 0 regressions, 2 that previously failed now succeed).
+The active `scripts/` and `analysis/` entry points are the thesis workflow. Dataset-specific
+benchmark entry points and the retired Adaptive Control runtime are kept under `Auxiliary/`
+and are validated separately when their external datasets, model dependencies or Unity
+installation are available.
 
 ## Contributing
 
@@ -307,7 +298,7 @@ before the merge (133 identical, 0 regressions, 2 that previously failed now suc
 - Fit preprocessing, feature selection and tuning only on permitted training data.
 - Use a distinct configuration and run ID for a new comparison.
 - Keep research-only representations out of runtime model selection, and keep
-  `adaptive/offline/` distinct from `adaptive/control/`.
+  `adaptive/offline/` distinct from the archived `Auxiliary/adaptive_control/` runtime.
 - For a new encoder, document expected shapes, temporal sampling, channel order, units,
   weights and missing-modality behaviour.
 - Describe evidence at its actual level: implementation, offline evaluation, recorded

@@ -85,7 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser("train-state")
     commands.add_parser(
         "train-realtime-multimodal-window",
-        help="train the adaptive-control realtime EEG/ECG/eye/HMD-motion window model",
+        help="train the realtime EEG/ECG/eye/HMD-motion window model used by Shadow replay",
     )
     commands.add_parser("train-dcnn-state")
     commands.add_parser("train-policy")
@@ -99,14 +99,6 @@ def build_parser() -> argparse.ArgumentParser:
     video_replay.add_argument("--output", type=Path)
     serve_parser = commands.add_parser("serve")
     serve_parser.add_argument("--max-cycles", type=int, help="test-only finite cycle count")
-    adaptive_control = commands.add_parser("adaptive-control", help="start the local adaptive-control service")
-    adaptive_control.add_argument("--control-config", help="adaptive-control.yaml path")
-    adaptive_control.add_argument("--bundle", help="registered adaptive-control model bundle id")
-    adaptive_control.add_argument("--max-cycles", type=int, help="test-only finite cycle count")
-    adaptive_model = commands.add_parser("adaptive-model", help="inspect or verify registered adaptive-control model bundles")
-    adaptive_model.add_argument("--control-config", help="adaptive-control.yaml path")
-    adaptive_model.add_argument("action", choices=("list", "verify"))
-    adaptive_model.add_argument("--bundle", help="bundle id; required for verify")
     run_all = commands.add_parser("run-all")
     run_all.add_argument("--participants", help="comma-separated participant ids")
     run_all.add_argument("--no-video", action="store_true")
@@ -256,45 +248,6 @@ def main(argv: list[str] | None = None) -> int:
         from mac.realtime.serve import serve
 
         result = serve(config, args.max_cycles)
-    elif args.command == "adaptive-control":
-        from mac.adaptive.control.service import serve_adaptive_control
-        from mac.adaptive.control.settings import load_adaptive_control_settings
-
-        control_settings = load_adaptive_control_settings(args.control_config)
-        try:
-            result = serve_adaptive_control(
-                config,
-                control_settings,
-                bundle_id=args.bundle,
-                max_cycles=args.max_cycles,
-            )
-        except OSError as exc:
-            _print({
-                "ok": False,
-                "error": "adaptive_control_startup_failed",
-                "reason": str(exc),
-                "listen_host": control_settings.listen_host,
-                "unity_to_python_port": control_settings.unity_to_python_port,
-                "python_send_host": control_settings.python_send_host,
-                "python_to_unity_port": control_settings.python_to_unity_port,
-            })
-            return 2
-    elif args.command == "adaptive-model":
-        from mac.adaptive.control.service import list_models, verify_model
-        from mac.adaptive.control.settings import load_adaptive_control_settings
-
-        settings = load_adaptive_control_settings(args.control_config)
-        if args.action == "list":
-            result = {"models": list_models(settings)}
-        else:
-            if not args.bundle:
-                parser.error(f"{args.command} verify requires --bundle")
-            report = verify_model(settings, args.bundle)
-            result = {
-                "compatible": report.compatible,
-                "reasons": report.reasons,
-                "descriptor": report.descriptor.__dict__,
-            }
     elif args.command == "run-all":
         from mac.data.index import build_index
         from mac.features.extract import extract_features

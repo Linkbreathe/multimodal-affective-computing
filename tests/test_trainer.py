@@ -1,7 +1,7 @@
 import pytest
 import torch
 import torch.nn as nn
-from scripts.run_experiment import ProjectedFusion
+from mac.fusion.factory import ProjectedFusion
 from mac.training.early_stopping import EarlyStopping
 from mac.training.fusion_trainer import FusionTrainer
 from mac.fusion.base import BaseFusionModule

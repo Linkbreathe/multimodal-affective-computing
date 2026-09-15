@@ -5,7 +5,7 @@
 | 原仓库 | 代码中的称呼 | 内容 | 原 GitHub |
 | --- | --- | --- | --- |
 | `real-time-vis-physio-fusion`（下称 **VisPhy**） | Project B | EgoEmotion / SEED-V / RELAX 离线深度学习研究 | `Linkbreathe/real-time-vis-physio-fusion` |
-| `Relax-Model`（下称 **RTML**） | Project A | `rtml` CLI、实时 Shadow 推理、Adaptive Control、Unity | `Linkbreathe/Relax-Model` |
+| `Relax-Model`（下称 **RTML**） | Project A | `rtml` CLI、实时 Shadow 推理、Unity | `Linkbreathe/Relax-Model` |
 
 两份 Git 历史都通过 `git subtree` 完整导入（VisPhy 69 commits、RTML 13 commits），
 `git log --follow <文件>` 可一直追溯到融合前的原始提交。两个原仓库仍作为 remote 保留：
@@ -18,7 +18,7 @@ git log --follow src/mac/fusion/healnet.py
 ## 融合原则
 
 包按**管线阶段**组织，不按来源项目。RTML 提供管线前端（会话接入、手工特征）
-和后端（实时服务、自适应控制），VisPhy 提供中段（预训练编码器、融合架构、LOSO 评测）。
+和 Shadow 后端，VisPhy 提供中段（预训练编码器、融合架构、LOSO 评测）。
 融合前两者已经在互相调用，只是必须靠绝对路径和 `sys.path` 注入拼接。
 
 第一版**不删除任何研究内容**：重复实现全部保留，只记录在文末「待去重」。
@@ -47,8 +47,26 @@ git log --follow src/mac/fusion/healnet.py
 | `rtml <子命令>` | `mac <子命令>` | `rtml` 保留为别名 |
 | `python -m real_time_ml.cli` | `python -m mac.cli` | 旧写法经 shim 仍可用 |
 
-VisPhy 的其余配置路径全部不变（`configs/seedv_base.yaml`、`configs/fusion/early.yaml`、
-`configs/ablation/*.yaml`、`configs/finetune/*.yaml`）。
+融合基线中的其余配置原本保持不变；在本分支的论文范围整理中，EgoEmotion/SEED-V
+专属配置已移到 `Auxiliary/benchmarks/egoemotion/configs/` 和
+`Auxiliary/benchmarks/seedv/configs/`。共享的 `configs/fusion/` 与论文主线的
+`configs/project.yaml`、`configs/base.yaml`、`configs/experiments/` 保留在根目录。
+
+## 论文范围整理分支
+
+`thesis-core-auxiliary` 将不属于论文主线的数据集实验材料从根目录移入
+`Auxiliary/benchmarks/`：
+
+- EgoEmotion：专属 runner、配置、测试、历史报告和 VAD 图表；
+- SEED-V：专属 runner、配置和测试；
+- `src/mac/` 中仍被 RELAX 使用的通用编码器、融合器和缓存组件不移动；
+- 论文主线只依赖 `mac`、RELAX runner、RQ2/分析入口和 Unity Shadow 集成，不依赖
+  辅助 benchmark runner 或 Adaptive Control。
+
+暂不需要的 Adaptive Control 实验服务、模型注册表、配置、启动器和专用测试已归档到
+`Auxiliary/adaptive_control/`，不再属于 `src/mac/` 的活动实现。
+
+具体清单见 [论文代码范围](thesis-scope.md)。
 
 ## 合并而非移动的文件
 
@@ -66,8 +84,10 @@ VisPhy 的其余配置路径全部不变（`configs/seedv_base.yaml`、`configs/
 
 ## 兼容层
 
-`src/real_time_ml/`（85 个模块）和 `src/src/`（81 个模块）是**自动生成的 shim**，
-把旧 import 别名到新位置。叶子模块用 `sys.modules` 别名，因此新旧名字拿到的是**同一个对象**：
+`src/real_time_ml/` 和 `src/src/` 中保留的模块是**自动生成的 shim**，把仍在活动包
+中的旧 import 别名到新位置。Adaptive Control 的专用 shim 与实现已一并移入
+`Auxiliary/adaptive_control/legacy/`，不再作为安装包兼容层。活动包叶子模块用
+`sys.modules` 别名，因此新旧名字拿到的是**同一个对象**：
 
 ```python
 from real_time_ml.modeling.dcnn import train_dcnn_state as a
@@ -82,8 +102,9 @@ assert a is b          # 已验证通过
 
 ## 包内模块对照
 
-下表 162 行覆盖两个原仓库 `src/` 里的每一个模块，新旧两端都已核对存在于磁盘上。
-只有 `mac.adaptive` 和 `mac.utils` 两个 `__init__.py` 不在表中——它们是融合时新写的，
+下表 162 行覆盖两个原仓库 `src/` 里的活动模块，新旧两端都已核对存在于磁盘上。
+Adaptive Control 的专用模块不再属于活动 `src/`，已在下方单独标为归档映射；只有
+`mac.adaptive` 和 `mac.utils` 两个 `__init__.py` 不在活动表中——它们是融合时新写的，
 没有对应的旧 import。
 
 ### `mac.data`
@@ -253,17 +274,17 @@ assert a is b          # 已验证通过
 | RTML | `real_time_ml.experiments.minimal_fusion_dcnn` | `mac.experiments.minimal_fusion_dcnn` |
 | RTML | `real_time_ml.experiments.minimal_fusion_dcnn_hp` | `mac.experiments.minimal_fusion_dcnn_hp` |
 
-### `mac.adaptive`
+### `mac.adaptive` 与归档 Adaptive Control
 
 | 来源 | 旧 import | 新 import |
 | --- | --- | --- |
-| RTML | `real_time_ml.adaptive_control` | `mac.adaptive.control` |
-| RTML | `real_time_ml.adaptive_control.contracts` | `mac.adaptive.control.contracts` |
-| RTML | `real_time_ml.adaptive_control.models` | `mac.adaptive.control.models` |
-| RTML | `real_time_ml.adaptive_control.physio_monitor` | `mac.adaptive.control.physio_monitor` |
-| RTML | `real_time_ml.adaptive_control.policy` | `mac.adaptive.control.policy` |
-| RTML | `real_time_ml.adaptive_control.service` | `mac.adaptive.control.service` |
-| RTML | `real_time_ml.adaptive_control.settings` | `mac.adaptive.control.settings` |
+| RTML | `real_time_ml.adaptive_control` | `Auxiliary.adaptive_control`（归档） |
+| RTML | `real_time_ml.adaptive_control.contracts` | `Auxiliary.adaptive_control.contracts`（归档） |
+| RTML | `real_time_ml.adaptive_control.models` | `Auxiliary.adaptive_control.models`（归档） |
+| RTML | `real_time_ml.adaptive_control.physio_monitor` | `Auxiliary.adaptive_control.physio_monitor`（归档） |
+| RTML | `real_time_ml.adaptive_control.policy` | `Auxiliary.adaptive_control.policy`（归档） |
+| RTML | `real_time_ml.adaptive_control.service` | `Auxiliary.adaptive_control.service`（归档） |
+| RTML | `real_time_ml.adaptive_control.settings` | `Auxiliary.adaptive_control.settings`（归档） |
 | VisPhy | `src.adaptive` | `mac.adaptive.offline` |
 | VisPhy | `src.adaptive.baseline` | `mac.adaptive.offline.baseline` |
 | VisPhy | `src.adaptive.condition_grid` | `mac.adaptive.offline.condition_grid` |

@@ -2,6 +2,11 @@
 
 日期：2026-09-11。分支：`refactor/consolidate-research-20260911`。
 
+本文记录的是论文范围整理前的合并验证结果；在当前 `thesis-core-auxiliary` 分支中，
+EgoEmotion/SEED-V 专属入口、配置和测试已移至 `Auxiliary/benchmarks/`，Adaptive Control
+实验服务已移至 `Auxiliary/adaptive_control/`，因此本文中的
+旧路径仅用于追溯历史验证，不代表当前执行路径。
+
 ## 环境与结果
 
 验证解释器为本机 `egoEMOTION` 环境的 Python 3.11；主要依赖为 PyTorch `2.10.0+cu128`、Transformers `5.1.0`、NumPy `1.26.4`、pandas `2.2.3`。现有 `visphy` 环境出现 NumPy/pandas 二进制不兼容，因此未用它作为验证环境，也未修改它。

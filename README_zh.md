@@ -8,8 +8,8 @@
 
 | 原仓库 | 代码中的称呼 | 提供什么 |
 | --- | --- | --- |
-| `real-time-vis-physio-fusion` | Project B | 预训练编码器、16 种融合架构、EgoEmotion / SEED-V / RELAX 的 LOSO 评测 |
-| `Relax-Model` | Project A | 会话索引、手工特征、经典与时序模型、Shadow 推理、Adaptive Control、Unity 集成 |
+| `real-time-vis-physio-fusion` | Project B | 可复用的预训练编码器和融合架构；EgoEmotion / SEED-V 比较实验归入辅助目录 |
+| `Relax-Model` | Project A | 论文主线的会话索引、手工特征、经典与时序模型、Shadow 推理、Unity 集成 |
 
 现在它们是**同一个可安装包 `mac`**，包内按「模块做什么」而不是「来自哪个项目」组织。
 两份 Git 历史完整保留。融合前写下的任何路径或命令，请对照
@@ -18,33 +18,34 @@
 实现了某个工作流只说明它能跑。它不能证明模型对新被试泛化、某个表征测到了内部状态，
 或者自适应控制对人真的有益。
 
-[English overview](README.md) · [合并对照表](docs/MERGE-MAP.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md)
+[English overview](README.md) · [合并对照表](docs/MERGE-MAP.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md)
 
-## 研究目的
+## 论文主线
 
 单一传感器很难推断情绪与放松。视频提供视觉上下文，视线和头动描述行为，PPG / ECG / EEG
 提供生理测量。这些信号在时序、噪声、可得性和表征需求上都不同。
 
-融合后的代码库支持五条研究线：
+当前分支优先服务于基于 RELAX 的论文管线：
 
 1. **测量与刻画** —— 生理、视线、头动、视觉上下文如何随条件变化，包括信号质量、缺失和基线效应。
 2. **模态贡献** —— 哪些信号携带可用信息，在同一评测协议下多模态是否优于单模态。
 3. **表征迁移** —— 冻结的预训练表征迁移到情感目标的效果，以及投影 / 压缩 / 微调 / LoRA 各自何时有用。
 4. **被试泛化** —— 在留一被试或显式 split manifest 下，模型能否预测训练中未见的被试。
-5. **自适应** —— 状态估计、不确定性、信号可得性如何转化为推荐，在录制回放和实验性实时控制服务中分别表现如何。
+5. **自适应** —— 状态估计、不确定性、信号可得性如何转化为推荐，在录制回放和非干预式 Shadow 运行时中如何表现。
 
+EgoEmotion 与 SEED-V 仍保留在 `Auxiliary/benchmarks/` 作为辅助基准，不属于论文主线运行路径。
 这些是研究目标，不是结论。任何结果都必须在其数据集、目标定义、cohort 和评测协议内解读。
 
 ## 包结构
 
 ```text
 src/mac/
-  data/            会话索引与 I/O、标签解析、对齐、窗口，
-                   以及 EgoEmotion / SEED-V / RELAX 的数据集与缓存协议
+  data/            RELAX 会话索引与 I/O、标签解析、对齐、窗口、
+                   condition 数据和缓存协议；保留基准兼容适配器
   preprocessing/   流式预处理管线与质量控制；
-                   PPG / ECG / SEED-V / RELAX 生理信号的分模态预处理
+                   PPG / ECG / RELAX 生理信号的分模态预处理
   features/        手工生理、眼动、头动、视频特征；动态纹理描述子；冻结 VideoMAE v2 嵌入
-  encoders/        预训练编码器封装：EEGPT、REVE、PaPaGei、Pulse-PPG、
+  encoders/        可复用的预训练编码器封装：EEGPT、REVE、PaPaGei、Pulse-PPG、
                    ECGFounder、VideoMAE v2、InceptionTime、PatchTST、NeuroRVQ
   fusion/          early / mid / late、bottleneck、HEALNet、Perceiver IO、Q-Former、
                    TMC、CGGM、MM-Lego、蒸馏、冻结压缩，以及最小 Ridge / 1D-CNN 融合基准
@@ -55,7 +56,6 @@ src/mac/
   experiments/     研究专用的实验编排
   adaptive/
     offline/       冻结前缀推理与按时序的录制回放
-    control/       实时控制运行时（与离线回放刻意分开）
   realtime/        Shadow 时钟、engine、serve、replay、推荐策略
   reporting/       run 摘要、实验报告、结果注册表
   config/          分层配置（base → experiment → local）与融合 runner 用的扁平 YAML 加载器
@@ -63,9 +63,9 @@ src/mac/
   cli.py           `mac` 命令
 ```
 
-仓库根的配套目录：`scripts/`（84 个 runner、提取、审计与报告）、`analysis/`（56 个离线分析、
-消融、图表）、`configs/`、`tests/`（65 个模块）、`integrations/unity/`、`data/contracts/`、
-`docs/`、`Auxiliary/`。
+仓库根的配套目录：`scripts/` 与 `analysis/`（论文主线）、`configs/`（运行配置）、
+`tests/`（主线测试）、`integrations/unity/`、`data/contracts/`、`docs/`，以及保存历史和
+辅助基准的 `Auxiliary/`。具体范围见 [论文代码范围](docs/thesis-scope.md)。
 
 `src/real_time_ml/` 和 `src/src/` 是**自动生成的兼容 shim**，把旧 import 路径别名到 `mac`，
 计划在 v2 删除。
@@ -100,33 +100,31 @@ python -m pip install -e ".[dl,viz,ecg,head]"
 | `ecg` / `head` | neurokit2 / ahrs |
 | `dev` | pytest、pytest-cov、ruff |
 
-`environment-videomae2.yml` 仍是**独立环境**：它钉了 `timm` 0.4.12，与编码器栈需要的
-`timm` 1.x 无法共存。`requirements*.txt` 保留了融合研究在 Linux 上验证过的钉版。
+`Auxiliary/benchmarks/egoemotion/environment-videomae2.yml` 仍是**独立的基准环境**：
+它钉了 `timm` 0.4.12，与编码器栈需要的 `timm` 1.x 无法共存。`requirements*.txt`
+保留了融合研究在 Linux 上验证过的钉版。
 
 ## 配置
 
 两套配置系统并存 —— 两边各用一套，第一版没有把任何一套归并掉。
 
 ```text
-configs/project.yaml              旧的运行参数                      ─┐
-       ↓                                                             │  分层：
-configs/base.yaml                 共享实验与协议默认值               │  runtime、
-       ↓                                                             │  classical、
-configs/experiments/*.yaml        run ID 与实验设置                  │  analysis
-       ↓                                                             │
-configs/local.yaml                本机数据根目录与设备              ─┘
+configs/fusion/                  共享融合模型模板
+configs/project.yaml              RELAX 运行参数                    ─┐  分层：
+configs/base.yaml                 RELAX 协议默认值                   │  runtime、
+configs/experiments/*.yaml        论文实验设置                       │  classical
+                                                                          ─┘  analysis
 
-configs/egoemotion.yaml           扁平 EgoEmotion 融合配置          ─┐  扁平：
-configs/seedv_*.yaml              SEED-V 各协议                      │  融合
-configs/fusion/ ablation/ finetune/   融合、消融、微调              ─┘  研究
+Auxiliary/benchmarks/egoemotion/configs/  EgoEmotion 基准配置
+Auxiliary/benchmarks/seedv/configs/       SEED-V 基准配置
 ```
 
 `configs/local.yaml` 被 Git 忽略，从 `configs/local.example.yaml` 复制后填
 `paths.raw_root`、`paths.labels_root` 和设备设置。`--experiment`、`--local-config`
 这类全局选项要写在**子命令之前**。
 
-> `configs/egoemotion.yaml` 融合前叫 `configs/base.yaml`。改名是因为分层配置系统需要
-> 在同一位置有自己的 `configs/base.yaml`（`mac/config/__init__.py` 用 `parents[3]` 定位它）。
+基准配置有意不占用论文主线的 `configs/` 根目录；RELAX 分层系统使用
+`project.yaml → base.yaml → experiments/ → local.yaml`。
 
 ## 三条执行路径
 
@@ -134,10 +132,9 @@ configs/fusion/ ablation/ finetune/   融合、消融、微调              ─�
 | --- | --- | --- |
 | 离线研究 | `mac` 的提取 / 训练 / 评测子命令；`scripts/`；`analysis/` | 从录制数据产出特征、模型、比较与报告 |
 | Shadow 推理 | `mac replay`、`mac serve` | 输出状态预测与推荐供记录或显示，要求 `shadow=true` |
-| Adaptive Control | `mac adaptive-model`、`mac adaptive-control` | 独立的实验性服务，自带模型注册表、就绪检查与控制策略；它**会**下发控制指令，不可与 Shadow 桥接混淆 |
 
-研究专用的视觉与融合 checkpoint 不会自动提升为运行时后端。Shadow 与 Adaptive Control
-默认使用相同 UDP 端口：一次会话只跑其中一个，或者改配置分开端口。
+研究专用的视觉与融合 checkpoint 不会自动提升为运行时后端。暂不需要的 Adaptive Control
+实验代码已归档到 [`Auxiliary/adaptive_control/`](Auxiliary/adaptive_control/)，不属于论文主线。
 
 ### 离线 condition 级工作流
 
@@ -151,20 +148,8 @@ mac @runArgs evaluate
 mac @runArgs report
 ```
 
-### EgoEmotion 10 秒片段融合
-
-```bash
-python scripts/run_experiment_10s.py \
-  --config configs/egoemotion.yaml --fusion_config configs/fusion/early.yaml \
-  --embeddings_dir data/embeddings/egoemotion/10s_task_aware \
-  --name ego_10s_early --device cuda
-```
-
-### SEED-V
-
-```bash
-python scripts/run_seedv_experiment.py --config configs/seedv_base.yaml
-```
+EgoEmotion 与 SEED-V 的命令见 [`Auxiliary/benchmarks/README.md`](Auxiliary/benchmarks/README.md)，
+它们不再作为论文主线执行路径列出。
 
 ### RELAX aligned 协议
 
@@ -188,8 +173,6 @@ python scripts/run_relax_foundation_probe.py \
 ```powershell
 mac replay --help
 mac serve --help
-mac adaptive-model list
-mac adaptive-control --help
 ```
 
 Shadow 默认传输：Unity → Python `127.0.0.1:5055`，Python → Unity `127.0.0.1:5056`。
@@ -205,8 +188,8 @@ Shadow 默认传输：Unity → Python `127.0.0.1:5055`，Python → Unity `127.
 545 个 common-valid 窗口，由 [`mac.windows_rq2_representations`](src/mac/windows_rq2_representations.py)
 校验。`WINDOWS_DONE.json` 只标记该 track 完成。
 
-**EgoEmotion 与 SEED-V** 各有自己的标签、采样单位、缓存格式和 split。
-task 级缓存与 10 秒片段缓存不可互换。
+**辅助 EgoEmotion 与 SEED-V 基准**各有自己的标签、采样单位、缓存格式和 split，
+不能与 RELAX condition 级管线混用。
 
 原始录制、问卷和大部分生成产物是外部输入且被 Git 忽略。全新 clone 支持源码检视和数据无关测试；
 复现结果还需要对应的源数据、配置与实验产物。
@@ -264,11 +247,12 @@ marker 含义：`integration` 读取被试源数据，`slow` 训练模型或做�
 ```powershell
 # 包内与两棵 shim 树的所有模块都能无错导入
 python -c "import pkgutil,importlib,mac; [importlib.import_module(m.name) for m in pkgutil.walk_packages(mac.__path__,'mac.')]"
-python -m compileall -q src scripts analysis tests
+python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
 ```
 
-`scripts/` 与 `analysis/` 全部 135 个入口点的 `--help` 退出码与融合前一致
-（133 个完全相同，0 个回归，2 个原本失败的现在成功）。
+论文主线的 `scripts/` 与 `analysis/` 入口保持在根目录；数据集专属入口和暂不需要的
+Adaptive Control 运行时位于 `Auxiliary/`，只有在具备相应外部数据、模型依赖或 Unity
+安装时单独验证。
 
 ## 贡献与扩展
 
@@ -277,6 +261,7 @@ python -m compileall -q src scripts analysis tests
 - 保持被试–条件的监督关系和声明的 cohort，排除要显式写明。
 - 预处理、特征选择、调参只能在允许的训练数据上拟合。
 - 新的比较用新的配置和新的 run ID。
-- 研究专用表征不要进入运行时模型选择；`adaptive/offline/` 与 `adaptive/control/` 保持分开。
+- 研究专用表征不要进入运行时模型选择；`adaptive/offline/` 与归档的
+  `Auxiliary/adaptive_control/` 保持分开。
 - 新增编码器时，写明期望形状、时序采样、通道顺序、单位、权重、缺模态行为。
 - 按证据的实际层级描述结论：实现、离线评测、录制回放，还是前瞻性被试研究。

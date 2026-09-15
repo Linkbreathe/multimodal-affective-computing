@@ -1,6 +1,7 @@
 # 代码地图与协议边界
 
 融合后的统一版本。旧路径请对照 [合并对照表](MERGE-MAP.md)。
+论文主线与辅助边界见 [论文代码范围](thesis-scope.md)。
 
 ## 公共模块（`src/mac/`）
 
@@ -9,12 +10,13 @@
 | `data/index.py`、`io.py`、`labels.py`、`tables.py`、`xlsx.py`、`video.py` | RELAX 会话源索引、标签解析、表格与视频 I/O |
 | `data/alignment.py` | marker 对齐与窗口构建 |
 | `data/condition_data.py` | condition 级标签列定义与窗口聚合 |
-| `data/segments.py`、`label_builder.py` | EgoEmotion 时间轴切片与标签映射 |
-| `data/egoemotion/manifest.py` | 10 秒片段 manifest、完整性检查与数据加载 |
+| `data/segments.py`、`label_builder.py` | EgoEmotion 兼容数据适配，供辅助基准和旧缓存使用 |
+| `data/egoemotion/manifest.py` | EgoEmotion 10 秒片段 manifest、完整性检查与数据加载；辅助基准支持 |
 | `data/embedding_shapes.py`、`collate.py`、`dataset.py` | 缓存形状规范、变长批处理、缓存嵌入 Dataset |
 | `data/relax_*.py` | RELAX 各协议的 Dataset、cohort 审计与注意力视频派生 |
 | `preprocessing/pipeline.py`、`mne_qc.py` | 流式生理处理（`StreamingPhysioProcessor`）与连续 MNE 质控审计 |
-| `preprocessing/ppg.py`、`ecg.py`、`seedv.py`、`relax_physio.py` | 按模态的采样、滤波、通道与单位处理 |
+| `preprocessing/ppg.py`、`ecg.py`、`relax_physio.py` | RELAX 主线的采样、滤波、通道与单位处理 |
+| `preprocessing/seedv.py` | SEED-V 辅助基准的采样、滤波、通道与单位处理 |
 | `features/physio.py`、`eye.py`、`head.py`、`video.py`、`egocentric.py` | 手工特征：EEG/ECG、视线、头动、第一人称视频 |
 | `features/videomae2.py`、`dynamic_texture.py` | 冻结 VideoMAE v2 嵌入、研究专用动态纹理描述子 |
 | `encoders/` | 预训练编码器适配、注册、特征提取及缓存 |
@@ -25,16 +27,16 @@
 | `training/` | 公共 LOSO 训练与早停；condition / state / policy / video 训练入口 |
 | `evaluation/` | 指标、被试折契约、LOPO、动态纹理统计、部署安全门 |
 | `adaptive/offline/` | baseline、冻结 HEALNet 前缀、控制器及离线回放指标 |
-| `adaptive/control/` | 独立的实时控制服务：契约、模型注册表、策略、就绪检查 |
 | `realtime/` | Shadow 时钟、缓冲、engine、replay、serve 与推荐策略 |
 | `reporting/`、`config/`、`utils/` | 报告与结果注册表、分层与扁平配置、原子写入与哈希 |
 
-`scripts/run_experiment.py` 重导出迁移后的公共函数/类以兼容历史导入与序列化引用。
-10 秒入口直接使用公共实现；PPG 的 `HybridProjectedFusion` 继承公共包装器，仅增加原始信号编码。
+`Auxiliary/benchmarks/egoemotion/scripts/run_experiment.py` 保留 EgoEmotion 历史入口，
+直接调用 `mac` 的公共实现；PPG 的 `HybridProjectedFusion` 继承公共包装器，仅增加原始
+信号编码。论文主线不依赖该入口。
 
 ## 实验入口
 
-### `mac` CLI（原 `rtml`，31 个子命令）
+### `mac` CLI（原 `rtml`，论文主线子命令）
 
 索引与预处理 `index` `preprocess`；特征 `extract-features` `build-video-mp4`
 `extract-handcrafted-video` `extract-videomae2` `extract-dynamic-texture`；
@@ -42,15 +44,15 @@
 `train-videomae2-dcnn` `train-realtime-multimodal-window` 等；
 基准 `benchmark-minimal-fusion` `benchmark-minimal-fusion-dcnn`；
 评测与报告 `evaluate` `report` `report-video-fusion` `report-latest-multimodal`；
-运行时 `replay` `replay-video` `serve` `adaptive-control` `adaptive-model`；
+运行时 `replay` `replay-video` `serve`；
 编排 `run-all`。
 
-### 脚本入口（路径相对 `scripts/`）
+### 脚本入口
 
 | 研究线 | 准备 / 训练 | 检查 / 评估 |
 | --- | --- | --- |
-| EgoEmotion | `segment_and_extract_10s.py`、`extract_embeddings.py`、`pretrain_*`、`run_experiment*.py`、`run_finetune_ppg.py`、`run_lego_experiment.py` | `verify_pipeline.py`、`verify_segmentation.py`、`audit_clip_leakage_ego.py`、`analyze_results.py` |
-| SEED-V | `extract_seedv*`、`run_seedv_*`：EEGPT、REVE、EEGNet、DE-SVM、眼动、LoRA、微调 | `run_seedv_ablation*.py` 与各入口输出 |
+| EgoEmotion（辅助） | `Auxiliary/benchmarks/egoemotion/scripts/segment_and_extract_10s.py`、`extract_embeddings.py`、`pretrain_*`、`run_experiment*.py`、`run_finetune_ppg.py`、`run_lego_experiment.py` | 同目录下的 `verify_*`、`audit_clip_leakage_ego.py`、历史报告 |
+| SEED-V（辅助） | `Auxiliary/benchmarks/seedv/scripts/extract_seedv*`、`run_seedv_*`：EEGPT、REVE、EEGNet、DE-SVM、眼动、LoRA、微调 | 同目录下的 `run_seedv_ablation*.py` 与各入口输出 |
 | RELAX foundation | `relax_foundation/extract_relax_foundation_embeddings.py`、`run_relax_foundation_probe.py`、`run_relax_ablation_suite.py`、`run_relax_claim_validation.py`、`run_relax_attention_video_experiments.py` | 子目录内 `audit_*`、`analyze_*`、`summarize_*`、`generate_*` |
 | RELAX aligned | `build_relax_alignment_cache.py`、`run_relax_foundation_probe.py`、`run_relax_aligned_fusion_matrix.py`、`run_relax_eeg_eligible_ablation_matrix.py` | `audit_relax_foundation_features*.py` |
 | RELAX compression | `build_relax_compression_fusion_preregistration_v2.py`、`run_relax_compression_fusion*.py`、`run_relax_compression_fusion_matrix*.py` | `evaluate_relax_compression_fusion*.py`、`plot_relax_compression_fusion.py`、`build_relax_compression_fusion_final_report.py` |
@@ -64,6 +66,12 @@
 `adaptive_offline/`（离线测量与控制模拟）、`decision_reanalysis/`（录制决策复分析）、
 `idiographic/`（个体化分析）、`phase_baseline/`（阶段 / 基线）、
 `supplementary/`（共享 split 比较、模态消融、图表与报告，38 个脚本）。
+
+### 归档运行时
+
+`Auxiliary/adaptive_control/` 保存暂不参与论文主线的 Unity/UDP Adaptive Control
+服务、模型注册表、配置、启动器和专用测试。它不再属于 `src/mac/` 的活动包地图；
+需要历史复现时使用 `python -m Auxiliary.adaptive_control.cli`。
 
 ## RELAX 协议边界
 
