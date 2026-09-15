@@ -8,7 +8,7 @@ import pytest
 
 from mac.cli import build_parser
 from mac.config import ProjectConfig, load_config
-from mac.models import minimal_fusion_dcnn
+from mac.fusion import minimal_fusion_dcnn
 from mac.fusion.minimal_fusion import COMBINATIONS, FEATURES_PER_MODALITY, MODALITY_ORDER
 
 

@@ -28,7 +28,7 @@ from analysis.supplementary.run_four_channel_ranking_benchmark import (  # noqa:
     _matrix,
 )
 from mac.data.io import normalize_participant_id  # noqa: E402
-from mac.models import minimal_fusion as old_fusion  # noqa: E402
+from mac.fusion import minimal_fusion as old_fusion  # noqa: E402
 
 
 DEFAULT_A4_FEATURES = FOUR_CHANNEL_OUTPUT_DIR / "a4_condition_features.csv"

@@ -37,7 +37,7 @@ from analysis.supplementary.run_gaze_heatmap_pilot import (  # noqa: E402
 )
 from analysis.supplementary.run_gaze_heatmap_video import _build_formal_timeline  # noqa: E402
 from mac.features.common import robust_stats, safe_divide  # noqa: E402
-from mac.models import minimal_fusion as fusion  # noqa: E402
+from mac.fusion import minimal_fusion as fusion  # noqa: E402
 from mac.data.io import normalize_participant_id  # noqa: E402
 
 

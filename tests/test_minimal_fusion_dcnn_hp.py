@@ -9,7 +9,7 @@ import pytest
 
 from mac.cli import build_parser
 from mac.config import ProjectConfig, load_config
-from mac.models import minimal_fusion_dcnn, minimal_fusion_dcnn_hp
+from mac.fusion import minimal_fusion_dcnn, minimal_fusion_dcnn_hp
 from mac.reporting.latest_multimodal_report import write_latest_multimodal_report
 
 
