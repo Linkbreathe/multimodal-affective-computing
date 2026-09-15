@@ -86,7 +86,7 @@ For CUDA, install a platform-compatible PyTorch 2.10.0 build first. The validati
 
 ## Data and pretrained models
 
-Prepare the datasets and weights needed for your selected track separately. Local datasets and newly generated caches and outputs are generally ignored by Git. Some PaPaGei weights, reports, and `code.zip` already exist in Git history; ignore rules do not remove historical files.
+Prepare the datasets and weights needed for your selected track separately. Local datasets and newly generated caches and outputs are generally ignored by Git. Some PaPaGei weights and reports already exist in Git history; ignore rules do not remove historical files. An earlier source snapshot is retained at `Auxiliary/code.zip` for reference.
 
 - **VideoMAE V2:** Uses `OpenGVLab/VideoMAEv2-Base` remote model code and safetensors weights. Prepare a download or an existing Hugging Face cache.
 - **PaPaGei / Pulse-PPG:** Default source locations are sibling repositories named `papagei-foundation-model/` and `pulseppg/`.
@@ -120,6 +120,7 @@ checkpoints/            Models trained by this project
 artifacts/              RELAX caches, protocol artifacts, and experiment outputs
 wsl_results/            RQ2 WSL outputs
 combined/               RQ2 combined reports
+Auxiliary/              Historical snapshots, refactoring notes, and research notes
 ```
 
 ## Running experiments
@@ -246,6 +247,7 @@ For new encoders, document expected shapes, temporal sampling, channel order, un
 - [Branch consolidation history](docs/branch-history.md)
 - [Consolidation validation](docs/consolidation-validation.md)
 - [Historical environments](docs/environments/)
-- [Research wiki](research-wiki/), [reports](reports/), and [design notes](docs/superpowers/)
+- [Research wiki](Auxiliary/research-wiki/), [reports](reports/), and [design notes](docs/superpowers/)
+- [Auxiliary material index](Auxiliary/README.md)
 
 Historical reports describe the research state when written. Start current runs from this README, the code map, and the selected runner's actual arguments.
