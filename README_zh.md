@@ -13,12 +13,12 @@
 
 现在它们是**同一个可安装包 `mac`**，包内按「模块做什么」而不是「来自哪个项目」组织。
 两份 Git 历史完整保留。融合前写下的任何路径或命令，请对照
-[合并对照表](docs/MERGE-MAP.md) 翻译。
+[Auxiliary 中的历史合并对照表](Auxiliary/merge_history/MERGE-MAP.md) 翻译。
 
 实现了某个工作流只说明它能跑。它不能证明模型对新被试泛化、某个表征测到了内部状态，
 或者自适应控制对人真的有益。
 
-[English overview](README.md) · [合并对照表](docs/MERGE-MAP.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md)
+[English overview](README.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md) · [历史合并记录](Auxiliary/merge_history/README.md)
 
 ## 论文主线
 
@@ -86,8 +86,10 @@ mac --help
 python -m pip install -e ".[dev]"
 ```
 
-核心依赖**刻意不含 PyTorch**，这样经典工作流和数据无关的测试不需要 GPU 栈就能装上。
-做预训练编码器和融合研究时，先装好适配平台的 PyTorch，再：
+核心依赖**刻意不含 PyTorch**，因此索引、手工特征、经典模型、CLI 和源码编译不需要
+GPU 栈即可使用。完整测试套件会在采集阶段导入神经网络模块，即使过滤 slow/external
+测试也需要 `dl` extra。做预训练编码器、完整测试和融合研究时，先装好适配平台的
+PyTorch，再：
 
 ```powershell
 python -m pip install -e ".[dl,viz,ecg,head]"
@@ -209,46 +211,23 @@ LOSO / LOPO 每折留出一个被试。片段必须跟随被试划分 —— 独
 ## 测试
 
 ```powershell
+python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
+python -m mac --help
+git diff --check
+```
+
+安装 `dl` 开发环境后，再执行数据无关测试选择：
+
+```powershell
 python -m pytest -m "not external and not integration and not slow"
 ```
 
 marker 含义：`integration` 读取被试源数据，`slow` 训练模型或做昂贵计算，
 `external` 需要预训练权重、外部模型代码或真实被试数据。
 
-融合后套件在开发机（Windows，Python 3.11）上的实测，与融合前两个基线对比：
-
-| | collected | passed | failed | skipped | 采集错误 |
-| --- | --- | --- | --- | --- | --- |
-| 融合前 `Relax-Model` | 96 | 93 | 3 | 0 | 0 |
-| 融合前 `real-time-vis-physio-fusion` | 198 | 185 | 0 | 13 | 7 |
-| **合计** | **294** | **278** | **3** | **13** | **7** |
-| **融合后，每个测试文件各起一个进程** | **294** | **278** | **3** | **13** | **7** |
-| 融合后，全部同一个进程 | 294 | 277 | 4 | 13 | 7 |
-
-每个测试文件各起一个进程时，融合后的套件与融合前基线**逐项相等**。
-全部挤在同一个进程里会多出 **1 个失败**，那是进程的性质，不是代码的问题：
-
-- **3 个失败与融合前完全相同** —— 它们读取
-  `artifacts/cross_project_alignment_2026-07-16/.../contract.json`，一份从未纳入版本控制的
-  生成产物。在原 `Relax-Model` 仓库里同样失败。
-- **7 个采集错误与融合前完全相同** —— 该环境缺 `einops` 和 `huggingface_hub`，
-  装上 `dl` extra 即消除。
-- **1 个新失败，是 Windows 环境脆弱点，不是代码缺陷** ——
-  `test_cross_project_alignment.py::test_validation_ranking_uses_dedicated_validation_rows`
-  抛的是 `threadpoolctl`（3.6.0）枚举进程已加载 DLL 时的 `OSError: GetModuleFileNameEx failed`，
-  不是任何断言失败。单独跑它通过；在本仓库只跑 RTML 那批测试文件时也通过。
-  原因是融合后两套依赖栈进入同一个进程，让那次 DLL 枚举更容易撞上竞态。
-  让每个测试文件各起一个进程即可消除 —— 上表第一行「融合后」就是这么测的
-  （对全部 63 个文件逐个 `pytest <file>`）。省事的做法是
-  `pip install pytest-xdist` 后 `pytest -n 4 --dist loadfile`。
-
-不依赖环境的静态验证：
-
-```powershell
-# 包内与两棵 shim 树的所有模块都能无错导入
-python -c "import pkgutil,importlib,mac; [importlib.import_module(m.name) for m in pkgutil.walk_packages(mac.__path__,'mac.')]"
-python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
-```
+融合前后的历史测试计数、环境限制和分支验证属于仓库整理证据，已移至
+[`Auxiliary/merge_history/`](Auxiliary/merge_history/README.md)。它们描述特定历史提交，
+不应代替当前 checkout 在当前环境中的测试结果。
 
 论文主线的 `scripts/` 与 `analysis/` 入口保持在根目录；数据集专属入口和暂不需要的
 Adaptive Control 运行时位于 `Auxiliary/`，只有在具备相应外部数据、模型依赖或 Unity

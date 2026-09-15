@@ -7,12 +7,15 @@
 | `real-time-vis-physio-fusion`（下称 **VisPhy**） | Project B | EgoEmotion / SEED-V / RELAX 离线深度学习研究 | `Linkbreathe/real-time-vis-physio-fusion` |
 | `Relax-Model`（下称 **RTML**） | Project A | `rtml` CLI、实时 Shadow 推理、Unity | `Linkbreathe/Relax-Model` |
 
-两份 Git 历史都通过 `git subtree` 完整导入（VisPhy 69 commits、RTML 13 commits），
-`git log --follow <文件>` 可一直追溯到融合前的原始提交。两个原仓库仍作为 remote 保留：
+两份 Git 历史都通过 `git subtree` 完整导入（VisPhy 69 commits、RTML 13 commits）。
+源仓库 commit 对象仍在当前 Git 历史中，但 prefix rewrite 之后，
+`git log --follow <新路径>` 不一定自动跨回融合前路径；当前 checkout 也只配置了
+merged 仓库的 `origin`。需要逐行追溯时，应使用源 HEAD 与融合前路径查询：
 
 ```bash
-git remote -v          # visphy / rtml 指向原 GitHub 仓库
-git log --follow src/mac/fusion/healnet.py
+git cat-file -t 8383b3bce7750c1ec220c1134b91a816310edb11
+git cat-file -t 371a04eb3f60c036bf7492e6a9f32b8632c8eb48
+git log 8383b3b -- src/fusion/healnet.py
 ```
 
 ## 融合原则
@@ -66,21 +69,21 @@ git log --follow src/mac/fusion/healnet.py
 暂不需要的 Adaptive Control 实验服务、模型注册表、配置、启动器和专用测试已归档到
 `Auxiliary/adaptive_control/`，不再属于 `src/mac/` 的活动实现。
 
-具体清单见 [论文代码范围](thesis-scope.md)。
+具体清单见 [论文代码范围](../../docs/thesis-scope.md)。
 
 ## 合并而非移动的文件
 
-这些文件两边各有一份且必须收敛为一份。原件保留在 `docs/legacy/`，也在 Git 历史中。
+这些文件两边各有一份且必须收敛为一份。原件保留在本目录的 `legacy/`，也在 Git 历史中。
 
 | 新文件 | 由什么合并而来 | 保留的原件 |
 | --- | --- | --- |
-| `README.md` | 两边 README | `docs/legacy/README-visphy.md`、`docs/legacy/README-rtml.md` |
-| `README_zh.md` | RTML 中文总览 | `docs/legacy/README_zh-rtml.md` |
-| `pyproject.toml` | RTML pyproject + VisPhy `pytest.ini` + 两边依赖 | `docs/legacy/pytest-visphy.ini` |
-| `environment.yml` | 两边 conda 环境 | `docs/legacy/environment-visphy.yml`、`docs/legacy/environment-rtml.yml` |
+| `README.md` | 两边 README | `legacy/README-visphy.md`、`legacy/README-rtml.md` |
+| `README_zh.md` | RTML 中文总览 | `legacy/README_zh-rtml.md` |
+| `pyproject.toml` | RTML pyproject + VisPhy `pytest.ini` + 两边依赖 | `legacy/pytest-visphy.ini` |
+| `environment.yml` | 两边 conda 环境 | `legacy/environment-visphy.yml`、`legacy/environment-rtml.yml` |
 | `.gitignore` | 两边忽略规则 | Git 历史 |
-| `tests/conftest.py` | VisPhy 的 `ego_data_dir` fixture + RTML 的源码路径 shim | `docs/legacy/conftest-rtml.py` |
-| `Auxiliary/README.md` | 两边索引 | `docs/legacy/README-Auxiliary-rtml.md` |
+| `tests/conftest.py` | VisPhy 的 `ego_data_dir` fixture + RTML 的源码路径 shim | `legacy/conftest-rtml.py` |
+| `Auxiliary/README.md` | 两边索引 | `legacy/README-Auxiliary-rtml.md` |
 
 ## 兼容层
 

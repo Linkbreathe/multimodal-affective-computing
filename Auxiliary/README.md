@@ -12,6 +12,7 @@ Unity 服务运行路径，但为分析、对比和复现提供背景与出处�
 | `benchmarks/seedv/` | SEED-V 专属配置、脚本与测试。 |
 | `benchmarks/README.md` | 基准目录说明与边界。 |
 | `adaptive_control/` | 暂不参与论文主线的 Unity/UDP Adaptive Control 服务、配置、模型注册表、启动器与专用测试。 |
+| `merge_history/` | 两个原仓库的合并映射、分支整理、历史验证和旧 README/环境快照。 |
 
 基准脚本可以从仓库根目录执行，并复用 `src/mac/` 中的公共编码器、融合器和训练
 组件；论文主线不得反向依赖这些基准脚本。
@@ -42,6 +43,7 @@ Unity 服务运行路径，但为分析、对比和复现提供背景与出处�
 
 这些文档描述的是**写作当时**的仓库状态，其中的路径多为融合前的旧路径
 （如 `src/utils/config.py`、`configs/base.yaml`、`real_time_ml.modeling.*`）。
-复用其中的命令或路径时，请对照 [合并对照表](../docs/MERGE-MAP.md) 翻译。
+复用其中的命令或路径时，请对照 [合并对照表](merge_history/MERGE-MAP.md) 翻译。
 
-活跃文档在 `docs/`，生成与整理过的实验报告在 `reports/`。
+活跃文档在 `docs/`，生成与整理过的实验报告在 `reports/`。合并记录只用于溯源，
+不应作为当前安装、运行或复现实验的入口。

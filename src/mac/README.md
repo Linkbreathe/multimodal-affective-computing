@@ -4,7 +4,7 @@ One package, organised by pipeline stage rather than by which of the two merged
 repositories a module came from. The thesis-facing workflow is the RELAX
 condition/state and real-time pipeline. EgoEmotion and SEED-V runners are kept
 under `Auxiliary/benchmarks/`; this package retains only the reusable adapters
-and model components they share with RELAX. See [the merge map](../../docs/MERGE-MAP.md)
+and model components they share with RELAX. See [the archived merge map](../../Auxiliary/merge_history/MERGE-MAP.md)
 for the old-to-new import table, and [the code map](../../docs/code-map.md) for protocol boundaries.
 
 ## Pipeline stages

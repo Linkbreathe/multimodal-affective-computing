@@ -1,6 +1,6 @@
 # 代码地图与协议边界
 
-融合后的统一版本。旧路径请对照 [合并对照表](MERGE-MAP.md)。
+融合后的统一版本。旧路径请对照 [Auxiliary 中的合并对照表](../Auxiliary/merge_history/MERGE-MAP.md)。
 论文主线与辅助边界见 [论文代码范围](thesis-scope.md)。
 
 ## 公共模块（`src/mac/`）
@@ -96,7 +96,7 @@ aligned cache 由 `build_relax_alignment_cache.py` 构建。
 （`--relax-model-src /home/link/Wei/Models/core/Relax-Model/src`）。现在
 `mac.data.video`、`mac.features.extract`、`mac.features.physio`、`mac.data.condition_data`
 都是包内模块，普通 import 即可。相关 CLI 参数仍保留但已非必需，见
-[合并对照表](MERGE-MAP.md) 的 v2 待办。
+[合并对照表](../Auxiliary/merge_history/MERGE-MAP.md) 的 v2 待办。
 
 RQ2 的文件系统握手（Windows 侧写 `WINDOWS_DONE.json` → `scripts/run_rq2_wsl.py --shared-root` 读取）
 仍按原样工作，两端现在在同一个仓库里。

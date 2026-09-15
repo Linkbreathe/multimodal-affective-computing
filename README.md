@@ -1,166 +1,298 @@
 # Multimodal Affective Computing
 
-**One pipeline from recorded sensors to a running adaptive system: session ingest, feature and representation extraction, multimodal fusion, participant-independent evaluation, recorded replay, and live inference.**
+An end-to-end research codebase for studying affective and relaxation-related state from
+physiology, gaze, head motion and first-person video. The active thesis workflow covers
+recorded-session ingestion, signal alignment and quality control, 10-second windows,
+handcrafted and pretrained representations, multimodal fusion, participant-independent
+evaluation, recorded replay and non-interventional Shadow inference.
 
-This repository is the merger of two previously separate codebases that were already
-exchanging data through the filesystem and machine-specific paths:
+The repository consolidates the reusable implementation of
+`real-time-vis-physio-fusion` and `Relax-Model` into one installable Python package,
+`mac`. The code is organised by pipeline stage rather than by source repository.
+EgoEmotion, SEED-V, the retired Adaptive Control service and merge-history material remain
+available under `Auxiliary/`, but they are not part of the thesis-facing execution path.
 
-| Merged from | Called in the code | Supplies |
+> This repository implements research workflows; it does not by itself establish that a
+> model generalises to unseen people, that a learned representation measures an internal
+> affective state, or that an adaptive intervention benefits a participant. Claims must be
+> tied to the dataset, cohort, target, split contract and evaluation protocol that produced
+> them.
+
+[中文说明](README_zh.md) · [Thesis scope](docs/thesis-scope.md) ·
+[Code and protocol map](docs/code-map.md) ·
+[Input contracts](data/contracts/input_tables.md) ·
+[Output contract](data/contracts/outputs.md) ·
+[Unity Shadow protocol](integrations/unity/PROTOCOL.md) ·
+[Auxiliary material](Auxiliary/README.md)
+
+## 1. Purpose and research questions
+
+No single modality gives a complete or consistently reliable view of affective state.
+Physiology carries autonomic and neural measurements, gaze and head motion describe
+behaviour, and first-person video provides context. They also differ in sampling rate,
+latency, missingness, noise and model requirements. This project keeps those differences
+explicit instead of forcing every modality through one preprocessing recipe.
+
+The RELAX thesis workflow addresses five connected questions:
+
+| Research question | Implementation in this repository | Main evidence produced |
 | --- | --- | --- |
-| `real-time-vis-physio-fusion` | Project B | Reusable pretrained encoders and fusion architectures; EgoEmotion/SEED-V comparisons are auxiliary |
-| `Relax-Model` | Project A | Thesis-facing session indexing, handcrafted features, classical and temporal models, Shadow inference, Unity integration |
+| How do signals change across experimental conditions? | Alignment, quality coverage, handcrafted features, condition aggregation | QC tables, descriptive statistics, figures and condition summaries |
+| Which modalities contribute useful information? | Single-modality, ablation and matched-mask multimodal comparisons | Fold-level metrics, out-of-fold predictions and paired comparisons |
+| Do pretrained representations transfer to this task? | EEGPT, REVE, NeuroRVQ, ECGFounder, VideoMAE v2, PaPaGei and related wrappers | Frozen embeddings, projection/compression studies, fine-tuning and LoRA results |
+| Does performance generalise to unseen participants? | LOPO/LOSO splits, explicit manifests and participant-level grouping | Per-fold predictions, aggregate metrics and uncertainty estimates |
+| Can estimates support a safe runtime workflow? | Chronological recorded replay and Shadow-only inference | Timestamped state predictions, recommendations, safety-gate decisions and logs |
 
-They are now one installable package, `mac`, organised by **what each module does**
-rather than by which project it came from. Both Git histories are preserved; see
-[the merge map](docs/MERGE-MAP.md) to translate any path or command written before the merge.
+The primary unit of analysis is the **participant-condition**, not an independently sampled
+10-second segment. Windows inherit condition labels for feature construction, but correlated
+windows from the same participant-condition must not be split across training and test data.
 
-The presence of an implemented workflow demonstrates that it runs. It does not establish
-that a model generalises to new participants, that a representation measures an internal
-state, or that adaptive control improves anything for a person.
-
-[中文总览](README_zh.md) · [合并对照表](docs/MERGE-MAP.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](integrations/unity/PROTOCOL.md)
-
-## Thesis purpose
-
-Emotion and relaxation are hard to infer from any single sensor. Video carries visual
-context, gaze and head motion describe behaviour, and PPG, ECG and EEG measure physiology.
-These sources differ in timing, noise, availability and representation requirements.
-
-The primary workflow is the RELAX-based thesis pipeline:
-
-1. **Measurement and characterisation** — how physiology, gaze, head movement and visual
-   context vary across conditions, including signal quality, missingness and baseline effects.
-2. **Modality contribution** — which signals carry usable information, and whether combining
-   them beats single modalities under one evaluation protocol.
-3. **Representation transfer** — how well frozen pretrained representations transfer to
-   affective targets, and when projection, compression, fine-tuning or LoRA adaptation help.
-4. **Participant generalisation** — whether models predict for participants excluded from
-   training, under leave-one-participant-out or explicit split manifests.
-5. **Adaptation** — how state estimates, uncertainty and availability translate into
-   recommendations, in recorded replay and the non-interventional Shadow runtime.
-
-EgoEmotion and SEED-V remain available as auxiliary benchmarks under
-`Auxiliary/benchmarks/`; they are not part of the thesis runtime surface. These are
-objectives, not claims. Interpret every result within its dataset, target definition,
-cohort and evaluation protocol.
-
-## The package
+## 2. End-to-end data flow
 
 ```text
-src/mac/
-  data/            RELAX session indexing and I/O, label parsing, alignment, windows,
-                   condition data and cache protocols; compatibility adapters for benchmarks
-  preprocessing/   Streaming-compatible pipeline and quality control;
-                   per-modality preprocessing for PPG, ECG and RELAX physiology
-  features/        Handcrafted physiological, eye, head and video features;
-                   dynamic texture descriptors; frozen VideoMAE v2 embeddings
-  encoders/        Reusable pretrained encoder wrappers: EEGPT, REVE, PaPaGei, Pulse-PPG,
-                   ECGFounder, VideoMAE v2, InceptionTime, PatchTST, NeuroRVQ
-  fusion/          Early / mid / late, bottleneck, HEALNet, Perceiver IO, Q-Former,
-                   TMC, CGGM, MM-Lego, distillation, frozen compression,
-                   and the minimal Ridge / 1D-CNN fusion benchmarks
-  models/          EEG heads, LoRA, head-motion CNN, classical condition models,
-                   temporal 1D-CNN, visual models
-  tasks/           Task heads, losses, relaxation regression, condition controls
-  training/        LOSO trainer and early stopping; condition, state, policy and
-                   video training entry points
-  evaluation/      Metrics, participant-fold contracts, LOPO, safety gates
-  experiments/     Research-only experiment orchestration
-  adaptive/
-    offline/       Frozen-prefix inference and chronological recorded replay
-  realtime/        Shadow clock, engine, serve, replay, recommendation policy
-  reporting/       Run summaries, experiment reports, results registry
-  config/          Layered configuration (base -> experiment -> local) and the
-                   flat YAML loader used by the fusion runners
-  utils/           Atomic writes, hashing, logging, TensorBoard helpers
-  cli.py           The `mac` command
+Raw recordings + questionnaire tables + marker streams + Unity/video logs
+        |
+        v
+Session indexing and timestamp/marker alignment                 mac.data
+        |
+        v
+Complete 10 s windows, channel contracts and quality coverage   mac.preprocessing
+        |
+        +--> handcrafted EEG/ECG/eye/head/video features         mac.features
+        |
+        +--> frozen or adapted pretrained representations        mac.encoders
+        |
+        v
+Single-modality models and multimodal fusion                     mac.models / mac.fusion
+        |
+        v
+Participant-independent training and evaluation                 mac.training / mac.evaluation
+        |
+        +--> metrics, predictions, manifests and reports          mac.reporting
+        |
+        +--> chronological recorded replay                        mac.adaptive.offline
+        |
+        +--> non-interventional Shadow runtime                    mac.realtime / Unity bridge
 ```
 
-Supporting trees at the repository root: `scripts/` and `analysis/` for thesis workflows,
-`configs/` for runtime configuration, `tests/` for the active suite,
-`integrations/unity/`, `data/contracts/`, `docs/`, and `Auxiliary/` for historical and
-auxiliary benchmark material. See [论文代码范围](docs/thesis-scope.md).
+Raw recordings and questionnaire exports are external inputs and are not committed. Model
+weights, large embedding caches and most generated artifacts are also external or ignored.
+A fresh clone supports source inspection and data-independent checks; reproducing a result
+requires the corresponding data, weights, configuration, manifests and commit.
 
-`src/real_time_ml/` and `src/src/` are generated compatibility shims that alias the old
-import paths onto `mac`. They are scheduled for removal.
+## 3. Repository structure
 
-## Installation
+```text
+src/mac/                 Active reusable package
+scripts/                 Thesis experiment runners, cache builders and audits
+analysis/                Statistical analyses, supplementary comparisons and figures
+configs/                 RELAX runtime, experiment and fusion configuration
+data/contracts/          Versioned input, label, feature and output contracts
+integrations/unity/      Shadow UDP protocol and Unity C# bridge
+tests/                   Active package and thesis-workflow tests
+docs/                    Current scope, architecture and protocol documentation
+artifacts/               Models/caches/results when present; mostly generated or external
+reports/                 Human-readable report outputs when present
+weights/                 Local pretrained weights; not installed automatically
+Auxiliary/
+  benchmarks/            EgoEmotion and SEED-V comparison material
+  adaptive_control/      Retired experimental closed-loop service and dedicated tests
+  merge_history/         Old path maps, branch history, validation records and legacy snapshots
+  research*/ plan/       Historical research notes and planning material
+```
 
-Python 3.11.
+The boundary is intentional: active thesis code may import `mac`, while active code must
+not depend on an auxiliary benchmark runner, archived report or retired control service.
+Auxiliary experiments may reuse public `mac` components.
+
+### 3.1 The `mac` package
+
+| Module | What it does | Typical inputs | Typical outputs |
+| --- | --- | --- | --- |
+| `mac.data` | Session indexing, XDF/CSV/XLSX I/O, label parsing, timestamp alignment, video indexes, windows and condition aggregation | Raw session folders, marker streams, questionnaire tables | Source manifests, aligned boundaries, window tables |
+| `mac.preprocessing` | Marker/window preprocessing, MNE QC and modality-specific ECG/PPG/RELAX/SEED-V signal preparation | Raw or aligned signals plus sampling/channel contracts | Filtered/resampled arrays, coverage and QC records |
+| `mac.features` | Handcrafted EEG/ECG, eye, head and visual descriptors; dynamic texture; official VideoMAE2 extraction | Complete windows, video frames or retained MP4 | Window-level feature tables and visual embeddings |
+| `mac.encoders` | Wrappers and registries for pretrained physiological and video encoders | Tensors following model-specific sampling and shape contracts | Frozen or trainable embeddings |
+| `mac.fusion` | Early/mid/late fusion, bottleneck, HEALNet, Perceiver IO, Q-Former, TMC, CGGM, MM-Lego, distillation and compression | Per-modality embeddings and availability masks | Joint representations or predictions |
+| `mac.models` | Classical condition models, temporal 1D-CNN, visual models, EEG heads, LoRA and feature-group validation | Feature tables or encoded sequences | Estimators, checkpoints and predictions |
+| `mac.tasks` | Task heads, losses, relaxation regression and condition-control targets | Fused representations and labels | Losses and task predictions |
+| `mac.training` | Condition/state/policy/video training, LOSO trainer and early stopping | Config, split manifests, features or embeddings | Model bundles, fold outputs and training summaries |
+| `mac.evaluation` | LOPO contracts, alignment validation, metrics, paired comparisons and safety gates | Held-out predictions and labels | Metrics, uncertainty and deployment/hold decisions |
+| `mac.experiments` | Research-only orchestration separated from runtime training | Locked experiment configuration | Comparison matrices and audit artifacts |
+| `mac.adaptive.offline` | Frozen-prefix inference and chronological recorded replay; no live intervention | Recorded sessions and frozen models | Replay decisions and temporal metrics |
+| `mac.realtime` | Ten-second clock, buffers, inference engine, replay, serve and Shadow recommendation policy | Live or replayed signal windows | State/recommendation messages and JSONL/Parquet logs |
+| `mac.reporting` | Run summaries, model/video reports and result registry | Manifests, predictions and metrics | Human-readable reports and indexed result metadata |
+| `mac.config` | Layered RELAX configuration and the separate flat fusion-YAML loader | Versioned YAML plus untracked local paths | Validated `ProjectConfig` or flat experiment dictionaries |
+| `mac.utils` | Atomic writes, hashing, logging and TensorBoard helpers | Files and runtime metadata | Reproducible writes, hashes and logs |
+
+`src/real_time_ml/` and `src/src/` are compatibility shims for pre-merge imports. New code
+must import `mac`. The historical mapping is retained only in
+[`Auxiliary/merge_history/`](Auxiliary/merge_history/README.md).
+
+### 3.2 Modalities and active contracts
+
+| Modality | Active RELAX contract | Processing/output |
+| --- | --- | --- |
+| EEG | Raw 500 Hz columns `[M2, TP9, TP10, M1]`; M1/M2 are references | Linked-mastoid or configured reference, TP9/TP10 signal features, 1-45 Hz feature bands, QC and coverage gating |
+| ECG | Bipolar signal from configured columns `[7, 8]` | Filtering, peak/RR/HR measurements, quality checks and longer-history HRV when enough history exists |
+| Eye | Timestamped gaze vectors/events | Gaze direction, velocity, fixation/saccade and availability summaries |
+| Head | Unity HMD pose and motion | Position/orientation/movement descriptors and coverage |
+| Video | Timestamped Unity frame index and optional retained MP4 | Handcrafted visual features, 16-frame VideoMAE2 clips, optional research descriptors |
+| PPG | Reusable encoder/preprocessing support, primarily auxiliary benchmarks | PaPaGei/Pulse-PPG-compatible preprocessing and embeddings |
+
+Model-specific representation pipelines may resample or normalise a signal differently from
+the real-time handcrafted path. Those pipelines are alternatives with explicit consumers;
+they are not interchangeable preprocessing aliases.
+
+## 4. Protocols that must remain separate
+
+Several paths use similar names but answer different questions:
+
+| Protocol | Unit/cohort | Cache or input contract | Entry points |
+| --- | --- | --- | --- |
+| RELAX condition-level | 15 participants x 9 conditions = 135 participant-condition observations | Versioned raw/label contracts, complete non-overlapping 10 s windows | `mac index`, `preprocess`, `extract-features`, `train-state`, `evaluate` |
+| Windows RQ2 | Locked FMQ-9 handoff: 9 participants, 81 condition labels, 567 source windows, 545 common-valid windows | Explicit shared-root completion and common-valid masks | `scripts/run_rq2_wsl.py`, `run_rq2_modality_ablation.py` |
+| RELAX foundation sample cache | Samples contain participant, condition, labels, modality windows and masks | Foundation Dataset contract | `scripts/relax_foundation/` |
+| RELAX aligned cache | Parallel participant-condition arrays plus explicit split/label/window/mask manifests | Aligned condition-embedding contract | `scripts/build_relax_alignment_cache.py`, `run_relax_foundation_probe.py` |
+| EgoEmotion / SEED-V | Dataset-specific labels, splits and sampling units | Independent benchmark caches | `Auxiliary/benchmarks/` |
+
+Do not exchange caches between the foundation and aligned runners, compare metrics from
+different cohorts as if they shared a denominator, or treat repeated condition labels across
+windows as independent observations. See [the code map](docs/code-map.md) for the detailed
+entry-point boundary.
+
+## 5. Installation
+
+### 5.1 Classical/runtime environment
+
+Python 3.11 is required. The most reproducible starting point is the checked-in Conda
+environment:
 
 ```powershell
+git clone https://github.com/Linkbreathe/multimodal-affective-computing.git
+Set-Location multimodal-affective-computing
+git switch thesis-core-auxiliary
+
 conda env create -f environment.yml
 conda activate mac
 mac --help
 ```
 
-Or into an existing 3.11 environment:
+For an existing Python 3.11 environment:
 
 ```powershell
 python -m pip install -e ".[dev]"
 ```
 
-The core install deliberately excludes PyTorch, so the classical workflow and the
-data-independent tests install without a GPU stack. For the pretrained-encoder and fusion
-work, install a platform-appropriate PyTorch build first, then:
+The core package intentionally excludes PyTorch so indexing, handcrafted features,
+classical models, CLI discovery and source compilation can be used without a GPU stack.
+The complete test collection imports neural modules during collection and therefore
+requires the `dl` extra even when slow/external tests are filtered out.
+
+### 5.2 Deep-learning and representation environment
+
+Install the PyTorch build appropriate for the host and CUDA version first, then install the
+research extras:
 
 ```powershell
 python -m pip install -e ".[dl,viz,ecg,head]"
 ```
 
-| Extra | Scope |
+| Extra | Adds |
 | --- | --- |
-| `dl` | torch, torchvision, einops, transformers, huggingface-hub, safetensors, timm, h5py |
-| `viz` | matplotlib, seaborn, tqdm, tensorboard |
-| `ecg` / `head` | neurokit2 / ahrs |
-| `dev` | pytest, pytest-cov, ruff |
+| `dl` | PyTorch ecosystem, transformers, timm, einops, safetensors and HDF5 support |
+| `viz` | matplotlib, seaborn, tqdm and TensorBoard |
+| `ecg` | NeuroKit2 ECG analysis |
+| `head` | AHRS utilities |
+| `dev` | pytest, coverage and Ruff |
 
-`Auxiliary/benchmarks/egoemotion/environment-videomae2.yml` stays a **separate** benchmark
-environment: it pins `timm` 0.4.12, which cannot coexist with the `timm` 1.x the encoder
-stack needs. `requirements.txt`,
-`requirements-extraction.txt` and `requirements-dev.txt` carry the pinned versions that
-were validated for the fusion research on Linux.
+The EgoEmotion VideoMAE environment at
+`Auxiliary/benchmarks/egoemotion/environment-videomae2.yml` is intentionally separate: it
+pins `timm` 0.4.12, whereas the shared encoder stack uses `timm` 1.x.
 
-## Configuration
+### 5.3 External resources
 
-Two configuration systems coexist, because the two halves used different ones and neither
-was reduced to the other in this first merged version.
+These are not downloaded by the package:
 
-```text
-configs/fusion/                  Shared fusion model templates
-configs/project.yaml              RELAX operational defaults          -+  layered:
-configs/base.yaml                 RELAX protocol defaults              |  runtime,
-configs/experiments/*.yaml        Thesis experiment settings            |  classical
-                                                                          -+  analysis
+- RELAX recordings, marker streams, Unity eye/head/video logs and questionnaire tables;
+- pretrained checkpoints for EEGPT, REVE, NeuroRVQ, ECGFounder and VideoMAE variants;
+- sibling checkouts `papagei-foundation-model/` and `pulseppg/` when those encoders are used;
+- the external VideoMAE2 repository/checkpoint configured under `features.video.videomae2`;
+- the Unity project containing the matching Shadow bridge scene and configuration.
 
-Auxiliary/benchmarks/egoemotion/configs/  EgoEmotion benchmark configs
-Auxiliary/benchmarks/seedv/configs/       SEED-V benchmark configs
-```
+Record checkpoint hashes and external repository commits in every reproducible run.
 
-`configs/local.yaml` is ignored by Git; copy it from `configs/local.example.yaml` and set
-`paths.raw_root`, `paths.labels_root` and device settings. Global CLI options such as
-`--experiment` and `--local-config` come **before** the subcommand.
+## 6. Reproducing the thesis workflow
 
-The benchmark configurations are intentionally outside the thesis-facing `configs/`
-surface. The layered RELAX system uses `project.yaml -> base.yaml -> experiments/ ->
-local.yaml`.
+Reproduction is staged because source-only verification, classical RELAX experiments,
+pretrained representation experiments and Unity replay have different prerequisites.
 
-## Execution paths
-
-| Path | Entry points | Scope |
-| --- | --- | --- |
-| Offline research | `mac` extraction / training / evaluation commands; `scripts/`; `analysis/` | Features, models, comparisons and reports from recorded data |
-| Shadow inference | `mac replay`, `mac serve` | State predictions and recommendations for logging or display; requires `shadow=true` |
-
-Research-only visual and fusion checkpoints are not automatically promoted to runtime
-backends. The retired Adaptive Control experiment is archived under
-[`Auxiliary/adaptive_control/`](Auxiliary/adaptive_control/); it is not part of the thesis
-execution surface.
-
-### Offline, condition-level workflow
+### Step 1 — Record the software identity
 
 ```powershell
-$runArgs = @("--experiment","configs/experiments/runtime-classical.yaml","--local-config","configs/local.yaml")
+git status --short --branch
+git rev-parse HEAD
+python --version
+python -m pip freeze | Out-File artifacts-environment.txt
+```
+
+Use a clean checkout at a recorded commit. Do not rely only on a branch name, because branch
+heads can move.
+
+### Step 2 — Run source-only verification
+
+```powershell
+python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
+python -m mac --help
+git diff --check
+```
+
+After installing the `dl` development stack, run the data-independent test selection:
+
+```powershell
+python -m pytest -m "not external and not integration and not slow"
+```
+
+`external` requires weights, external model code or participant data; `integration` reads
+participant sources; `slow` trains models or performs expensive processing. Passing this
+selection does not reproduce paper metrics.
+
+### Step 3 — Configure local data roots
+
+Never edit versioned experiment YAML with workstation paths. Create the ignored local layer:
+
+```powershell
+Copy-Item configs/local.example.yaml configs/local.yaml
+```
+
+Edit only `configs/local.yaml`:
+
+```yaml
+paths:
+  raw_root: "D:/path/to/relax-recordings"
+  labels_root: "D:/path/to/questionnaire-tables"
+
+hardware:
+  dcnn_device: cuda
+```
+
+Validate source columns, labels and expected outputs against:
+
+- [`data/contracts/input_tables.md`](data/contracts/input_tables.md)
+- [`data/contracts/labels.md`](data/contracts/labels.md)
+- [`data/contracts/features.md`](data/contracts/features.md)
+- [`data/contracts/outputs.md`](data/contracts/outputs.md)
+
+### Step 4 — Reproduce the condition-level classical baseline
+
+Use explicit stages so each artifact can be inspected and hashed:
+
+```powershell
+$runArgs = @(
+  "--experiment", "configs/experiments/runtime-classical.yaml",
+  "--local-config", "configs/local.yaml"
+)
+
 mac @runArgs index
 mac @runArgs preprocess
 mac @runArgs extract-features --no-video
@@ -169,11 +301,39 @@ mac @runArgs evaluate
 mac @runArgs report
 ```
 
-EgoEmotion and SEED-V benchmark commands are documented in
-[`Auxiliary/benchmarks/README.md`](Auxiliary/benchmarks/README.md); they are deliberately
-not listed as thesis execution paths.
+The stages produce source/manifests, aligned windows, feature tables, model bundles,
+out-of-fold predictions, metrics and a final report under the configured artifact/run
+directories. The human-readable summary follows
+`reports/<run_id>_summary_zh.md`; machine outputs follow the directory contract documented
+in `data/contracts/outputs.md`.
 
-### RELAX aligned protocol
+Before accepting a result, verify:
+
+- every outer fold holds out a participant, not independently sampled windows;
+- preprocessing and feature selection are fitted only on permitted training data;
+- the participant list, EEG-disabled list, target transform and condition order match the
+  declared protocol;
+- each result records config, seed, split manifest, input hashes and software commit;
+- safety/deployment gates report `hold` unless their declared criteria are satisfied.
+
+### Step 5 — Add video processing when required
+
+```powershell
+mac @runArgs build-video-mp4
+mac @runArgs extract-handcrafted-video
+mac @runArgs extract-videomae2
+mac @runArgs train-video-ml
+mac @runArgs report-video-fusion
+```
+
+The configured VideoMAE2 path uses retained MP4, 16 frames per window and a separately
+managed external repository/checkpoint. Review the script and local paths first, then run
+`powershell -File scripts/setup_videomae2.ps1` on Windows if setup is needed.
+
+### Step 6 — Reproduce aligned pretrained-representation experiments
+
+First build or obtain an aligned cache using the same encoder checkpoints, preprocessing,
+cohort and masks. Then run the manifest-locked probe, for example:
 
 ```bash
 python scripts/run_relax_foundation_probe.py \
@@ -186,120 +346,89 @@ python scripts/run_relax_foundation_probe.py \
   --output-dir artifacts/relax/my_aligned_run
 ```
 
-The earlier foundation protocol (`scripts/relax_foundation/run_relax_foundation_probe.py`)
-expects a different cache format and is **not** interchangeable with the aligned runner
-despite the similar name. See [the code map](docs/code-map.md) for protocol boundaries.
+Use `scripts/build_relax_alignment_cache.py --help` for cache construction options. The
+earlier runner under `scripts/relax_foundation/run_relax_foundation_probe.py` consumes the
+foundation sample cache and must not be pointed at an aligned cache.
 
-### Unity
-
-```powershell
-mac replay --help
-mac serve --help
-```
-
-Default Shadow transport: Unity to Python `127.0.0.1:5055`, Python to Unity `127.0.0.1:5056`.
-See [the protocol](integrations/unity/PROTOCOL.md) and the [C# bridge](integrations/unity/RtmlShadowUdpBridge.cs).
-
-## Data and supervision
-
-**Condition-level RELAX study:** 15 participants x 9 conditions = 135 participant-condition
-observations, split into complete non-overlapping 10-second windows within each condition.
-Targets come from questionnaire ratings, `(rating - 1) / 6`. Repeating a condition rating
-across its windows does not create additional independent observations.
-
-**Windows RQ2 track:** a separate locked FMQ-9 contract — 9 participants, 81 condition
-labels, 567 source windows, 545 common-valid windows — validated by
-[`mac.windows_rq2_representations`](src/mac/windows_rq2_representations.py). `WINDOWS_DONE.json`
-marks completion of that track only.
-
-**Auxiliary EgoEmotion and SEED-V benchmarks** have their own labels, sampling units,
-cache formats and splits. Task-level and 10-second caches are not interchangeable with
-the RELAX condition-level pipeline.
-
-Raw recordings, questionnaires and most generated outputs are external and Git-ignored. A
-fresh clone supports source inspection and data-independent tests; reproducing results also
-needs the matching source data, configuration and artifacts.
-
-Prepare pretrained weights separately: VideoMAE v2 (`OpenGVLab/VideoMAEv2-Base`), PaPaGei /
-Pulse-PPG (expected in sibling checkouts `papagei-foundation-model/` and `pulseppg/`), EEGPT,
-REVE, ECGFounder, NeuroRVQ.
-
-## Evaluation and reproducibility
-
-Record, for every experiment: commit, runner, full command and configuration; dataset
-version, target definition, cohort and window policy; participant splits; encoder and
-checkpoint identities, preprocessing, cache format and masks; seeds, protocol hashes,
-package versions and hardware; per-fold outputs and the aggregation used.
-
-LOSO / LOPO hold out one participant per fold. Segments must follow participant splits —
-splitting correlated segments independently answers a different question. Compare fusion
-against single-modality and condition-only baselines under matching rules. Scores from
-different targets, cohorts or protocols are not comparable.
-
-## Tests
+### Step 7 — Reproduce recorded replay or Shadow inference
 
 ```powershell
-python -m pytest -m "not external and not integration and not slow"
+mac @runArgs replay --output artifacts/realtime/replay.jsonl
+mac @runArgs serve --max-cycles 1
 ```
 
-Marker meanings: `integration` reads participant source data, `slow` trains models or does
-expensive work, `external` needs pretrained weights, external model code or real
-participant data.
+The production-style `serve` path expects the configured LSL physiology stream and Unity
+UDP messages. Default transport is Unity to Python at `127.0.0.1:5055`, and Python to Unity
+at `127.0.0.1:5056`. Keep `policy.shadow: true`; this repository does not present the active
+thesis runtime as a validated closed-loop intervention.
 
-Recorded state of the merged suite on the development machine (Windows, Python 3.11),
-against the two pre-merge baselines:
+See the [wire protocol](integrations/unity/PROTOCOL.md) and
+[C# bridge](integrations/unity/RtmlShadowUdpBridge.cs). The retired experimental Adaptive
+Control service is isolated under `Auxiliary/adaptive_control/` and is reproduced separately.
 
-| | collected | passed | failed | skipped | collection errors |
-| --- | --- | --- | --- | --- | --- |
-| `Relax-Model` before merge | 96 | 93 | 3 | 0 | 0 |
-| `real-time-vis-physio-fusion` before merge | 198 | 185 | 0 | 13 | 7 |
-| **sum** | **294** | **278** | **3** | **13** | **7** |
-| **merged, one test file per process** | **294** | **278** | **3** | **13** | **7** |
-| merged, all in one process | 294 | 277 | 4 | 13 | 7 |
+## 7. Configuration model
 
-With one process per test file the merged suite matches the pre-merge baselines exactly.
-Running everything in a single process costs **one extra failure**, which is a property of
-that process, not of the code:
+The active RELAX workflow uses layered configuration:
 
-- **3 failures, unchanged from before the merge** — they read
-  `artifacts/cross_project_alignment_2026-07-16/.../contract.json`, a generated artifact
-  that was never versioned. They fail identically in the original `Relax-Model` checkout.
-- **7 collection errors, unchanged from before the merge** — `einops` and `huggingface_hub`
-  absent from that environment. Installing the `dl` extra removes them.
-- **1 new failure, a Windows flake, not a code defect** —
-  `test_cross_project_alignment.py::test_validation_ranking_uses_dedicated_validation_rows`
-  raises `OSError: GetModuleFileNameEx failed` from inside `threadpoolctl` (3.6.0) while it
-  enumerates loaded DLLs, not from any assertion. It passes when run alone, and passes when
-  only the RTML-origin test files run in this repository. It appears because the merged
-  suite now loads both dependency stacks into a single process, which makes that
-  enumeration race more likely. Giving each test file its own process removes it — that is
-  the first merged row above, measured by running `pytest <file>` for all 63 files. The
-  convenient way is `pip install pytest-xdist` then `pytest -n 4 --dist loadfile`.
-
-Static verification that does not depend on the environment:
-
-```powershell
-# every module in the package and both shim trees imports without error
-python -c "import pkgutil,importlib,mac; [importlib.import_module(m.name) for m in pkgutil.walk_packages(mac.__path__,'mac.')]"
-python -m compileall -q src scripts analysis tests Auxiliary/benchmarks Auxiliary/adaptive_control
+```text
+configs/project.yaml                 Legacy complete operational defaults
+        |
+configs/base.yaml                    Thesis protocol and versioned safe defaults
+        |
+configs/experiments/<experiment>.yaml
+        |
+configs/local.yaml                   Untracked paths and hardware only
 ```
 
-The active `scripts/` and `analysis/` entry points are the thesis workflow. Dataset-specific
-benchmark entry points and the retired Adaptive Control runtime are kept under `Auxiliary/`
-and are validated separately when their external datasets, model dependencies or Unity
-installation are available.
+Global options such as `--experiment` and `--local-config` must appear before the CLI
+subcommand. Fusion runners also retain a separate flat-YAML loader in
+`mac.config.simple`; it is deliberately not re-exported as `mac.config.load_config`.
 
-## Contributing
+Shared fusion templates live in `configs/fusion/`. EgoEmotion and SEED-V configurations
+live with their auxiliary benchmarks rather than in the active `configs/` root.
 
-- Put reusable implementations in `src/mac/` at the pipeline stage they belong to,
-  experiment orchestration in `scripts/` or `analysis/`, and parameters in `configs/`.
-- Keep source recordings read-only and generated outputs outside versioned source trees.
-- Preserve participant-condition supervision and the declared cohort; make exclusions explicit.
-- Fit preprocessing, feature selection and tuning only on permitted training data.
-- Use a distinct configuration and run ID for a new comparison.
-- Keep research-only representations out of runtime model selection, and keep
-  `adaptive/offline/` distinct from the archived `Auxiliary/adaptive_control/` runtime.
-- For a new encoder, document expected shapes, temporal sampling, channel order, units,
-  weights and missing-modality behaviour.
+## 8. Reproducibility record
+
+Every reported experiment should retain the following information:
+
+| Category | Required record |
+| --- | --- |
+| Code | Commit hash, clean/dirty state, runner and complete command |
+| Environment | Python, package lock/export, OS, CPU/GPU and CUDA versions |
+| Data | Dataset version, participant/cohort list, exclusions, input hashes and target definition |
+| Protocol | Unit of analysis, window policy, preprocessing, masks and cache schema |
+| Models | Encoder architecture, external repository commit, checkpoint hash and trainable/frozen layers |
+| Evaluation | Outer/inner split manifests, seeds, metrics, per-fold predictions and aggregation rule |
+| Outputs | Run ID, config snapshot, manifests, logs, model cards, metrics and report path |
+
+Scores are comparable only when target, cohort, valid-window mask, split policy and metric
+aggregation match. A high window count does not increase the number of independent
+participant-condition labels.
+
+## 9. Auxiliary and historical material
+
+- `Auxiliary/benchmarks/egoemotion/` and `Auxiliary/benchmarks/seedv/` preserve independent
+  benchmark runners, configurations, tests and historical reports.
+- `Auxiliary/adaptive_control/` preserves the retired Unity/UDP control experiment outside
+  the active `mac` CLI.
+- `Auxiliary/merge_history/` preserves old-to-new path maps, branch/consolidation records
+  and original README/environment snapshots. These documents describe historical states
+  and are not current reproduction instructions.
+- `Auxiliary/research-wiki/`, `Auxiliary/research/` and `Auxiliary/plan/` contain research
+  notes and planning material rather than runtime inputs.
+
+## 10. Development rules
+
+- Put reusable implementations in the appropriate `src/mac/` pipeline stage.
+- Put experiment orchestration in `scripts/` or `analysis/`, and version parameters in
+  `configs/`.
+- Keep raw recordings read-only and workstation paths in ignored local configuration.
+- Keep generated outputs out of source directories and attach manifests/hashes to runs.
+- Preserve participant grouping in every split and fit data-dependent transforms on
+  training data only.
+- Keep research-only checkpoints out of runtime backend selection until they pass the
+  declared evaluation and safety gates.
+- Document sampling rate, units, channel order, expected tensor shape, checkpoint identity
+  and missing-modality behaviour for every new encoder or feature family.
 - Describe evidence at its actual level: implementation, offline evaluation, recorded
-  replay, or prospective participant study.
+  replay, Shadow deployment or prospective participant study.

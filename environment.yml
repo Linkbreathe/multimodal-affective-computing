@@ -3,7 +3,8 @@
 # The pretrained-encoder and fusion stack lives in the `dl` extra. Install a
 # platform-appropriate PyTorch build first, then `pip install -e ".[dl,viz]"`.
 # The VideoMAE v2 research environment stays separate in
-# environment-videomae2.yml: it pins timm 0.4.12, which cannot coexist with the
+# Auxiliary/benchmarks/egoemotion/environment-videomae2.yml: it pins timm 0.4.12,
+# which cannot coexist with the
 # timm 1.x that the encoder stack needs.
 name: mac
 channels:
