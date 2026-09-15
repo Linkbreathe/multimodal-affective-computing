@@ -1,5 +1,15 @@
 # Git 分支整理记录
 
+## 2026-09-15：main 更新与分支清理（当前状态）
+
+英文 README 已扩充研究目的、目标用户、实验流程和复现说明。fetch 后确认全部本地和远端旧分支均为整合分支的祖先；执行 `git rebase --rebase-merges origin/main` 后，将 main 快进到 `dd14913` 并成功推送。
+
+随后删除 9 个本地旧分支和 7 个远端旧分支，本地与 origin 均仅保留 main。旧提交仍可从 main 历史访问，因此删除的是分支引用，未删除提交内容。
+
+另一份 `relax-foundation-probe-v3` worktree 已在原提交 `1feea70` 切换为 detached HEAD，保留其全部未提交文件和数据。主工作区的 `scripts/run_rq2_single_modality.py` 与 `tests/test_rq2_single_modality.py` 仍为未跟踪文件，未纳入此次文档提交。
+
+以下为 2026-09-11 的历史记录，其中关于保留旧分支和尚未更新 main 的描述已由上述操作取代。
+
 检查日期：2026-09-11，已执行 `git fetch origin`。本记录中的 hash 描述整理开始时的阶段节点；分支引用以后可能移动。图省略中间提交和最初 scaffold 阶段的 merge commits。
 
 ```text
