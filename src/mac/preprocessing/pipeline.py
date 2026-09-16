@@ -1,3 +1,11 @@
+"""Build the auditable Relax window table from raw sources and labels.
+
+The function in this module performs indexing, label attachment, marker QC,
+Condition boundary detection, and fixed-window generation.  It does not
+extract model features yet; that is intentionally a separate step in
+``mac.features.extract``.
+"""
+
 from __future__ import annotations
 
 from collections import Counter
@@ -12,7 +20,16 @@ from mac.utils import atomic_write_text, write_json
 
 
 def preprocess(config: ProjectConfig, participants: list[str] | None = None) -> dict[str, Any]:
+    """Create the canonical ``windows`` and ``condition_labels`` artifacts.
+
+    One row in ``windows.csv`` is a time slice, but its questionnaire labels
+    belong to the parent participant/Condition.  Later training must aggregate
+    these rows or construct a causal sequence instead of treating them as
+    independent labels.
+    """
     selected = participants or config.participants
+    # Indexing and label parsing happen before reading XDF so missing sources
+    # are reported per participant rather than aborting the whole batch.
     manifest = build_index(config, selected)
     labels = parse_condition_labels(
         config.path("labels_root"),
@@ -30,6 +47,8 @@ def preprocess(config: ProjectConfig, participants: list[str] | None = None) -> 
             qc_rows.append({"participant_id": participant, "status": "error", "reason": "missing_xdf"})
             continue
         try:
+            # XDF time is used for physiological slicing.  Unix marker time is
+            # carried alongside it for cross-device alignment QC only.
             events = load_marker_events(source["xdf_path"], config.get("streams.marker_name"))
             qc = marker_alignment_qc(events, float(config.get("quality.marker_outlier_ms")))
             boundaries = condition_boundaries(events, participant)
@@ -49,6 +68,8 @@ def preprocess(config: ProjectConfig, participants: list[str] | None = None) -> 
                     }
                 )
             for window in windows:
+                # Copy label fields onto every window for traceability.  This
+                # is label inheritance, not multiplication of training cases.
                 label = labels_by_key[(participant, window["condition"])]
                 all_windows.append({**window, **{k: v for k, v in label.items() if k not in window}})
             qc_rows.append(
@@ -63,6 +84,8 @@ def preprocess(config: ProjectConfig, participants: list[str] | None = None) -> 
         except Exception as error:
             qc_rows.append({"participant_id": participant, "status": "error", "reason": str(error)})
 
+    # These tables are the reproducibility boundary between raw data and all
+    # later feature/model stages.
     preprocessed = config.path("preprocessed")
     write_rows(preprocessed / "condition_labels.csv", labels)
     write_rows(preprocessed / "condition_boundaries.csv", all_boundaries)

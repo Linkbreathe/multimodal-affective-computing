@@ -1,3 +1,10 @@
+"""Leakage-aware classical models for participant/Condition regression.
+
+Every transformer below lives inside a scikit-learn ``Pipeline``.  That is
+important: missing-value handling, feature filtering, scaling, and mutual
+information selection are fitted separately inside each training fold.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +21,8 @@ class SparseFeatureFilter(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         values = np.asarray(X, dtype=float)
+        # Availability is measured on the training fold only.  A feature that
+        # is sparse in the held-out participant must not influence selection.
         self.keep_mask_ = np.mean(np.isfinite(values), axis=0) >= self.min_non_missing_fraction
         if not np.any(self.keep_mask_):
             self.keep_mask_[0] = True
@@ -32,6 +41,9 @@ class CorrelationFilter(BaseEstimator, TransformerMixin):
         if values.shape[1] <= 1:
             self.keep_mask_ = np.ones(values.shape[1], dtype=bool)
             return self
+        # Remove redundant columns before supervised selection.  This is also
+        # fitted per fold, so the correlation structure of the test participant
+        # is never used to define the feature space.
         correlation = np.abs(np.corrcoef(values, rowvar=False))
         correlation = np.nan_to_num(correlation, nan=0.0)
         np.fill_diagonal(correlation, 0.0)
@@ -56,6 +68,8 @@ class AdaptiveSelectKBest(BaseEstimator, TransformerMixin):
     def fit(self, X, y):
         from sklearn.feature_selection import SelectKBest
 
+        # Small folds may contain fewer usable columns than the configured K;
+        # cap K instead of failing for an otherwise valid experiment.
         actual_k = max(1, min(int(self.k), np.asarray(X).shape[1]))
         self.selector_ = SelectKBest(score_func=self.score_func, k=actual_k)
         self.selector_.fit(X, y)
@@ -103,6 +117,8 @@ def make_regression_pipeline(spec: ModelSpec, seed: int, min_non_missing: float,
         )
     else:
         raise ValueError(f"Unknown regression model: {spec.name}")
+    # Keep all data-dependent operations before the estimator in one pipeline.
+    # ``condition_train`` fits this object only on the current training split.
     return Pipeline([
         ("sparse", SparseFeatureFilter(min_non_missing)),
         ("imputer", SimpleImputer(strategy="median", add_indicator=True)),
@@ -142,6 +158,7 @@ def make_risk_pipeline(spec: ModelSpec, seed: int, min_non_missing: float, corre
 
 
 def condition_baseline(train_frame, target: str) -> tuple[dict[str, float], float]:
+    """Estimate a train-only condition mean and a global fallback."""
     means = train_frame.groupby("condition")[target].mean()
     return {str(condition): float(value) for condition, value in means.items()}, float(train_frame[target].mean())
 

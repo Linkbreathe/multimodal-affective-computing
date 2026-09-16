@@ -1,14 +1,25 @@
+"""Convert evaluation metrics into an explicit runtime deployment decision."""
+
 from __future__ import annotations
 
 from typing import Any
 
 
 def deployment_guard(metrics: dict[str, Any]) -> tuple[bool, list[str]]:
+    """Return whether a model passed the metric gates required by runtime.
+
+    This function is intentionally independent from prediction.  A model can
+    generate valid numbers and still be refused by the realtime engine when it
+    fails either baseline comparison, relaxation ranking, or discomfort-risk
+    recall.
+    """
     if metrics.get("unit_of_analysis") == "participant_condition":
         relaxation = metrics.get("targets", {}).get("relaxation", {})
         discomfort = metrics.get("targets", {}).get("discomfort", {})
         risk = discomfort.get("risk_at_fold_tuned_threshold", {})
         reasons = []
+        # The condition-level path has two target-specific gates.  Both must
+        # pass; success on relaxation cannot compensate for unsafe discomfort.
         if not (
             relaxation.get("mae", float("inf")) < relaxation.get("condition_only_baseline_mae", float("-inf"))
             and relaxation.get("mae", float("inf")) < relaxation.get("history_baseline_mae", float("-inf"))

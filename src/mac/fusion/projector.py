@@ -1,4 +1,10 @@
-"""Per-modality linear projection to common dimension."""
+"""Per-modality linear projection to a common fusion dimension.
+
+Foundation encoders do not produce equally sized vectors (and sequence
+embeddings may have different feature widths).  The projector standardizes
+only the width; it does not mix modalities.  Fusion happens in the modules
+that consume its output.
+"""
 from __future__ import annotations
 
 import torch
@@ -13,4 +19,6 @@ class ModalityProjector(nn.Module):
         )
 
     def forward(self, inputs: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        # Preserve modality names so masks and missing-modality tokens can be
+        # aligned after projection.
         return {mod: self.projectors[mod](x) for mod, x in inputs.items()}

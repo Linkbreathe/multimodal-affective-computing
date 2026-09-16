@@ -1,3 +1,12 @@
+"""Train the thesis-facing condition-level Relax state models.
+
+The outer unit is a participant: native runs use leave-one-participant-out,
+while aligned runs use the fixed 7/1/1 participant manifest.  Within each
+outer fold the trainer selects features/model families using only the training
+participants, learns residuals around a train-only condition baseline, and
+evaluates relaxation and discomfort on the untouched test participant.
+"""
+
 from __future__ import annotations
 
 from collections import Counter
@@ -110,6 +119,9 @@ def _specs(config: ProjectConfig) -> list[ModelSpec]:
 
 
 def _fit_target_models(train, columns, target: str, specs: list[ModelSpec], config: ProjectConfig, pd):
+    # The condition mean captures the strong stimulus effect.  The regressors
+    # only learn the participant-specific residual, which is more appropriate
+    # than asking a small dataset to relearn the full condition mean.
     baseline_map, baseline_fallback = condition_baseline(train, target)
     baseline = apply_condition_baseline(train["condition"], baseline_map, baseline_fallback)
     residual = train[target].to_numpy(dtype=float) - baseline
@@ -128,12 +140,15 @@ def _fit_target_models(train, columns, target: str, specs: list[ModelSpec], conf
 
 
 def _predict_target_models(test, columns, baseline_map, fallback, models, pd) -> np.ndarray:
+    # Add the held-out participant's residual predictions back to the train-only
+    # condition baseline, then enforce the normalized target range [0, 1].
     baseline = apply_condition_baseline(test["condition"], baseline_map, fallback)
     residuals = np.vstack([model.predict(_matrix(test, columns, pd)) for model in models])
     return np.clip(baseline + np.mean(residuals, axis=0), 0.0, 1.0)
 
 
 def _inner_rank_regression(train, columns, target: str, specs: list[ModelSpec], config: ProjectConfig, pd, GroupKFold):
+    """Compare candidate regressors using participant-grouped inner CV."""
     groups = train["participant_id"].astype(str).to_numpy()
     splits = min(int(config.get("modeling.inner_cv_splits")), len(np.unique(groups)))
     cv = GroupKFold(n_splits=max(2, splits))
@@ -259,6 +274,7 @@ def _choose_risk_threshold(y_true, probability, thresholds, deps):
 
 
 def _inner_rank_risk(train, columns, specs, config, pd, GroupKFold, deps):
+    """Select the high-discomfort classifier and threshold without test data."""
     label_threshold = float(config.get("modeling.condition_level.high_discomfort_label_threshold"))
     thresholds = list(config.get("modeling.condition_level.risk_probability_thresholds"))
     groups = train["participant_id"].astype(str).to_numpy()
@@ -409,6 +425,7 @@ def _variant_modalities(variant: str) -> tuple[str, ...]:
 
 
 def _fit_final_bundle(frame, columns, selected_specs, selected_risk_specs, risk_threshold, config, pd):
+    """Fit deployable bundles on all available labels after CV is complete."""
     targets: dict[str, Any] = {}
     for target in TARGETS:
         baseline_map, fallback, models = _fit_target_models(frame, columns, target, selected_specs[target], config, pd)
@@ -478,6 +495,10 @@ def train_condition_state(
     visual pipelines pass private directories so their experiments can never
     replace ``state_model.joblib`` or the default reports.
     """
+    # This function has two phases:
+    #   1) outer evaluation, where every test participant receives a prediction;
+    #   2) final fitting, where selected specifications are refit on all rows
+    #      and serialized for realtime inference.
     deps = _dependencies()
     pd, joblib = deps["pd"], deps["joblib"]
     aligned = bool(config.get("alignment.enabled", False))
@@ -502,6 +523,8 @@ def train_condition_state(
     reports_dir = reports_dir or config.path("reports")
     models_dir.mkdir(parents=True, exist_ok=True)
     reports_dir.mkdir(parents=True, exist_ok=True)
+    # Rebuild the condition table from the window table so training never
+    # depends on a stale manually edited aggregate artifact.
     frame = build_condition_dataset(source, output_path)
     frame = frame.dropna(subset=["participant_id", "condition", *TARGETS]).copy()
     frame["presentation_position"] = pd.to_numeric(frame["presentation_position"], errors="coerce")
@@ -542,6 +565,8 @@ def train_condition_state(
     row_fold = np.full(len(frame), -1, dtype=int)
     row_validation = np.full(len(frame), "", dtype=object)
     if aligned:
+        # Formal aligned runs are externally registered.  The manifest fixes
+        # train/validation/test participants and is validated before training.
         split_manifest = Path(str(config.get("alignment.split_manifest")))
         folds = load_split_manifest(
             split_manifest,
@@ -584,6 +609,8 @@ def train_condition_state(
             "n_test_participants": int(test["participant_id"].nunique()),
             "targets": {},
         }
+        # Each target has its own feature/model selection because relaxation and
+        # discomfort need not depend on the same signal dimensions.
         for target in TARGETS:
             if aligned:
                 feature_count_trials = _rank_regression_on_validation(
@@ -621,6 +648,8 @@ def train_condition_state(
                     pd,
                     deps["GroupKFold"],
                 )
+            # The ensemble is selected using training/validation information;
+            # the outer test participant is used only for the final fold score.
             top = [item["spec"] for item in ranked[: int(config.get("modeling.condition_level.ensemble_size"))]]
             baseline_map, fallback, models = _fit_target_models(train, columns, target, top, config, pd)
             prediction = _predict_target_models(test, columns, baseline_map, fallback, models, pd)
@@ -663,6 +692,9 @@ def train_condition_state(
         )
         top_risk = [item["spec"] for item in risk_ranked[: int(config.get("modeling.condition_level.risk_ensemble_size"))]]
         if top_risk:
+            # Tune the operating threshold before fitting the final risk models;
+            # this is a safety-oriented choice that prioritizes fewer false
+            # negatives over a generic accuracy optimum.
             inner_probability = np.nanmean(np.vstack([next(item["probability"] for item in risk_ranked if item["spec"] == spec) for spec in top_risk]), axis=0)
             valid = np.isfinite(inner_probability)
             selected_threshold, _ = _choose_risk_threshold(
@@ -695,6 +727,8 @@ def train_condition_state(
             flush=True,
         )
 
+    # At this point every row has exactly one honest outer-test prediction.
+    # Metrics below therefore summarize participant-independent performance.
     metrics: dict[str, Any] = {
         "unit_of_analysis": "participant_condition",
         "n_labels": int(len(frame)),
@@ -737,6 +771,9 @@ def train_condition_state(
         and metrics["targets"]["discomfort"]["mae"] < metrics["targets"]["discomfort"]["history_baseline_mae"]
         and discomfort_metrics["risk_at_fold_tuned_threshold"]["per_row_threshold_recall"] >= 0.5
     )
+    # A good MAE alone is insufficient for runtime use.  Both targets must beat
+    # the simple baselines, and the discomfort risk detector must meet its
+    # recall gate before a bundle can be marked deployable.
     metrics["deployable"] = bool(relaxation_ok and discomfort_ok)
     metrics["deployment_block_reasons"] = [
         *([] if relaxation_ok else ["condition_level_relaxation_gate_failed"]),
@@ -759,6 +796,8 @@ def train_condition_state(
     bundles = {}
     bundle_variants = (model_variant,) if aligned else ("full", "no_eeg", "behavior_only")
     for variant in bundle_variants:
+        # Keep fallback variants separate so realtime can degrade gracefully
+        # when EEG/ECG/behaviour coverage is insufficient.
         variant_columns = columns if aligned else _variant_columns(all_columns, variant)
         if variant_columns:
             bundle = _fit_final_bundle(frame, variant_columns, selected_specs, selected_risk_specs, final_threshold, config, pd)

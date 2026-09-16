@@ -1,3 +1,5 @@
+"""Discover raw participant/session files and record their provenance."""
+
 from __future__ import annotations
 
 import csv
@@ -10,10 +12,13 @@ from mac.utils import file_sha256, write_json
 
 
 def build_index(config: ProjectConfig, participants: list[str] | None = None) -> list[dict[str, Any]]:
+    """Build the source manifest consumed by preprocessing and feature extraction."""
     selected = participants or config.participants
     raw_root = config.path("raw_root")
     rows: list[dict[str, Any]] = []
     for participant in selected:
+        # Do not guess a replacement source when the expected participant
+        # directory or XDF is missing; downstream QC should expose that fact.
         participant_dir = raw_root / participant
         session_dir = discover_session_dir(participant_dir) if participant_dir.exists() else None
         xdf, backup = select_xdf(participant_dir) if participant_dir.exists() else (None, False)
@@ -26,10 +31,14 @@ def build_index(config: ProjectConfig, participants: list[str] | None = None) ->
             "xdf_is_backup": backup,
             "xdf_size_bytes": xdf.stat().st_size if xdf else None,
         }
+        # These files are linked by path in the manifest, not copied into the
+        # repository.  The manifest is therefore lightweight and auditable.
         for filename in ("samples.csv", "eye_tracking.csv", "video_frames.csv", "events.csv"):
             record[filename.replace(".", "_")] = str(session_dir / filename) if session_dir and (session_dir / filename).exists() else None
         rows.append(record)
     labels = find_painting_workbook(config.path("labels_root"))
+    # Hashing the label workbook and config ties every derived artifact to the
+    # exact inputs used to create it.
     payload = {
         "schema_version": config.data["schema_version"],
         "participants": rows,

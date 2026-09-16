@@ -8,7 +8,7 @@ from mac.fusion.base import BaseFusionModule
 
 
 class MidFusion(BaseFusionModule):
-    """Per-modality refinement then concatenation and cross-modal MLP."""
+    """Refine each modality independently before a shared cross-modal MLP."""
 
     def __init__(
         self,
@@ -42,6 +42,8 @@ class MidFusion(BaseFusionModule):
         modality_ids: list[str],
         masks: list[torch.Tensor] | None = None,
     ) -> torch.Tensor:
+        # The first stage lets each modality clean up its representation before
+        # cross-modal information is introduced.
         refined = [self.modality_mlps[m](e) for m, e in zip(modality_ids, embeddings)]
         concat = torch.cat(refined, dim=-1)
         return self.cross_modal(concat)

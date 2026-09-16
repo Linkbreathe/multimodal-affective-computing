@@ -18,7 +18,7 @@
 实现了某个工作流只说明它能跑。它不能证明模型对新被试泛化、某个表征测到了内部状态，
 或者自适应控制对人真的有益。
 
-[English overview](README.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](auxiliary/integrations/unity/PROTOCOL.md) · [历史合并记录](auxiliary/merge_history/README.md)
+[English overview](README.md) · [论文代码范围](docs/thesis-scope.md) · [代码地图](docs/code-map.md) · [代码阅读地图](docs/CODE-READING-GUIDE.md) · [输入契约](data/contracts/input_tables.md) · [Unity Shadow 协议](auxiliary/integrations/unity/PROTOCOL.md) · [历史合并记录](auxiliary/merge_history/README.md)
 
 ## 论文主线
 

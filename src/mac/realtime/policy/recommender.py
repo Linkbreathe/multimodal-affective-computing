@@ -1,3 +1,5 @@
+"""Safety-first candidate selection for the realtime Shadow policy."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,6 +12,7 @@ from mac.schema import ConditionRecommendation
 
 
 def adjacent_conditions(current: str) -> list[str]:
+    """Return the current grid cell and its valid four-neighbour conditions."""
     index = int(normalize_condition(current)[1:]) - 1
     row, column = divmod(index, 3)
     candidates = {(row, column)}
@@ -59,6 +62,13 @@ class SafetyPolicy:
         force_hold_reasons: list[str] | None = None,
         candidate_interval_half_width: dict[str, float] | None = None,
     ) -> ConditionRecommendation:
+        """Recommend only a local, uncertainty-aware, discomfort-safe change.
+
+        The policy is deliberately stricter than model prediction: it first
+        checks coverage, uncertainty, and the deployment gate; then it tests
+        only adjacent stimulus conditions and ranks them by conservative lower
+        relaxation gain.
+        """
         current = normalize_condition(current_condition)
         reasons = list(force_hold_reasons or [])
         if not model_deployable:
@@ -74,12 +84,17 @@ class SafetyPolicy:
         uncertain_candidates = 0
         candidate_half_width = candidate_interval_half_width or {}
         for condition in adjacent_conditions(current):
+            # Candidate context is evaluated through the policy model, but the
+            # current observed state is supplied as ``previous_*`` features.
             context = condition_parameters(condition, self.intensities, self.frequencies)
             prediction = predict_candidate({**context, **{f"previous_{key}": value for key, value in state.items()}})
             candidate_widths = [2.0 * float(candidate_half_width.get(name, 0.0)) for name in ("relaxation", "discomfort")]
             if max(candidate_widths, default=0.0) > self.uncertainty_width_max:
                 uncertain_candidates += 1
                 continue
+            # Use the upper confidence bound for discomfort: an apparently
+            # comfortable candidate is rejected if its plausible worst case is
+            # still over the configured safety limit.
             discomfort = min(1.0, float(prediction["discomfort"]) + float(candidate_half_width.get("discomfort", 0.0)))
             if discomfort >= self.discomfort_limit:
                 continue
@@ -91,6 +106,9 @@ class SafetyPolicy:
             current_relaxation_upper = float(
                 (intervals.get("relaxation") or [state.get("relaxation") or 0.0] * 2)[1]
             )
+            # Compare candidate's lower bound with the current state's upper
+            # bound.  A recommendation requires improvement even under this
+            # conservative interval comparison.
             conservative = candidate_relaxation_lower - current_relaxation_upper
             evaluations.append((conservative, gain, condition, discomfort))
         if not evaluations:

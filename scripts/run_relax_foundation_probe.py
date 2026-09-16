@@ -1,4 +1,11 @@
-"""Run corrected Relax Ridge-CV or neural fusion under the shared 13/1/1 protocol."""
+"""Run the formal aligned Relax probe under the shared 7/1/1 protocol.
+
+The input is a strict cache of aligned EEG, ECG, eye, head, and video
+embeddings.  This script does not silently re-extract or repair those inputs:
+it validates the cohort, masks, hashes, and split manifest, then trains either
+a late-fusion baseline or a repository-native fusion head on the outer train
+participants only.
+"""
 
 # ruff: noqa: E402
 
@@ -61,6 +68,7 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def _load_split_manifest(path: str | Path, participants: Iterable[str], *, strict: bool = True) -> list[Fold]:
+    """Load and validate the registered participant split before training."""
     frame = pd.read_csv(path, dtype=str)
     required = {"fold_index", "test_participant", "validation_participant", "participant_id", "role"}
     missing = required - set(frame)
@@ -121,6 +129,7 @@ def _modality_variant(modalities: Iterable[str]) -> str:
 
 
 def _set_seed(seed: int) -> None:
+    """Make numpy, Python, and torch behavior reproducible for one fold."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -321,6 +330,8 @@ def _run_handcrafted_baseline_cv(
 
 
 class AlignedLateRegressor(torch.nn.Module):
+    """Reference aligned head: pool, project, late-fuse, then regress two targets."""
+
     def __init__(self, embed_dims: dict[str, int], d_common: int, dropout: float = 0.1) -> None:
         super().__init__()
         self.modalities = tuple(embed_dims)
@@ -342,12 +353,16 @@ class AlignedLateRegressor(torch.nn.Module):
         pooled: dict[str, torch.Tensor] = {}
         present: dict[str, torch.Tensor] = {}
         for modality in self.modalities:
+            # Masked mean pooling turns a variable number of valid windows into
+            # one condition representation without letting padded windows count.
             mask = masks[modality].bool()
             weights = mask.unsqueeze(-1).to(embeddings[modality].dtype)
             pooled[modality] = (embeddings[modality] * weights).sum(dim=1) / weights.sum(dim=1).clamp(min=1.0)
             present[modality] = mask.any(dim=1)
         projected = self.projector(pooled)
         inputs = [
+            # A learned token distinguishes "modality absent" from a real
+            # all-zero embedding while keeping the tensor shape fixed.
             torch.where(
                 present[modality].unsqueeze(-1),
                 projected[modality],
@@ -448,6 +463,8 @@ class AlignedNativeFusionRegressor(torch.nn.Module):
         inputs: list[torch.Tensor] = []
         safe_masks: list[torch.Tensor] = []
         for modality in self.modalities:
+            # Sequence-capable fusions receive every aligned window and an
+            # explicit mask.  Invalid windows are zeroed before attention.
             mask = masks[modality].bool()
             values = torch.where(
                 mask.unsqueeze(-1),
@@ -457,6 +474,9 @@ class AlignedNativeFusionRegressor(torch.nn.Module):
             missing = ~mask.any(dim=1)
             safe_mask = mask.clone()
             if missing.any():
+                # Attention implementations need at least one valid token;
+                # use the learned missing token as a safe sentinel for a fully
+                # absent modality and mark that sentinel valid.
                 safe_mask[missing, 0] = True
                 values = values.clone()
                 values[missing, 0] = self.missing_tokens[modality]
@@ -472,6 +492,8 @@ class AlignedNativeFusionRegressor(torch.nn.Module):
         pooled: dict[str, torch.Tensor] = {}
         present: dict[str, torch.Tensor] = {}
         for modality in self.modalities:
+            # Non-sequence fusion modules cannot consume [batch, windows, dim],
+            # so aligned windows are reduced to one masked condition vector.
             mask = masks[modality].bool()
             weights = mask.unsqueeze(-1).to(embeddings[modality].dtype)
             pooled[modality] = (
@@ -522,6 +544,7 @@ def _fit_embedding_scalers(
     dataset: RelaxConditionEmbeddingDataset,
     train: np.ndarray,
 ) -> dict[str, tuple[torch.Tensor, torch.Tensor]]:
+    """Fit one embedding standardizer per modality using outer-train rows only."""
     scalers = {}
     for modality in dataset.modalities:
         values = dataset.embeddings[modality][train]
@@ -545,6 +568,7 @@ def _batch(
     scalers: dict[str, tuple[torch.Tensor, torch.Tensor]],
     device: torch.device,
 ) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor], torch.Tensor]:
+    """Create a device batch while preserving masks as first-class inputs."""
     embeddings = {}
     masks = {}
     for modality in dataset.modalities:
@@ -575,8 +599,11 @@ def _train_fold(
     device: torch.device,
     checkpoint_dir: Path,
 ) -> tuple[np.ndarray, np.ndarray, dict[str, Any]]:
+    """Train one fixed 7/1/1 fold and restore its best validation checkpoint."""
     participants = np.asarray(dataset.participant_ids, dtype=str)
     train, validation, test = _fold_indexes(participants, fold)
+    # Scaling is deliberately fitted before the model is built and only from
+    # outer-train embeddings; validation/test statistics stay unseen.
     scalers = _fit_embedding_scalers(dataset, train)
     _set_seed(args.seed + fold.fold_index)
     model = (
@@ -598,6 +625,8 @@ def _train_fold(
     for epoch in range(args.max_epochs):
         epochs_ran = epoch + 1
         model.train()
+        # The neural head is trained on condition observations, not individual
+        # windows.  Window-level masks remain inside each observation.
         order = generator.permutation(train)
         for start in range(0, len(order), args.batch_size):
             indexes = np.asarray(order[start : start + args.batch_size], dtype=int)
@@ -606,6 +635,8 @@ def _train_fold(
             loss = loss_fn(model(embeddings, masks), targets)
             loss.backward()
             optimizer.step()
+        # Validation controls early stopping; the outer test participant is
+        # evaluated only after the best validation checkpoint is restored.
         validation_prediction = _predict_neural(model, dataset, validation, scalers, device)
         validation_truth = dataset.targets[validation].numpy()
         validation_loss = float(np.mean((validation_truth - validation_prediction) ** 2))

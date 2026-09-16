@@ -4,6 +4,10 @@ The neural encoders are frozen.  Their cached embeddings were extracted on CUDA;
 the deliberately small Ridge heads in this script run on CPU.  Every learned
 transform, residual head, and calibration choice is fitted without the outer
 test participant.
+
+The condition anchor is a train-only estimate of the expected label for the
+same visual condition. The learned model predicts a correction to that anchor,
+which makes this probe comparable with the classical residual model.
 """
 
 # ruff: noqa: E402
@@ -170,6 +174,7 @@ def _as_bool_series(series: pd.Series) -> pd.Series:
 
 
 def validate_contract(args: argparse.Namespace) -> tuple[pd.DataFrame, list[str], list[Fold], dict[str, Any]]:
+    """Validate the immutable formal cohort, hashes, masks, labels, and folds."""
     paths = {
         "labels": args.labels,
         "windows": args.windows,
@@ -246,6 +251,8 @@ def pooled_features(
     modality_records: dict[str, Any] = {}
     sequence_length = next(iter(dataset.embeddings.values())).shape[1]
     for modality in dataset.modalities:
+        # Pool only valid aligned windows. A zero-window observation is retained
+        # as an explicit zero vector plus quality metadata, not silently dropped.
         values = dataset.embeddings[modality].numpy().astype(np.float64, copy=False)
         mask = dataset.masks[modality].numpy().astype(bool, copy=False)
         count = mask.sum(axis=1).astype(np.float64)
@@ -311,6 +318,8 @@ def cross_fitted_condition_anchors(
     target: str,
 ) -> np.ndarray:
     """Anchor each training row using same-condition labels from other participants."""
+    # Leaving the current participant out is essential: otherwise the residual
+    # target would contain information from the very label being predicted.
     anchors = np.empty(len(train_indexes), dtype=np.float64)
     train = frame.iloc[train_indexes]
     for local_index, (_, row) in enumerate(train.iterrows()):
@@ -331,6 +340,7 @@ def heldout_condition_anchors(
     heldout_indexes: np.ndarray,
     target: str,
 ) -> np.ndarray:
+    """Apply train-participant condition means to validation or test rows."""
     train = frame.iloc[train_indexes]
     means = train.groupby(train["condition"].astype(str))[target].mean()
     result = frame.iloc[heldout_indexes]["condition"].astype(str).map(means)
@@ -366,6 +376,7 @@ def fit_fold(
     fold: Fold,
     seed: int,
 ) -> dict[str, Any]:
+    """Fit one probe fold: anchor first, learn residual correction second."""
     participants = frame["participant_id"].astype(str).to_numpy()
     conditions = frame["condition"].astype(str).to_numpy()
     train, validation, test = _fold_indexes(participants, fold)

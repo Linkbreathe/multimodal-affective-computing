@@ -1,4 +1,9 @@
-"""Abstract base class for modality encoders with optional fine-tuning."""
+"""Common contract for pretrained modality encoders.
+
+An encoder can be used in two different ways in this repository: frozen feature
+extraction, or selective fine-tuning in a research experiment.  The methods in
+this class make that choice explicit and keep it separate from fusion logic.
+"""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -28,6 +33,8 @@ class BaseEncoder(ABC, nn.Module):
 
     def freeze(self) -> None:
         """Freeze all parameters and set to eval mode."""
+        # ``eval`` is paired with requires_grad=False so dropout and BatchNorm
+        # also behave deterministically during frozen embedding extraction.
         for param in self.parameters():
             param.requires_grad = False
         self.eval()
@@ -45,6 +52,8 @@ class BaseEncoder(ABC, nn.Module):
                 f"{type(self).__name__} does not implement layer-specific "
                 "unfreezing. Override unfreeze() to support from_layer."
             )
+        # Subclasses may override this to expose layer-wise unfreezing.  The
+        # default deliberately makes the all-or-nothing behavior explicit.
         for param in self.parameters():
             param.requires_grad = True
 
@@ -71,6 +80,8 @@ class BaseEncoder(ABC, nn.Module):
         where BatchNorm running stats would be degenerate. By keeping BN in
         eval mode, we use the pretrained running mean/var instead.
         """
+        # Small LOSO folds can have batch_size=1; updating BN statistics from a
+        # single sample would corrupt the pretrained representation.
         self.train()
         for m in self.modules():
             if isinstance(m, (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):

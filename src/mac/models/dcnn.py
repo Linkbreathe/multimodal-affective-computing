@@ -41,6 +41,14 @@ REALTIME_PREFIXES = ("eeg_", "ecg_", "head_", "eye_")
 
 @dataclass(frozen=True)
 class ConditionSequences:
+    """In-memory tensor representation of one sequence per participant/Condition.
+
+    ``values`` has shape ``[N, F, T]``: N condition labels, F selected
+    realtime features, and T causal 10-second positions.  Missing future
+    windows are represented by NaN until ``_transform`` converts them to the
+    model's zero-filled input.
+    """
+
     values: np.ndarray
     context: np.ndarray
     targets: np.ndarray
@@ -109,6 +117,8 @@ def _model_types():
             self.network = nn.Sequential(*layers)
 
         def forward(self, value):
+            # The caller supplies one feature's [batch, time] slice.  Adding a
+            # singleton channel turns it into Conv1d's [batch, channel, time].
             return self.network(value.unsqueeze(1)).flatten(1)
 
     class ConditionDCNN(nn.Module):
@@ -154,7 +164,11 @@ def _model_types():
             self.output_activation = output_activation
 
         def forward(self, values, context):
+            # Separate streams prevent one feature from mixing with another
+            # before its own temporal pattern has been encoded.
             features = [stream(values[:, index, :]) for index, stream in enumerate(self.streams)]
+            # Stimulus context (intensity/frequency) is not temporal signal;
+            # append it only at the final fusion point.
             merged = torch.cat([*features, context], dim=1)
             raw = self.output(self.dropout(self.relu(self.fc1(merged))))
             return torch.sigmoid(raw) if self.output_activation == "sigmoid" else torch.tanh(raw)
@@ -335,6 +349,9 @@ def build_condition_sequences(path: Path, config: ProjectConfig, variant: str = 
     conditions: list[str] = []
     positions: list[float] = []
     lengths: list[int] = []
+    # Grouping here is the key difference from naive window-level training:
+    # each questionnaire label produces one sequence, not many independent
+    # supervised rows.
     grouped = frame.groupby(["participant_id", "condition"], sort=True)
     for (participant_id, condition), group in grouped:
         ordered = group.copy()
@@ -347,6 +364,8 @@ def build_condition_sequences(path: Path, config: ProjectConfig, variant: str = 
         indexes = ordered["condition_window_index"].astype(int).to_numpy()
         if indexes.min() < 0 or indexes.max() >= sequence_length or len(np.unique(indexes)) != len(indexes):
             raise ValueError(f"Invalid 0..{sequence_length - 1} window indexes for {participant_id}/{condition}")
+        # Keep the time axis explicit.  A Condition with only five observed
+        # windows has values in positions 0..4 and NaN in later positions.
         matrix = np.full((len(feature_columns), sequence_length), np.nan, dtype=float)
         numeric = ordered[feature_columns].apply(pd.to_numeric, errors="coerce")
         matrix[:, indexes] = numeric.to_numpy(dtype=float).T
@@ -374,8 +393,11 @@ def build_condition_sequences(path: Path, config: ProjectConfig, variant: str = 
 
 
 def _fit_scaler(sequences: ConditionSequences, indexes: np.ndarray, min_fraction: float) -> dict[str, Any]:
+    """Fit feature/context availability and standardization on train rows only."""
     train_values = sequences.values[indexes]
     valid_fraction = np.mean(np.isfinite(train_values), axis=(0, 2))
+    # Feature availability is a learned property of the training fold.  Using
+    # all participants here would leak test-participant recording quality.
     selected = np.flatnonzero(valid_fraction >= min_fraction)
     if not len(selected):
         raise ValueError("No DCNN features meet the training-fold availability threshold")
@@ -407,11 +429,15 @@ def _transform(
     feature_indexes = np.asarray(scaler["feature_indexes"], dtype=int)
     values = sequences.values[indexes][:, feature_indexes, :].copy()
     if prefix_lengths is not None:
+        # Prefix masking is used only during training augmentation and causal
+        # inference: the network must not see windows that have not occurred.
         for position, prefix in enumerate(np.asarray(prefix_lengths, dtype=int)):
             values[position, :, max(0, int(prefix)) :] = np.nan
     means = np.asarray(scaler["feature_mean"], dtype=float)[None, :, None]
     scales = np.asarray(scaler["feature_scale"], dtype=float)[None, :, None]
     standardized = (values - means) / scales
+    # Zero is the neutral value after train-fold standardization and also makes
+    # absent windows safe for the convolutional stack.
     standardized = np.where(np.isfinite(standardized), standardized, 0.0).astype(np.float32)
     context = sequences.context[indexes].copy()
     context = (context - np.asarray(scaler["context_mean"], dtype=float)) / np.asarray(scaler["context_scale"], dtype=float)
@@ -429,6 +455,7 @@ def _train_model(
     seed: int,
     device,
 ):
+    """Train one fold with causal-prefix augmentation and participant validation."""
     torch = _torch()
     node = dict(config.get("modeling.dcnn", {}))
     torch.manual_seed(int(seed))
@@ -455,6 +482,8 @@ def _train_model(
     epochs_ran = 0
     for epoch in range(epochs):
         epochs_ran = epoch + 1
+        # Give the model different amounts of available history each epoch so
+        # it does not only learn the fully observed end-of-Condition case.
         prefixes = np.asarray([rng.integers(1, int(sequences.lengths[index]) + 1) for index in train_indexes], dtype=int)
         train_values, train_context = _transform(sequences, train_indexes, scaler, prefixes)
         order = rng.permutation(len(train_indexes))
@@ -468,6 +497,8 @@ def _train_model(
             loss = loss_fn(model(values, context), targets)
             loss.backward()
             optimizer.step()
+        # Validation uses the complete available sequence and never changes the
+        # scaler fitted above.  The best checkpoint is restored after stopping.
         validation_values, validation_context = _transform(sequences, validation_indexes, scaler)
         with torch.no_grad():
             model.eval()

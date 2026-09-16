@@ -78,6 +78,8 @@ def linked_mastoid_reference(raw_eeg_uv: np.ndarray) -> np.ndarray:
     """Construct linked-mastoid TP9/TP10 channels before normalization."""
 
     raw = _as_channel_first(raw_eeg_uv, channels=4)
+    # M1 and M2 are references, not model channels.  Referencing before
+    # filtering/normalization preserves the intended electrode relationship.
     reference = 0.5 * (raw[0] + raw[3])
     return np.stack((raw[1] - reference, raw[2] - reference), axis=0)
 
@@ -136,6 +138,8 @@ def neurorvq_eeg_filter(
 
     if sampling_rate <= 2.0:
         raise ValueError(f"Invalid sampling rate: {sampling_rate}")
+    # Keep this order aligned with the NeuroRVQ example: line-noise removal,
+    # broad band-pass, then amplitude guard.  Resampling is done by the caller.
     output = _notch(values_uv, sampling_rate, (50.0, 60.0, 100.0))
     lowpass_applied = min(45.0, sampling_rate / 2.0) - 0.5
     if lowpass_applied <= 0.5:
@@ -162,6 +166,8 @@ def reve_pretraining_filter(values_uv: np.ndarray, sampling_rate: float) -> np.n
     upper = min(99.5, sampling_rate / 2.0 - 0.5)
     if upper <= 0.5:
         raise ValueError(f"Sampling rate is too low for REVE filtering: {sampling_rate}")
+    # REVE's passband is intentionally wider than the NeuroRVQ example; these
+    # two filters must not be treated as interchangeable preprocessing paths.
     sos = signal.butter(
         N=4,
         Wn=(0.5, upper),
@@ -211,6 +217,8 @@ def crop_indexes_with_context(
         raise ValueError("Timestamps must be a monotonic one-dimensional array")
     if not end > start:
         raise ValueError("Window end must be later than start")
+    # Filtering a padded segment reduces edge transients.  Only the central
+    # requested window is returned to the encoder after filtering.
     padded_left = int(np.searchsorted(stamps, start - context_seconds, side="left"))
     padded_right = int(np.searchsorted(stamps, end + context_seconds, side="left"))
     center_left = int(np.searchsorted(stamps, start, side="left"))

@@ -20,6 +20,7 @@ available under `auxiliary/`, but they are not part of the thesis-facing executi
 
 [中文说明](README_zh.md) · [Thesis scope](docs/thesis-scope.md) ·
 [Code and protocol map](docs/code-map.md) ·
+[Code reading guide](docs/CODE-READING-GUIDE.md) ·
 [Input contracts](data/contracts/input_tables.md) ·
 [Output contract](data/contracts/outputs.md) ·
 [Unity Shadow protocol](auxiliary/integrations/unity/PROTOCOL.md) ·

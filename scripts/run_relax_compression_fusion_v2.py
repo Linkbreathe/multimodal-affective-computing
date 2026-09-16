@@ -5,6 +5,10 @@ windows from the outer-training participants with equal total weight for every
 participant-condition observation, then pooled to the 81 label units.  Every
 normalizer, unsupervised or supervised projection, Ridge head, expert weight,
 and validation choice excludes the outer test participant.
+
+Read this script after ``run_relax_foundation_probe.py``: it compares fixed
+compression strategies and an expert-simplex late fusion, rather than
+performing end-to-end encoder fine-tuning.
 """
 
 from __future__ import annotations
@@ -82,6 +86,7 @@ DEFAULT_OUTPUT_ROOT = (
 
 
 def variant_modalities(variant: str) -> tuple[str, ...]:
+    """Return the formal five-modality set or one preregistered ablation."""
     if variant == "full":
         return FULL_MODALITIES
     if variant not in ABLATION_VARIANTS:
@@ -98,6 +103,7 @@ def _method_spec(payload: Mapping[str, Any], name: str) -> dict[str, Any]:
 
 
 def _validate_preregistration(args: argparse.Namespace, payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Reject changed cohorts, inputs, seeds, or method rules before fitting."""
     if payload.get("schema_version") != "relax_foundation_compression_preregistration_v2":
         raise ValueError("Unexpected July18 preregistration schema")
     if not payload.get("frozen_before_candidate_outcomes"):
@@ -160,6 +166,7 @@ def _load_inputs(
     np.ndarray,
     dict[str, Any],
 ]:
+    """Load strict aligned embeddings, masks, labels, and registered folds."""
     labels, participants, folds, contract = validate_contract(
         SimpleNamespace(
             labels=args.labels,
@@ -181,6 +188,8 @@ def _load_inputs(
     )
     if not dataset.metadata.get("cuda_used") or not str(dataset.metadata.get("device", "")).startswith("cuda"):
         raise ValueError("The frozen cache does not prove CUDA encoder extraction")
+    # The encoders have already run when this cache was built.  This experiment
+    # therefore treats each modality block as frozen input, not trainable data.
     blocks = {
         modality: dataset.embeddings[modality].numpy().astype(np.float64, copy=False)
         for modality in FULL_MODALITIES
@@ -189,6 +198,8 @@ def _load_inputs(
         modality: dataset.masks[modality].numpy().astype(bool, copy=False)
         for modality in FULL_MODALITIES
     }
+    # Formal alignment requires a common valid-window mask across all five
+    # modalities so comparisons differ by model, not by hidden window sets.
     shared_mask = masks[FULL_MODALITIES[0]].copy()
     for modality in FULL_MODALITIES[1:]:
         if not np.array_equal(shared_mask, masks[modality]):

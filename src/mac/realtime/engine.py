@@ -1,3 +1,5 @@
+"""Causal Shadow inference: select a usable model, predict state, gate policy."""
+
 from __future__ import annotations
 
 import time
@@ -34,6 +36,8 @@ class InferenceEngine:
         self.runtime_backend = str(config.get("modeling.runtime_backend", "classical"))
         self.models: dict[str, dict[str, Any]] = {}
         self.condition_histories: dict[tuple[str | None, str | None, str], list[dict[str, Any]]] = {}
+        # Load every configured fallback up front.  Selection happens per cycle
+        # because EEG/ECG/behaviour coverage can change during a recording.
         if self.runtime_backend in {"dcnn", "video_dcnn"}:
             for variant in config.get("modeling.fallback_chain"):
                 path = config.path("models") / f"dcnn_state_{variant}.pt"
@@ -63,6 +67,7 @@ class InferenceEngine:
         )
 
     def _select_model(self, coverage: dict[str, float]) -> tuple[str | None, list[str]]:
+        """Choose the strongest bundle whose required modalities are present."""
         if self.runtime_backend == "video_dcnn":
             missing = [name for name in ("eeg", "ecg", "head", "eye", "video") if coverage.get(name, 0.0) < 0.5]
             if coverage.get("video", 0.0) < 0.5 and "no_video" in self.models:
@@ -97,6 +102,7 @@ class InferenceEngine:
         coverage: dict[str, float],
         force_hold_reasons: list[str] | None = None,
     ) -> tuple[StatePrediction, ConditionRecommendation]:
+        """Run one completed 10-second cycle without sending an intervention."""
         variant, missing = self._select_model(coverage)
         reasons = list(force_hold_reasons or [])
         if variant is None:
@@ -109,12 +115,16 @@ class InferenceEngine:
             active_features = features
             history: list[dict[str, Any]] | None = None
             if bundle.get("model_kind") in {"condition_residual_ensemble_v1", VIDEO_RIDGE_KIND, MODEL_KIND, VIDEO_MODEL_KIND}:
+                # Keep only the current participant/Condition history.  This is
+                # what makes condition aggregation and DCNN sequence input causal.
                 history_key = (participant_id, condition, variant)
                 if cycle_index == 0:
                     self.condition_histories[history_key] = []
                 history = self.condition_histories.setdefault(history_key, [])
                 history.append(dict(features))
             if bundle.get("model_kind") in {"condition_residual_ensemble_v1", VIDEO_RIDGE_KIND}:
+                # Classical bundles were trained on aggregated condition
+                # features, so recreate that same schema from observed windows.
                 static = {"condition": condition}
                 if condition:
                     from mac.data.io import condition_parameters
@@ -140,6 +150,8 @@ class InferenceEngine:
                     qc["dcnn_sequence_complete"] = history_windows >= int(bundle["architecture"]["sequence_length"])
                     if history_windows < int(self.config.get("modeling.dcnn.minimum_history_windows", 3)):
                         reasons.append("dcnn_insufficient_history")
+                    # Even a numerically valid prediction is not deployable
+                    # unless its training report passed the safety gates.
                     guard_ok, guard_reasons = deployment_guard(bundle.get("metrics", {}))
                     deployable = bool(bundle.get("deployable", False) and guard_ok)
                     if not guard_ok:
@@ -198,6 +210,9 @@ class InferenceEngine:
             missing_modalities=missing,
             degraded=bool(missing or reasons or not deployable),
         )
+        # State prediction and policy recommendation are separate gates.  A
+        # state model may produce a value while policy still has to hold due to
+        # missing policy artifact, uncertainty, risk, or baseline failure.
         if condition is None or any(value is None for value in prediction.values()) or self.policy_bundle is None:
             if condition is None:
                 condition = "C1"

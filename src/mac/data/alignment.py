@@ -1,3 +1,11 @@
+"""Convert Relax marker events into auditable Condition boundaries and windows.
+
+This module is the first point where the raw recording becomes a supervised
+dataset.  The important invariant is that timestamps are never silently
+"fixed": XDF time and Unix time are compared for QC, while the XDF timeline
+remains the authoritative clock for slicing the physiological stream.
+"""
+
 from __future__ import annotations
 
 import json
@@ -27,6 +35,11 @@ class ConditionBoundary:
 
 
 def load_marker_events(xdf_path: Path, marker_name: str) -> list[dict[str, Any]]:
+    """Load one marker stream and keep both its payload and original index.
+
+    Marker payloads are normally JSON.  A non-JSON marker is still retained as
+    ``event_type`` so a malformed event cannot disappear from the audit trail.
+    """
     import pyxdf
 
     streams, _ = pyxdf.load_xdf(
@@ -49,6 +62,12 @@ def load_marker_events(xdf_path: Path, marker_name: str) -> list[dict[str, Any]]
 
 
 def marker_alignment_qc(events: list[dict[str, Any]], outlier_ms: float = 50.0) -> dict[str, Any]:
+    """Measure the robust Unix-minus-XDF offset without mutating timestamps.
+
+    The median gives a stable global offset estimate; residuals then reveal
+    clock drift or isolated bad markers.  The caller records the result and
+    decides whether the participant is usable.
+    """
     paired = [event for event in events if event.get("unix_time_ms") is not None]
     if len(paired) < 2:
         return {"available": False, "reason": "fewer_than_two_paired_markers"}
@@ -75,6 +94,7 @@ def marker_alignment_qc(events: list[dict[str, Any]], outlier_ms: float = 50.0) 
 
 
 def condition_boundaries(events: list[dict[str, Any]], participant_id: str) -> list[ConditionBoundary]:
+    """Pair complete C1--C9 start/end markers into chronological boundaries."""
     starts: dict[str, dict[str, Any]] = {}
     ends: dict[str, dict[str, Any]] = {}
     for event in events:
@@ -116,8 +136,16 @@ def condition_boundaries(events: list[dict[str, Any]], participant_id: str) -> l
 
 
 def make_windows(boundaries: list[ConditionBoundary], length_seconds: float = 10.0) -> list[dict[str, Any]]:
+    """Create complete fixed-length windows and drop each incomplete tail.
+
+    ``sample_weight`` is retained for downstream analyses that want every
+    Condition to contribute equally, even when Conditions contain different
+    numbers of complete windows.
+    """
     windows: list[dict[str, Any]] = []
     for boundary in boundaries:
+        # floor() deliberately excludes a partial final window; padding it
+        # would introduce data that was never recorded.
         count = int(np.floor((boundary.duration_seconds + 1e-6) / length_seconds))
         if count < 1:
             continue
@@ -138,4 +166,3 @@ def make_windows(boundaries: list[ConditionBoundary], length_seconds: float = 10
             }
             windows.append(record)
     return windows
-

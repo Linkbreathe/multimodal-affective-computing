@@ -8,7 +8,12 @@ from mac.fusion.base import BaseFusionModule
 
 
 class EarlyFusion(BaseFusionModule):
-    """Concatenate all modality embeddings, pass through shared MLP."""
+    """Concatenate all modality embeddings, then apply one shared MLP.
+
+    This is the simplest baseline: interactions between modalities are learned
+    only after concatenation, and every modality must contribute a fixed-width
+    projected vector.
+    """
 
     def __init__(
         self,
@@ -37,5 +42,6 @@ class EarlyFusion(BaseFusionModule):
         modality_ids: list[str],
         masks: list[torch.Tensor] | None = None,
     ) -> torch.Tensor:
+        # ``embeddings`` are already projected to d_common by the caller.
         concat = torch.cat(embeddings, dim=-1)
         return self.mlp(concat)

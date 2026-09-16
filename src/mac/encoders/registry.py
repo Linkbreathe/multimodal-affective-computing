@@ -1,4 +1,9 @@
-"""Config-driven modality registry."""
+"""Resolve configured modalities to encoder classes and embedding locations.
+
+The registry is the bridge between YAML configuration and Python model code.
+It does not train an encoder; it only answers which encoder, dimensionality,
+and cached embedding directory belong to each enabled modality.
+"""
 from __future__ import annotations
 
 from importlib import import_module
@@ -37,6 +42,8 @@ class ModalityRegistry:
         return "".join(ch for ch in encoder_name.lower() if ch.isalnum())
 
     def get_enabled_modalities(self) -> list[str]:
+        # Configuration order is preserved because fusion modules use the same
+        # modality order when indexing branches and masks.
         return [k for k, v in self._config.items() if v.get("enabled", False)]
 
     def get_embed_dim(self, modality: str) -> int:
@@ -53,6 +60,8 @@ class ModalityRegistry:
         return encoder_key
 
     def get_encoder_class(self, modality: str) -> type:
+        # Import lazily so users can run classical/preprocessing commands
+        # without installing every optional foundation-model dependency.
         module_name, class_name = self.ENCODER_REGISTRY[self.get_encoder_key(modality)]
         module = import_module(module_name)
         return getattr(module, class_name)

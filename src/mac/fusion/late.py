@@ -8,7 +8,13 @@ from mac.fusion.base import BaseFusionModule
 
 
 class LateFusion(BaseFusionModule):
-    """Per-modality MLP branches fused at decision level."""
+    """Run one branch per modality and combine branch outputs at late stage.
+
+    In ``weighted`` mode the learnable weights are normalized with softmax, so
+    they describe a convex combination of branch representations.  They are
+    useful for model diagnostics, but should not be interpreted as causal
+    modality importance.
+    """
 
     def __init__(
         self,
@@ -46,6 +52,8 @@ class LateFusion(BaseFusionModule):
             self.branches[idx](emb)
             for emb, idx in zip(embeddings, branch_indices)
         ]
+        # Stack as [modalities, batch, d_out], then combine only across the
+        # modality axis while preserving each sample's representation.
         stacked = torch.stack(branch_outs, dim=0)
 
         if self.mode == "average":

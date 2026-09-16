@@ -1,3 +1,11 @@
+"""Extract window-level physiological, behavioural, and optional video features.
+
+The extractor keeps the modalities in a common 10-second XDF/Unix time frame,
+then writes both the detailed window table and its condition-level aggregation.
+The detailed table is useful for causal history and auditing; the aggregated
+table is the normal input to the classical condition-level trainer.
+"""
+
 from __future__ import annotations
 
 import json
@@ -82,6 +90,12 @@ def _load_physio(xdf_path: Path, stream_type: str) -> tuple[np.ndarray, np.ndarr
 
 
 def _processor(config: ProjectConfig, participant: str, sample_rate: float) -> StreamingPhysioProcessor:
+    """Construct the same signal contract used for offline feature extraction.
+
+    The participant-specific EEG disable list is applied here, before feature
+    computation, so a missing EEG stream cannot be mistaken for a valid zero
+    signal.
+    """
     return StreamingPhysioProcessor(
         sample_rate=sample_rate,
         eeg_columns=list(config.get("streams.eeg_columns")),
@@ -133,6 +147,7 @@ def extract_features(
     output_dir: Path | None = None,
     windows_path: Path | None = None,
 ) -> dict[str, Any]:
+    """Extract one feature record per complete window and aggregate by Condition."""
     selected = participants or config.participants
     source_windows_path = windows_path or (config.path("preprocessed") / "windows.csv")
     if windows_path is None and not source_windows_path.exists():
@@ -161,6 +176,9 @@ def extract_features(
             processor = _processor(config, participant, sample_rate)
             historical_peaks: list[float] = []
             for raw_window in sorted(participant_windows, key=lambda row: float(row["window_start_xdf"])):
+                # Each loop iteration is one complete 10-second cycle.  XDF
+                # timestamps select physio samples; Unix timestamps select the
+                # Unity/eye/video logs, preserving the original clock domains.
                 record: dict[str, Any] = dict(raw_window)
                 start_xdf, end_xdf = float(raw_window["window_start_xdf"]), float(raw_window["window_end_xdf"])
                 start_ms, end_ms = float(raw_window["window_start_unix_ms"]), float(raw_window["window_end_unix_ms"])
@@ -170,6 +188,9 @@ def extract_features(
                 record.update(physio)
                 record.update({f"qc_{key}": value for key, value in physio_qc.items()})
                 if len(window_samples):
+                    # HRV uses peaks accumulated from earlier windows as well
+                    # as the current window, making the slow-HRV features causal
+                    # for the later realtime replay path.
                     ecg = window_samples[:, processor.ecg_columns[0]] - window_samples[:, processor.ecg_columns[1]]
                     peaks, _ = detect_r_peaks(ecg, sample_rate)
                     historical_peaks.extend((start_xdf + peaks / sample_rate).tolist())

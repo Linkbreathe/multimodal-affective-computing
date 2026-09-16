@@ -1,3 +1,11 @@
+"""Convert window features into the condition-level learning representation.
+
+Relax questionnaire labels are defined once per participant/Condition.  This
+module therefore performs a grouped aggregation rather than allowing every
+10-second row to become a separate supervised example.  The realtime helper
+below mirrors the same schema using only windows observed so far.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -74,6 +82,9 @@ def aggregate_window_frame(window_frame):
             numeric_columns.append(column)
     records: list[dict[str, Any]] = []
     for _, group in frame.groupby(["participant_id", "condition"], sort=True):
+        # Static fields and labels are copied once.  Everything else is reduced
+        # to statistics over this Condition's windows, producing one row per
+        # participant/Condition key.
         record = {column: group.iloc[0][column] for column in STATIC_COLUMNS if column in group.columns}
         record["window_count"] = int(len(group))
         record["window_count_expected"] = int(pd.to_numeric(group.get("condition_window_count"), errors="coerce").max())
@@ -149,6 +160,9 @@ def aggregate_realtime_history(
             values_by_base.setdefault(name, []).append(number)
     output: dict[str, float] = dict(static or {})
     for base, values_list in values_by_base.items():
+        # ``records`` stops at the current cycle.  Consequently the same
+        # aggregation is causal: future windows remain absent rather than
+        # being imputed from the completed offline Condition.
         values = np.asarray(values_list, dtype=float)
         valid = values[np.isfinite(values)]
         prefix = f"{base}__"
