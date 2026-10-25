@@ -1,0 +1,34 @@
+文件说明
+
+participant_condition_features.csv: 81 条参与者×条件记录；原始评分、十一项特征原值及分析尺度值、真实呈现顺序、条件参数。
+feature_quality.csv: 891 条参与者×条件×特征质量记录；可用性、有效时长、覆盖率、缺失原因与警告。
+within_person_centered.csv: 13 个变量的长表；原值、分析值、参与者均值、偏差及各均值的有效条件数。
+participant_descriptive_summary.csv: 参与者×变量描述；原始/分析尺度分别给出数量、均值、样本标准差、中位数、最小、最大和极差。
+individual_associations.csv: 全部 198 条个体特征–评分相关，包含不可估计条目、原因及纳入条件。
+condition_response_summary.csv: 各条件×变量的个体内中心化响应；有效人数、均值、中位数、极值和正负零人数。
+cross_participant_summary.csv: 全部 22 条特征×结果汇总；个体相关方向人数、中位数、四分位数和极差。
+variables.csv: 13 个变量的中文名称、模态、原始/分析单位和变换。
+data_dictionary.csv: 七个核心结果表逐字段字典；长表数值的具体单位通过 variables.csv 关联。
+feature_specification.json: 查看关联前已冻结的完整计算和质量规则；哈希见 resolved_config.json。
+feature_definitions_zh.txt: 计算定义、原实现差异、质量规则与解释限制。
+input_files.csv: 原始输入和论文/代码来源的路径、字节数及 SHA-256。
+recording_sources.csv: 每人选用的 XDF、Unity 日志与备份选择。
+condition_manifest.csv: 评分、条件、真实顺序和双时钟边界的对齐主表。
+condition_alignment_audit.csv: 不含评分值的边界、身份映射、时钟残差核查。
+source_issues.csv: 源文件审计发现的缺失项目；空表表示该阶段未发现缺失，不表示全部特征有效。
+eeg_channel_quality.csv: TP9/TP10 各两秒块质量指标及可用块功率；仅为核查，不增加核心特征或额外相关搜索。
+ecg_rr_audit.csv: RR 时间、原始序号、局部中位数、剔除原因及是否位于固定 RMSSD 时段。
+consumed_video_frames.csv: 实际读取的图像输入、时间源、解码状态及哈希；未输出任何图像。
+modality_diagnostics.csv: 眼/头采样、视频覆盖率、来源与坐标几何检查。
+resolved_config.json: 本机路径、固定规范哈希、冻结时间、Git 信息和运行环境版本。
+verification.json: 维度、数学一致性、文件保护和无图形输出检查。
+input_integrity_verification.csv: 分析前后源输入哈希比较。
+report_zh.txt: 中文结果报告，保留无关联、不一致和不可估计结果。
+thesis_supplement_zh.txt: 可自行纳入论文的独立中文段落草稿；未修改论文。
+RUNNING.txt: 分阶段及完整执行说明。
+extreme_observation_flags.csv: 原始尺度3×IQR极端值提示；没有据此删除数值或重算相关。
+existing_prediction_reference.csv: 当前论文已保存的MAE与条件锚点；仅换算为1–7评分单位，不训练模型。
+analysis_code_manifest.csv: 实际分析源码与测试文件的路径、SHA-256和字节数。
+COMPLETE.json: 最终核验成功的运行完成标记。
+
+cache/Pxxx/: 可恢复的逐人提取表、R峰样本索引、源元数据和错误记录。该目录不含模型或图像。

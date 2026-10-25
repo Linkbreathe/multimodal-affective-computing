@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from pathlib import Path
 from typing import Any
 
 from mac.config import ProjectConfig
@@ -9,11 +10,10 @@ from mac.data.labels import find_painting_workbook
 from mac.utils import file_sha256, write_json
 
 
-def build_index(config: ProjectConfig, participants: list[str] | None = None) -> list[dict[str, Any]]:
-    selected = participants or config.participants
-    raw_root = config.path("raw_root")
+def discover_sources(raw_root: Path, participants: list[str]) -> list[dict[str, Any]]:
+    """Discover recording paths without creating manifests or touching source files."""
     rows: list[dict[str, Any]] = []
-    for participant in selected:
+    for participant in participants:
         participant_dir = raw_root / participant
         session_dir = discover_session_dir(participant_dir) if participant_dir.exists() else None
         xdf, backup = select_xdf(participant_dir) if participant_dir.exists() else (None, False)
@@ -27,8 +27,20 @@ def build_index(config: ProjectConfig, participants: list[str] | None = None) ->
             "xdf_size_bytes": xdf.stat().st_size if xdf else None,
         }
         for filename in ("samples.csv", "eye_tracking.csv", "video_frames.csv", "events.csv"):
-            record[filename.replace(".", "_")] = str(session_dir / filename) if session_dir and (session_dir / filename).exists() else None
+            record[filename.replace(".", "_")] = (
+                str(session_dir / filename)
+                if session_dir and (session_dir / filename).exists()
+                else None
+            )
         rows.append(record)
+    return rows
+
+
+def build_index(
+    config: ProjectConfig, participants: list[str] | None = None
+) -> list[dict[str, Any]]:
+    selected = participants or config.participants
+    rows = discover_sources(config.path("raw_root"), selected)
     labels = find_painting_workbook(config.path("labels_root"))
     payload = {
         "schema_version": config.data["schema_version"],

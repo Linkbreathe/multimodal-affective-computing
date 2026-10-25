@@ -1,0 +1,14 @@
+variable,name_zh,modality,raw_unit,analysis_unit,transformation,description
+relaxation,放松评分,Rating,1–7 points,1–7 points,identity,Raw questionnaire rating
+discomfort,不适评分,Rating,1–7 points,1–7 points,identity,Raw questionnaire rating
+eeg_alpha_power,EEG α 功率,EEG,µV²,ln(value / 1 µV²),ln,"Alpha power, TP9/TP10 equal mean"
+eeg_beta_power,EEG β 功率,EEG,µV²,ln(value / 1 µV²),ln,"Beta power, TP9/TP10 equal mean"
+eeg_theta_power,EEG θ 功率,EEG,µV²,ln(value / 1 µV²),ln,"Theta power, TP9/TP10 equal mean"
+ecg_mean_hr,平均心率,ECG,beats/min,beats/min,identity,Time-weighted mean instantaneous heart rate
+ecg_rmssd,RMSSD,ECG,ms,ln(value / 1 ms),ln,RMSSD of originally adjacent accepted RR intervals
+gaze_mean_angular_velocity,平均记录视线角速度,Eye,deg/s,deg/s,identity,Time-weighted logged gaze angular velocity
+gaze_fixation_time_proportion,低速注视时间比例,Eye,proportion,proportion,identity,Valid time with angular velocity <100 deg/s
+head_mean_angular_speed,平均头部角速度,Head,deg/s,deg/s,identity,Time-weighted quaternion angular speed
+head_orientation_dispersion,头部朝向离散度,Head,deg,deg,identity,Weighted RMS geodesic distance from chordal rotation mean
+video_mean_optical_flow,平均光流速度,Video,320x180 pixels/s,320x180 pixels/s,identity,Time-weighted mean spatial-average flow speed
+video_optical_flow_temporal_sd,光流速度时间标准差,Video,320x180 pixels/s,320x180 pixels/s,identity,Time-weighted population SD of spatial-average flow speed

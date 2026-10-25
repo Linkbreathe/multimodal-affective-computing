@@ -1,0 +1,18 @@
+运行说明
+
+从仓库根目录运行，现有环境：/home/link/miniconda3/envs/rtml-p002-p016/bin/python。
+不要求安装绘图包；依赖使用该环境已有的 numpy、scipy、pandas、pyxdf、opencv-python、neurokit2。
+
+完整复现（必须选择新的、尚不存在的输出目录）：
+PYTHONPATH=src /home/link/miniconda3/envs/rtml-p002-p016/bin/python -m mac.analysis.participant_exploration run --output-dir artifacts/supplementary/participant_multimodal_NEW
+
+可显式覆盖 --raw-root、--thesis-root、--labels-root、--workers（上限4）。实际源路径见 resolved_config.json。
+分阶段：将 run 替换为 audit / extract / analyze / report / verify，每步使用相同 --output-dir。
+首次 audit 创建并冻结规则；extract --participants P003 可作真实数据烟雾检查；随后 extract 完成剩余固定九人。
+逐人完整缓存可恢复使用，但规则和原输入哈希必须一致；最终分析要求全部九人记录。源码或规则变更应使用新目录。
+verify 成功才写 COMPLETE.json；已完成运行拒绝覆盖。没有任何训练或绘图入口。
+
+验证：
+PYTHONPATH=src /home/link/miniconda3/envs/rtml-p002-p016/bin/python -m pytest tests/test_participant_exploration.py
+
+fixture只验证数学/边界行为，绝不用于研究表。实际研究输入为 waterlilies 和原问卷/论文来源。

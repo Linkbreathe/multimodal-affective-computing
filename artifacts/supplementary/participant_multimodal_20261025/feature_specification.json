@@ -1,0 +1,246 @@
+{
+  "conditions": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9"
+  ],
+  "ecg": {
+    "avgwindow": 0.75,
+    "clean_method": "neurokit",
+    "columns": [
+      7,
+      8
+    ],
+    "correct_artifacts": false,
+    "derivation": "column7-column8 (ch6-ch7; LA-RA per Methods)",
+    "gap_policy": "No interpolation, peak insertion, or RR stitching; an excluded RR breaks adjacency.",
+    "gradthreshweight": 1.5,
+    "highpass_hz": 0.5,
+    "highpass_order": 5,
+    "hr_coverage_min": 0.6,
+    "hr_min_intervals": 5,
+    "local_median_fraction": 0.2,
+    "local_median_width": 5,
+    "mindelay": 0.3,
+    "minlenweight": 0.4,
+    "peak_method": "neurokit",
+    "powerline_hz": 50,
+    "rmssd_accepted_rr_fraction_min": 0.8,
+    "rmssd_interval_s": [
+      5.0,
+      65.0
+    ],
+    "rmssd_min_adjacent_pairs": 20,
+    "rmssd_requires_continuous_recording": true,
+    "rr_max_ms": 1714.2857142857142,
+    "rr_min_ms": 272.72727272727275,
+    "smoothwindow": 0.1
+  },
+  "eeg": {
+    "abs_p99_max_uv": 350.0,
+    "aggregation": "PSD within contiguous jointly valid two-second blocks; duration-weight raw powers; equal TP9/TP10 mean; then natural log",
+    "bands": {
+      "alpha": [
+        8.0,
+        13.0
+      ],
+      "beta": [
+        13.0,
+        30.0
+      ],
+      "theta": [
+        4.0,
+        8.0
+      ]
+    },
+    "car": false,
+    "columns": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "coverage_min": 0.6,
+    "electrodes": [
+      "M2",
+      "TP9",
+      "TP10",
+      "M1"
+    ],
+    "filter": "linear detrend then causal fourth-order Butterworth SOS 1-45 Hz",
+    "filter_window_s": 10.0,
+    "flat_std_min_uv": 0.2,
+    "notch_applied": false,
+    "notch_discrepancy": "Configured 50 Hz notch is not applied by historical handcrafted code; preserved by user decision.",
+    "psd": {
+      "average": "mean",
+      "detrend": "constant",
+      "integration": "trapezoid over bins low <= f < high",
+      "overlap": 0.5,
+      "scaling": "density",
+      "segment_s": 2.0,
+      "window": "periodic Hann"
+    },
+    "qc_block_s": 2.0,
+    "raw_constant_run_max_s": 0.1,
+    "raw_unit": "uV",
+    "reference": "linked_mastoid"
+  },
+  "eye": {
+    "coordinate_system": "recorded world-oriented direction; compare with hit-origin geometry; no sign correction",
+    "fallback": "Source flags absent; retain logged gaze as mixed-source proxy, not verified eye-only movement.",
+    "minimum_fixation_duration_s": null,
+    "threshold_deg_s": 100.0
+  },
+  "features": {
+    "ecg_mean_hr": [
+      "ECG",
+      "beats/min",
+      "identity",
+      "Time-weighted mean instantaneous heart rate"
+    ],
+    "ecg_rmssd": [
+      "ECG",
+      "ms",
+      "ln",
+      "RMSSD of originally adjacent accepted RR intervals"
+    ],
+    "eeg_alpha_power": [
+      "EEG",
+      "µV²",
+      "ln",
+      "Alpha power, TP9/TP10 equal mean"
+    ],
+    "eeg_beta_power": [
+      "EEG",
+      "µV²",
+      "ln",
+      "Beta power, TP9/TP10 equal mean"
+    ],
+    "eeg_theta_power": [
+      "EEG",
+      "µV²",
+      "ln",
+      "Theta power, TP9/TP10 equal mean"
+    ],
+    "gaze_fixation_time_proportion": [
+      "Eye",
+      "proportion",
+      "identity",
+      "Valid time with angular velocity <100 deg/s"
+    ],
+    "gaze_mean_angular_velocity": [
+      "Eye",
+      "deg/s",
+      "identity",
+      "Time-weighted logged gaze angular velocity"
+    ],
+    "head_mean_angular_speed": [
+      "Head",
+      "deg/s",
+      "identity",
+      "Time-weighted quaternion angular speed"
+    ],
+    "head_orientation_dispersion": [
+      "Head",
+      "deg",
+      "identity",
+      "Weighted RMS geodesic distance from chordal rotation mean"
+    ],
+    "video_mean_optical_flow": [
+      "Video",
+      "320x180 pixels/s",
+      "identity",
+      "Time-weighted mean spatial-average flow speed"
+    ],
+    "video_optical_flow_temporal_sd": [
+      "Video",
+      "320x180 pixels/s",
+      "identity",
+      "Time-weighted population SD of spatial-average flow speed"
+    ]
+  },
+  "frequencies": [
+    0.12,
+    0.26,
+    0.41
+  ],
+  "head": {
+    "dispersion": "RMS shortest angular distance to weighted chordal L2 mean",
+    "quaternion_order": "xyzw",
+    "speed": "2*acos(abs(dot(unit_q_i,unit_q_next)))/dt",
+    "weights": "half of each accepted adjacent interval to each endpoint"
+  },
+  "intensities": [
+    0.08,
+    0.16,
+    0.25
+  ],
+  "participant_aliases": {
+    "P003": [
+      "P001",
+      "P003"
+    ]
+  },
+  "participants": [
+    "P003",
+    "P004",
+    "P007",
+    "P008",
+    "P009",
+    "P011",
+    "P012",
+    "P013",
+    "P015"
+  ],
+  "statistics": {
+    "correlation": "Spearman average tied ranks",
+    "minimum_paired_conditions": 6,
+    "outcomes": [
+      "relaxation",
+      "discomfort"
+    ],
+    "p_values": false,
+    "pooled_correlations": false,
+    "primary_outcome": "relaxation",
+    "quartiles": "linear interpolation",
+    "sd_ddof": 1,
+    "zero_tolerance": 1e-12
+  },
+  "status": "post_hoc_exploratory_after_main_prediction_analyses",
+  "time": {
+    "alignment_exclusion_ms": 250.0,
+    "alignment_warning_ms": 50.0,
+    "behavior_max_gap_s": 0.25,
+    "coverage_min": 0.6,
+    "physio_max_gap_samples": 3,
+    "sample_counter_modulus": 256
+  },
+  "transform": "Natural logarithm of positive values expressed in the stated unit; no epsilon. Valid raw zero retained, logarithm missing.",
+  "version": "participant_exploration_v1",
+  "video": {
+    "algorithm": "Farneback",
+    "flags": 0,
+    "height": 180,
+    "iterations": 2,
+    "levels": 2,
+    "max_capture_gap_s": 0.25,
+    "max_pair_gap_s": 0.75,
+    "poly_n": 5,
+    "poly_sigma": 1.1,
+    "pyr_scale": 0.5,
+    "resize": "INTER_AREA",
+    "sample_fps": 2.0,
+    "target_tolerance_s": 0.15,
+    "temporal_sd": "sqrt(sum(dt*(pair_speed-weighted_mean)**2)/sum(dt))",
+    "units": "analysis-resolution pixels per actual elapsed second",
+    "width": 320,
+    "winsize": 15
+  }
+}

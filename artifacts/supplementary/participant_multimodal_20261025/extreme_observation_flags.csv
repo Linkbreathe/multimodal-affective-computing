@@ -1,0 +1,13 @@
+participant_id,condition,feature,raw_value,q1,q3,rule,excluded
+P008,C9,eeg_theta_power,41.5200498381679,10.1413490193143,15.8538889476727,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P009,C3,eeg_alpha_power,17.2546617623632,8.10150502538836,10.0903435049707,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P009,C9,eeg_alpha_power,17.703959691762,8.10150502538836,10.0903435049707,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P009,C9,eeg_theta_power,49.6832119674437,18.3534030542768,25.3346617157646,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P009,C9,gaze_mean_angular_velocity,24.9087392372703,11.3008572788632,13.8928789835831,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P009,C9,head_mean_angular_speed,27.0155871783179,11.9076647974375,14.8316468512316,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P009,C2,video_mean_optical_flow,4.81273898047682,7.47471828111911,8.34601156959978,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P011,C2,eeg_alpha_power,94.4384744690886,38.8584556574011,50.415437853454,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P011,C1,eeg_theta_power,208.419645592175,71.6111328183259,105.322049967078,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P011,C2,gaze_fixation_time_proportion,0.976497378594178,0.995505104830626,1,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P012,C5,eeg_theta_power,87.2760589972425,15.4087719423202,31.227233184735,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False
+P013,C3,eeg_beta_power,23.1237234920025,44.6908370520947,50.4582790244804,outside_Q1_minus_3IQR_or_Q3_plus_3IQR,False

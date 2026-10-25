@@ -1,0 +1,172 @@
+file,field,data_type,unit,description_zh,missing_rule
+participant_condition_features.csv,participant_id,object,identifier,匿名参与者 ID；固定九人队列,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,condition,object,identifier,视觉条件标识 C1–C9，不代表时间顺序,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,intensity,float64,renderer units,名义视觉强度参数,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,frequency,float64,renderer units; not assumed Hz,名义视觉频率参数,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,intensity_index,int64,index,强度索引，从 0 开始,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,frequency_index,int64,index,频率索引，从 0 开始,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,relaxation_raw,int64,1–7 points,放松评分，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,discomfort_raw,int64,1–7 points,不适评分，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,label_source_row,int64,row,问卷工作簿中的源行号，从 1 开始,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,presentation_order,int64,position,事件时间核验的实际呈现位置，1–9,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,intensity_level,int64,level,强度级别，从 1 开始,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,frequency_level,int64,level,频率级别，从 1 开始,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,xdf_is_backup,bool,boolean,是否使用保留的备份 XDF,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,logged_identity,object,identifier,原始日志身份值，不修改原文件,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,identity_alias_applied,bool,boolean,是否使用明确记录的 P003/P001 别名映射,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,alignment_status,object,category,available 或 unavailable，表示边界是否可用于对齐,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,alignment_reason,float64,text,对齐不可用的原因,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,start_xdf,float64,seconds,条件开始的同步 XDF 时间,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,end_xdf,float64,seconds,条件结束的同步 XDF 时间,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,start_unix_ms,int64,Unix milliseconds,XDF marker payload 的开始 Unix 时间,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,end_unix_ms,int64,Unix milliseconds,XDF marker payload 的结束 Unix 时间,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,duration_s,float64,seconds,XDF 条件结束减开始的时长,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,marker_median_residual_ms,float64,ms,会话 Unix−XDF 中位偏移模型的绝对残差中位数,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,marker_max_residual_ms,float64,ms,同一模型的最大绝对残差；不是直接样本错位的估计,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,start_event_marker_difference_ms,int64,ms,开始事件与 marker payload 的 Unix 时间绝对差,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,end_event_marker_difference_ms,int64,ms,结束事件与 marker payload 的 Unix 时间绝对差,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,alignment_warning,bool,boolean,是否存在大于 50 ms 的残差或边界差异,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,unity_start_unix_ms,int64,Unix milliseconds,Unity condition_start 日志的 Unix 时间,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,unity_end_unix_ms,int64,Unix milliseconds,Unity condition_end 日志的 Unix 时间,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,eeg_alpha_power_raw,float64,µV²,EEG α 功率，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,eeg_alpha_power_analysis,float64,ln(value / 1 µV²),EEG α 功率，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,eeg_beta_power_raw,float64,µV²,EEG β 功率，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,eeg_beta_power_analysis,float64,ln(value / 1 µV²),EEG β 功率，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,eeg_theta_power_raw,float64,µV²,EEG θ 功率，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,eeg_theta_power_analysis,float64,ln(value / 1 µV²),EEG θ 功率，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,ecg_mean_hr_raw,float64,beats/min,平均心率，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,ecg_mean_hr_analysis,float64,beats/min,平均心率，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,ecg_rmssd_raw,float64,ms,RMSSD，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,ecg_rmssd_analysis,float64,ln(value / 1 ms),RMSSD，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,gaze_mean_angular_velocity_raw,float64,deg/s,平均记录视线角速度，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,gaze_mean_angular_velocity_analysis,float64,deg/s,平均记录视线角速度，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,gaze_fixation_time_proportion_raw,float64,proportion,低速注视时间比例，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,gaze_fixation_time_proportion_analysis,float64,proportion,低速注视时间比例，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,head_mean_angular_speed_raw,float64,deg/s,平均头部角速度，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,head_mean_angular_speed_analysis,float64,deg/s,平均头部角速度，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,head_orientation_dispersion_raw,float64,deg,头部朝向离散度，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,head_orientation_dispersion_analysis,float64,deg,头部朝向离散度，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,video_mean_optical_flow_raw,float64,320x180 pixels/s,平均光流速度，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,video_mean_optical_flow_analysis,float64,320x180 pixels/s,平均光流速度，分析尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,video_optical_flow_temporal_sd_raw,float64,320x180 pixels/s,光流速度时间标准差，原始尺度,Blank means missing/not applicable; see reason/status fields.
+participant_condition_features.csv,video_optical_flow_temporal_sd_analysis,float64,320x180 pixels/s,光流速度时间标准差，分析尺度,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,participant_id,object,identifier,匿名参与者 ID；固定九人队列,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,condition,object,identifier,视觉条件标识 C1–C9，不代表时间顺序,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,feature,object,identifier,预定义的十一项核心特征之一,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,raw_value,float64,variable-specific; variables.csv.raw_unit,特征/变量原始尺度数值,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,analysis_value,float64,variable-specific; variables.csv.analysis_unit,通过变换规则后的分析数值,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,availability_status,object,category,available、raw_only 或 unavailable,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,raw_available,bool,boolean,原始数值通过可计算性/质量规则,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,analysis_available,bool,boolean,分析尺度数值可用,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,reason,object,text,缺失或不可估计的机器可读原因,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,target_duration_s,float64,seconds,该特征的预定测量区间时长；RMSSD 为 60 秒,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,valid_duration_s,float64,seconds,通过规则的时间；EEG 为共同通过的块，ECG 为有效 RR 总时长，行为/视频为有效相邻区间,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,valid_coverage,float64,proportion,有效时长除以预定测量时长,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,tp9_valid_duration_s,float64,seconds,TP9 单独通过检查的两秒块总时长,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,tp10_valid_duration_s,float64,seconds,TP10 单独通过检查的两秒块总时长,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,channels_used,object,text,核心 EEG 功率必须共同包含的通道,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,channel_aggregation,object,text,通道聚合规则标识,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,warning,object,text,不自动导致排除的测量解释限制，分号分隔,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,rr_count,float64,count,分析时间段内检测的 RR 数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,accepted_rr_count,float64,count,通过范围与局部偏离规则的 RR 数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,rejected_rr_count,float64,count,未通过规则的 RR 数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,accepted_rr_fraction,float64,proportion,通过的 RR 数除以全部 RR 数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,interval_start_xdf,float64,XDF seconds,固定 RMSSD 时间段开始,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,interval_end_xdf,float64,XDF seconds,固定 RMSSD 时间段结束,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,continuous_recording,object,boolean,固定 60 秒是否由同一个连续原始采样段覆盖,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,valid_adjacent_rr_pairs,float64,count,原始相邻且均有效的 RR 差分数；不跨缺口,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,sample_count,float64,count,条件中记录的采样行数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,valid_sample_count,float64,count,通过存在性、有限值和可用标志的采样数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,valid_pair_count,float64,count,参与平均的有效相邻样本/图像对数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,median_sampling_interval_s,float64,seconds,正采样间隔的中位数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,rejected_gap_count,float64,count,超过 250 ms 的行为采样间隔数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,nonpositive_interval_count,float64,count,零或倒退的采样时间间隔数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,gaze_source_identifiable,object,boolean,日志是否能区分真实眼动和头前向回退,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,target_frame_count,float64,count,固定 2 Hz 时间格点个数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,decoded_frame_count,float64,count,实际成功解码的选择图像数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,missing_target_frame_count,float64,count,没有可用图像的目标格点数,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,timestamp_source,object,text,用于该会话视频的时间字段,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,flow_backend,object,text,实际光流运算后端,Blank means missing/not applicable; see reason/status fields.
+feature_quality.csv,source_resolutions,object,pixels,实际解码输入宽×高，分号分隔,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,participant_id,object,identifier,匿名参与者 ID；固定九人队列,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,condition,object,identifier,视觉条件标识 C1–C9，不代表时间顺序,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,presentation_order,int64,position,事件时间核验的实际呈现位置，1–9,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,intensity,float64,renderer units,名义视觉强度参数,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,frequency,float64,renderer units; not assumed Hz,名义视觉频率参数,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,variable,object,identifier,两项评分或十一项核心特征之一,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,raw_value,float64,variable-specific; variables.csv.raw_unit,特征/变量原始尺度数值,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,analysis_value,float64,variable-specific; variables.csv.analysis_unit,通过变换规则后的分析数值,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,raw_participant_mean,float64,variable-specific; variables.csv.raw_unit,该人该变量所有有效条件的原始尺度均值,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,analysis_participant_mean,float64,variable-specific; variables.csv.analysis_unit,该人该变量所有有效条件的分析尺度均值,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,raw_deviation,float64,variable-specific; variables.csv.raw_unit,原值减该人的原始尺度均值,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,analysis_deviation,float64,variable-specific; variables.csv.analysis_unit,分析值减该人的分析尺度均值；不是静息基线校正,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,n_raw_conditions,int64,count,计算该人原始尺度均值所用的有效条件数,Blank means missing/not applicable; see reason/status fields.
+within_person_centered.csv,n_analysis_conditions,int64,count,计算该人分析尺度均值所用的有效条件数,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,participant_id,object,identifier,匿名参与者 ID；固定九人队列,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,variable,object,identifier,两项评分或十一项核心特征之一,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,raw_n_valid,int64,count,原始尺度 有效条件数（参与者表）或有效参与者数（条件表）,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,raw_mean,float64,variable-specific; variables.csv.raw_unit,原始尺度 均值,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,raw_std,float64,variable-specific; variables.csv.raw_unit,原始尺度 样本标准差，ddof=1,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,raw_median,float64,variable-specific; variables.csv.raw_unit,原始尺度 中位数,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,raw_minimum,float64,variable-specific; variables.csv.raw_unit,原始尺度 最小值,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,raw_maximum,float64,variable-specific; variables.csv.raw_unit,原始尺度 最大值,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,raw_range,float64,variable-specific; variables.csv.raw_unit,原始尺度 最大值减最小值,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,analysis_n_valid,int64,count,分析尺度 有效条件数（参与者表）或有效参与者数（条件表）,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,analysis_mean,float64,variable-specific; variables.csv.analysis_unit,分析尺度 均值,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,analysis_std,float64,variable-specific; variables.csv.analysis_unit,分析尺度 样本标准差，ddof=1,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,analysis_median,float64,variable-specific; variables.csv.analysis_unit,分析尺度 中位数,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,analysis_minimum,float64,variable-specific; variables.csv.analysis_unit,分析尺度 最小值,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,analysis_maximum,float64,variable-specific; variables.csv.analysis_unit,分析尺度 最大值,Blank means missing/not applicable; see reason/status fields.
+participant_descriptive_summary.csv,analysis_range,float64,variable-specific; variables.csv.analysis_unit,分析尺度 最大值减最小值,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,participant_id,object,identifier,匿名参与者 ID；固定九人队列,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,feature,object,identifier,预定义的十一项核心特征之一,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,outcome,object,identifier,relaxation 主结果，discomfort 次结果,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,spearman_rho,float64,dimensionless,个体内有效配对条件的 Spearman 相关,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,n_valid_pairs,int64,count,相关使用的有效配对条件数,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,included_conditions,object,identifier list,纳入相关的条件，以分号分隔并按 C1–C9 排序,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,direction,object,category,positive、negative、zero；不可估计时留空,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,estimation_status,object,category,estimable 或 not_estimable,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,reason,object,text,缺失或不可估计的机器可读原因,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,feature_unique_values,int64,count,有效配对内不同特征值的个数,Blank means missing/not applicable; see reason/status fields.
+individual_associations.csv,rating_unique_values,int64,count,有效配对内不同评分值的个数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,condition,object,identifier,视觉条件标识 C1–C9，不代表时间顺序,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,variable,object,identifier,两项评分或十一项核心特征之一,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,intensity,float64,renderer units,名义视觉强度参数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,frequency,float64,renderer units; not assumed Hz,名义视觉频率参数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_n_valid,int64,count,原始尺度 有效条件数（参与者表）或有效参与者数（条件表）,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_mean,float64,variable-specific; variables.csv.raw_unit,原始尺度 均值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_std,float64,variable-specific; variables.csv.raw_unit,原始尺度 样本标准差，ddof=1,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_median,float64,variable-specific; variables.csv.raw_unit,原始尺度 中位数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_minimum,float64,variable-specific; variables.csv.raw_unit,原始尺度 最小值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_maximum,float64,variable-specific; variables.csv.raw_unit,原始尺度 最大值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_range,float64,variable-specific; variables.csv.raw_unit,原始尺度 最大值减最小值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_n_positive,int64,count,原始尺度 高于本人均值的人数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_n_negative,int64,count,原始尺度 低于本人均值的人数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_n_zero,int64,count,原始尺度 等于本人均值的人数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,raw_participants,object,identifier list,原始尺度 有效参与者 ID，以分号分隔,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_n_valid,int64,count,分析尺度 有效条件数（参与者表）或有效参与者数（条件表）,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_mean,float64,variable-specific; variables.csv.analysis_unit,分析尺度 均值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_std,float64,variable-specific; variables.csv.analysis_unit,分析尺度 样本标准差，ddof=1,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_median,float64,variable-specific; variables.csv.analysis_unit,分析尺度 中位数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_minimum,float64,variable-specific; variables.csv.analysis_unit,分析尺度 最小值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_maximum,float64,variable-specific; variables.csv.analysis_unit,分析尺度 最大值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_range,float64,variable-specific; variables.csv.analysis_unit,分析尺度 最大值减最小值,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_n_positive,int64,count,分析尺度 高于本人均值的人数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_n_negative,int64,count,分析尺度 低于本人均值的人数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_n_zero,int64,count,分析尺度 等于本人均值的人数,Blank means missing/not applicable; see reason/status fields.
+condition_response_summary.csv,analysis_participants,object,identifier list,分析尺度 有效参与者 ID，以分号分隔,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,feature,object,identifier,预定义的十一项核心特征之一,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,outcome,object,identifier,relaxation 主结果，discomfort 次结果,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,n_participants,int64,count,固定队列参与者总数,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,n_estimable,int64,count,相关可估计的参与者数,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,n_non_estimable,int64,count,相关不可估计的参与者数,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,n_positive,int64,count,正相关参与者数,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,n_negative,int64,count,负相关参与者数,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,n_zero,int64,count,零相关参与者数,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,median,float64,dimensionless,个体相关系数中位数,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,q1,float64,dimensionless,个体相关系数第 25 百分位，线性插值,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,q3,float64,dimensionless,个体相关系数第 75 百分位，线性插值,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,minimum,float64,dimensionless,个体相关系数最小值,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,maximum,float64,dimensionless,个体相关系数最大值,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,range,float64,dimensionless,个体相关系数最大值减最小值,Blank means missing/not applicable; see reason/status fields.
+cross_participant_summary.csv,estimable_participants,object,identifier list,相关可估计的参与者 ID，分号分隔,Blank means missing/not applicable; see reason/status fields.
